@@ -971,9 +971,24 @@ ibool string_ends_with(ConstStr s, ConstStr what)
     return 1;
 }
 
-ibool char_is_whitespace(i8 c)
+ibool char_is_alpha(const i8 c)
 {
-    return c == ' ' || c == '\t' || c == '\n' || c == '\r';
+    return (c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z');
+}
+
+ibool char_is_digit(const i8 c)
+{
+    return (c >= '0' && c <= '9');
+}
+
+ibool char_is_alphanum(const i8 c)
+{
+    return (char_is_alpha(c) || char_is_digit(c));
+}
+
+ibool char_is_whitespace(const i8 c)
+{
+    return (c == ' ' || c == '\t' || c == '\n' || c == '\r');
 }
 
 /**
@@ -1058,6 +1073,345 @@ ResultOwnedStr string_trim(Allocator *alloc, ConstStr s, ibool start, ibool end)
 
     return (ResultOwnedStr){
         .value = newStr,
+        .error = ERR_OK,
+    };
+}
+
+i8 digit_to_char(const i16 i)
+{
+    if (i > 9)
+        return 0;
+
+    return "0123456789"[i];
+}
+
+ResultOwnedStr string_from_int(Allocator *alloc, const i64 i)
+{
+    char buf[20];
+    i64 n = i;
+    i16 idx = 0;
+
+    if (n == 0)
+    {
+        HeapStr intStr = alloc->alloc(alloc, 2);
+        intStr[0] = '0';
+        intStr[1] = '\0';
+        return (ResultOwnedStr){
+            .value = intStr,
+            .error = ERR_OK,
+        };
+    }
+
+    if (n < 0)
+    {
+        buf[0] = '-';
+        ++idx;
+        n = -n;
+    }
+
+    while (n != 0)
+    {
+        i16 d = n % 10;
+        buf[idx++] = digit_to_char(d);
+        n /= 10;
+    }
+
+    buf[idx] = '\0';
+
+    HeapStr intStr = alloc->alloc(alloc, idx + 1);
+    string_copy_unsafe(buf, intStr);
+
+    return (ResultOwnedStr){
+        .value = intStr,
+        .error = ERR_OK,
+    };
+}
+
+ResultOwnedStr string_from_uint(Allocator *alloc, const u64 i)
+{
+    char buf[20];
+    u64 n = i;
+    i16 idx = 0;
+
+    if (n == 0)
+    {
+        HeapStr intStr = alloc->alloc(alloc, 2);
+        intStr[0] = '0';
+        intStr[1] = '\0';
+        return (ResultOwnedStr){
+            .value = intStr,
+            .error = ERR_OK,
+        };
+    }
+
+    while (n != 0)
+    {
+        i16 d = n % 10;
+        buf[idx++] = digit_to_char(d);
+        n /= 10;
+    }
+
+    buf[idx] = '\0';
+
+    HeapStr intStr = alloc->alloc(alloc, idx + 1);
+    string_copy_unsafe(buf, intStr);
+
+    return (ResultOwnedStr){
+        .value = intStr,
+        .error = ERR_OK,
+    };
+}
+
+ResultOwnedStr string_from_float(Allocator *alloc, const f64 flt, const u64 precision)
+{
+    f64 d = flt;
+
+    i64 intPart = (i64)d;
+    f64 fracPart = d - (f64)intPart;
+
+    ResultOwnedStr strIntPart = string_from_int(alloc, intPart);
+
+    if (precision <= 0 || strIntPart.error != ERR_OK)
+    {
+        return strIntPart;
+    }
+
+    f64 scale = 1.0;
+    for (u64 i = 0; i < precision; ++i)
+        scale *= 10.0;
+
+    fracPart *= scale;
+    u64 fracInt = (u64)(fracPart + 0.5); // rounding
+
+    // Ensure leading zeros in fractional part
+    i64 div = 1;
+    for (int i = 1; i < precision; ++i)
+        div *= 10;
+
+    u64 zeroes = 0;
+    while (div > fracInt && div > 1)
+    {
+        ++zeroes;
+        div /= 10;
+    }
+
+    ResultOwnedStr zeroesStr = string_alloc(alloc, zeroes, '0');
+
+    if (zeroesStr.error != ERR_OK)
+        return (ResultOwnedStr){
+            .value = NULL,
+            .error = ERR_OUT_OF_MEMORY,
+        };
+
+    ResultOwnedStr strDecPart = string_from_uint(alloc, fracInt);
+
+    if (strDecPart.error != ERR_OK)
+        return (ResultOwnedStr){
+            .value = NULL,
+            .error = ERR_OUT_OF_MEMORY,
+        };
+
+    u64 intPartSize = string_size(strIntPart.value);
+    u64 decPartSize = string_size(strDecPart.value);
+
+    u64 totalSize = intPartSize + decPartSize + 2;
+    HeapStr finalStr = alloc->alloc(alloc, totalSize);
+
+    if (finalStr == NULL)
+        return (ResultOwnedStr){
+            .value = NULL,
+            .error = ERR_OUT_OF_MEMORY,
+        };
+
+    string_copy_n_unsafe(strIntPart.value, finalStr, intPartSize, false);
+    finalStr[intPartSize] = '.';
+    string_copy_n_unsafe(strDecPart.value, finalStr + intPartSize + 1, decPartSize, true);
+
+    return (ResultOwnedStr){
+        .value = finalStr,
+        .error = ERR_OK,
+    };
+}
+
+ResultI64 string_parse_int(ConstStr s)
+{
+    if (!s || *s == '\0')
+        return (ResultI64){
+            .value = 0,
+            .error = ERR_INVALID_PARAMETER,
+        };
+
+    const i8 *ptr = s;
+    i64 result = 0;
+    i64 sign = 1;
+
+    while (char_is_whitespace(*ptr))
+        ++ptr;
+
+    if (*ptr == '-' || *ptr == '+')
+    {
+        if (*ptr == '-')
+            sign = -1;
+        ++ptr;
+    }
+
+    if (!char_is_digit(*ptr))
+        return (ResultI64){
+            .value = 0,
+            .error = ERR_UNEXPECTED_BYTE,
+        };
+
+    while (char_is_digit(*ptr))
+    {
+        i64 newVal = result * 10 + (*ptr - '0');
+
+        if (newVal < result)
+            return (ResultI64){
+                .value = 0,
+                .error = ERR_WOULD_OVERFLOW,
+            };
+
+        result = newVal;
+        ++ptr;
+    }
+
+    if (*ptr != '\0' && !char_is_whitespace(*ptr))
+        return (ResultI64){
+            .value = 0,
+            .error = ERR_UNEXPECTED_BYTE,
+        };
+
+    return (ResultI64){
+        .value = result * sign,
+        .error = ERR_OK,
+    };
+}
+
+ResultU64 string_parse_uint(ConstStr s)
+{
+    if (!s || *s == '\0')
+        return (ResultU64){
+            .value = 0,
+            .error = ERR_INVALID_PARAMETER,
+        };
+
+    const i8 *ptr = s;
+    u64 result = 0;
+
+    while (char_is_whitespace(*ptr))
+        ++ptr;
+
+    if (!char_is_digit(*ptr))
+        return (ResultU64){
+            .value = 0,
+            .error = ERR_UNEXPECTED_BYTE,
+        };
+
+    while (char_is_digit(*ptr))
+    {
+        u64 newVal = result * 10 + (*ptr - '0');
+
+        if (newVal < result)
+            return (ResultU64){
+                .value = 0,
+                .error = ERR_WOULD_OVERFLOW,
+            };
+
+        result = newVal;
+        ++ptr;
+    }
+
+    if (*ptr != '\0' && !char_is_whitespace(*ptr))
+        return (ResultU64){
+            .value = 0,
+            .error = ERR_UNEXPECTED_BYTE,
+        };
+
+    return (ResultU64){
+        .value = result,
+        .error = ERR_OK,
+    };
+}
+
+ResultF64 string_parse_float(ConstStr s)
+{
+    if (!s || *s == '\0')
+        return (ResultF64){
+            .value = 0.0,
+            .error = ERR_INVALID_PARAMETER,
+        };
+
+    const i8 *ptr = s;
+    f64 result = 0.0;
+    f64 sign = 1.0;
+
+    while (char_is_whitespace(*ptr))
+        ++ptr;
+
+    if (*ptr == '-' || *ptr == '+')
+    {
+        if (*ptr == '-')
+            sign = -1.0;
+        ++ptr;
+    }
+
+    if (!char_is_digit(*ptr) && *ptr != '.')
+        return (ResultF64){
+            .value = 0.0,
+            .error = ERR_UNEXPECTED_BYTE,
+        };
+
+    while (char_is_digit(*ptr))
+    {
+        f64 newVal = result * 10.0 + (*ptr - '0');
+
+        if (newVal < result)
+            return (ResultF64){
+                .value = 0.0,
+                .error = ERR_WOULD_OVERFLOW,
+            };
+
+        result = newVal;
+        ++ptr;
+    }
+
+    if (*ptr == '.')
+    {
+        ++ptr;
+        f64 fraction = 0.0;
+        f64 divisor = 10.0;
+
+        if (!char_is_digit(*ptr))
+            return (ResultF64){
+                .value = 0.0,
+                .error = ERR_UNEXPECTED_BYTE,
+            };
+
+        while (char_is_digit(*ptr))
+        {
+            f64 newFrac = fraction + (*ptr - '0') / divisor;
+
+            if (newFrac < fraction)
+                return (ResultF64){
+                    .value = 0.0,
+                    .error = ERR_WOULD_OVERFLOW,
+                };
+
+            fraction = newFrac;
+            divisor *= 10.0;
+            ++ptr;
+        }
+        result += fraction;
+    }
+
+    if (*ptr != '\0' && !char_is_whitespace(*ptr))
+        return (ResultF64){
+            .value = 0.0,
+            .error = ERR_UNEXPECTED_BYTE,
+        };
+
+    return (ResultF64){
+        .value = result * sign,
         .error = ERR_OK,
     };
 }

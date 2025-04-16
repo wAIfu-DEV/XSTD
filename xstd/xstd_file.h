@@ -42,39 +42,21 @@ typedef struct _result_file
     Error error;
 } ResultFile;
 
-u32 _file_openmode_to_str(const FileOpenMode mode)
+const char *_file_openmode_to_str(const FileOpenMode mode)
 {
-    i8 iMode = '\0';
-    i8 iExt = '\0';
-    i8 openArg[] = "\0\0\0";
-
     switch (mode)
     {
     case FILE_OPENMODE_READ:
-        iMode = 'r';
-        break;
+        return "rb";
     case FILE_OPENMODE_WRITE:
-        iMode = 'w';
-        break;
+        return "wb";
     case FILE_OPENMODE_READWRITE:
-        iMode = 'w';
-        iExt = '+';
-        break;
+        return "w+b";
     case FILE_OPENMODE_APPEND:
-        iMode = 'a';
-        iExt = '+';
-        break;
+        return "a+b";
     default:
-        return (u32)0;
+        return NULL;
     }
-
-    u8 offset = 0;
-    openArg[offset++] = iMode;
-    if (iExt)
-        openArg[offset++] = iExt;
-
-    openArg[offset++] = 'b';
-    return *(u32 *)openArg;
 }
 
 /**
@@ -100,15 +82,21 @@ ResultFile file_open(ConstStr path, const FileOpenMode mode)
             .error = ERR_INVALID_PARAMETER,
         };
 
-    u32 openArg = _file_openmode_to_str(mode);
+    const char *openArg = _file_openmode_to_str(mode);
+
+    if (openArg == NULL)
+        return (ResultFile){
+            .value = {0},
+            .error = ERR_INVALID_PARAMETER,
+        };
 
     FILE *f;
 
 #if defined(_MSC_VER)
-    errno_t err = fopen_s(&f, path, (i8 *)&openArg);
+    errno_t err = fopen_s(&f, path, openArg);
 #else
-    f = fopen(path, (i8 *)&openArg);
-    int err = f ? 0 : errno;
+    f = fopen(path, openArg);
+    int err = f == NULL ? 0 : errno;
 #endif
 
     if (err)
@@ -465,6 +453,20 @@ ResultList file_read_lines(Allocator *alloc, File *file)
     };
 }
 
+void file_write_byte(File *file, const i8 byte)
+{
+    if (!file || !file->_valid)
+        return;
+
+    FILE *f = file->_handle;
+    fputc(byte, f);
+}
+
+void file_write_char(File *file, const i8 c)
+{
+    file_write_byte(file, c);
+}
+
 /**
  * @brief Writes a string to a file.
  *
@@ -483,8 +485,11 @@ void file_write_str(File *file, ConstStr text)
     if (!file || !file->_valid || !text)
         return;
 
-    u64 textSize = string_size(text);
-    fwrite(text, sizeof(i8), textSize, file->_handle);
+    while (*text)
+    {
+        file_write_char(file, *text);
+        ++text;
+    }
 }
 
 /**
@@ -505,7 +510,13 @@ void file_write_bytes(File *file, const i8 *bytes, u64 bytesCount)
     if (!file || !file->_valid || !bytes || bytesCount == 0)
         return;
 
-    fwrite(bytes, sizeof(i8), bytesCount, file->_handle);
+    const i8 *end = bytes + bytesCount + 1;
+
+    while (bytes != end)
+    {
+        file_write_byte(file, *bytes);
+        ++bytes;
+    }
 }
 
 /**
@@ -557,22 +568,7 @@ void file_write_null(File *file)
     if (!file || !file->_valid)
         return;
 
-    fwrite("(null)", sizeof(i8), sizeof("(null)"), file->_handle);
-}
-
-// TODO: MOVE THIS TO STRINGS
-i8 _io_dtoc(const i16 i)
-{
-    return "0123456789"[i];
-}
-
-void file_write_char(File *file, const char c)
-{
-    if (!file || !file->_valid)
-        return;
-
-    FILE *f = file->_handle;
-    fputc(c, f);
+    file_write_str(file, "(null)");
 }
 
 void file_write_int(File *file, const i64 i)
@@ -580,34 +576,32 @@ void file_write_int(File *file, const i64 i)
     if (!file || !file->_valid)
         return;
 
-    FILE *f = file->_handle;
-
     char buf[20];
     i64 n = i;
     i16 idx = 0;
 
     if (n == 0)
     {
-        fputc('0', f);
+        file_write_char(file, '0');
         return;
     }
 
     if (n < 0)
     {
-        fputc('-', f);
+        file_write_char(file, '-');
         n = -n;
     }
 
     while (n != 0)
     {
         i16 d = n % 10;
-        buf[idx++] = _io_dtoc(d);
+        buf[idx++] = digit_to_char(d);
         n /= 10;
     }
 
     for (i16 j = idx - 1; j >= 0; --j)
     {
-        fputc(buf[j], f);
+        file_write_char(file, buf[j]);
     }
 }
 
@@ -616,28 +610,26 @@ void file_write_uint(File *file, const u64 i)
     if (!file || !file->_valid)
         return;
 
-    FILE *f = file->_handle;
-
     char buf[20];
     i16 idx = 0;
     u64 n = i;
 
     if (n == 0)
     {
-        fputc('0', f);
+        file_write_char(file, '0');
         return;
     }
 
     while (n != 0)
     {
         i16 d = n % 10;
-        buf[idx++] = _io_dtoc(d);
+        buf[idx++] = digit_to_char(d);
         n /= 10;
     }
 
     for (i16 j = idx - 1; j >= 0; --j)
     {
-        fputc(buf[j], f);
+        file_write_char(file, buf[j]);
     }
 }
 
@@ -646,13 +638,11 @@ void file_write_f64(File *file, const f64 flt, const u64 precision)
     if (!file || !file->_valid)
         return;
 
-    FILE *f = file->_handle;
-
     f64 d = flt;
 
     if (d < 0)
     {
-        fputc('-', f);
+        file_write_char(file, '-');
         d = -d;
     }
 
@@ -664,7 +654,7 @@ void file_write_f64(File *file, const f64 flt, const u64 precision)
     if (precision <= 0)
         return;
 
-    fputc('.', f);
+    file_write_char(file, '.');
 
     f64 scale = 1.0;
     for (u64 i = 0; i < precision; ++i)
@@ -680,7 +670,7 @@ void file_write_f64(File *file, const f64 flt, const u64 precision)
 
     while (div > fracInt && div > 1)
     {
-        fputc('0', f);
+        file_write_char(file, '0');
         div /= 10;
     }
 

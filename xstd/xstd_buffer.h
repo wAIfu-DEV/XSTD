@@ -28,10 +28,7 @@ ibool buffer_equals(ConstBuff a, ConstBuff b)
     if (a.size != b.size)
         return false;
 
-    if (a.size == 0)
-        return true;
-
-    if (a.bytes == b.bytes)
+    if (a.size == 0 || a.bytes == b.bytes)
         return true;
 
     if (!a.bytes || !b.bytes)
@@ -81,6 +78,41 @@ ResultOwnedBuff buffer_alloc(Allocator *alloc, u64 size, i8 fill)
     {
         bytes[i] = fill;
     }
+
+    return (ResultOwnedBuff){
+        .value = (HeapBuff){
+            .bytes = bytes,
+            .size = size,
+        },
+        .error = ERR_OK,
+    };
+}
+
+/**
+ * @brief Allocates a buffer of size `size`
+ * on the heap. The contents of the buffer are undefined and should not be read as-is.
+ *
+ * Memory is owned by the caller and should be freed using the same allocator.
+ *
+ * ```c
+ * ResultOwnedBuff myBuff = buffer_alloc(&c_allocator, 3);
+ * if (myBuff.error) // Error!
+ * // myBuff.value.bytes == [undefined, undefined, undefined]
+ * // myBuff.value.size == 3
+ * ```
+ * @param alloc
+ * @param size
+ * @return ResultOwnedBuff
+ */
+ResultOwnedBuff buffer_alloc_undefined(Allocator *alloc, u64 size)
+{
+    i8 *bytes = alloc->alloc(alloc, size);
+
+    if (!bytes)
+        return (ResultOwnedBuff){
+            .value = (HeapBuff){.bytes = NULL, .size = 0},
+            .error = ERR_OUT_OF_MEMORY,
+        };
 
     return (ResultOwnedBuff){
         .value = (HeapBuff){

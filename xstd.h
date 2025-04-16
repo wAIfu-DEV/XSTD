@@ -9,4 +9,5 @@
 #include "xstd/xstd_str.h"
 #include "xstd/xstd_file.h"
 #include "xstd/xstd_io.h"
-#include "xstd/xstd_debugalloc.h"
+#include "xstd/xstd_alloc_arena.h"
+#include "xstd/xstd_alloc_debug.h"

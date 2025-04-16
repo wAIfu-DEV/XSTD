@@ -30,7 +30,7 @@ typedef i8 *HeapStr;        // Pointer to heap-allocated string of characters te
 // Represents an area of memory either on the stack or on the heap.
 typedef struct _buffer
 {
-    void *bytes;
+    i8 *bytes;
     u64 size;
 } Buffer;
 
@@ -39,6 +39,6 @@ typedef Buffer HeapBuff; // Represents an area of memory on the heap.
 // Represents an area of immutable memory either on the stack or on the heap.
 typedef struct _buffer_const
 {
-    const void *bytes;
+    const i8 *bytes;
     u64 size;
 } ConstBuff;

@@ -13,6 +13,13 @@ typedef struct _allocator_t
     void (*free)(struct _allocator_t *this, void *block);
 } Allocator;
 
+// If `error` != `ERR_OK` then `value` is invalid. Do not access without checking.
+typedef struct _result_allocator
+{
+    Allocator value;
+    Error error;
+} ResultAllocator;
+
 void *__c_alloc_malloc(Allocator *this, u64 size)
 {
     (void)this;

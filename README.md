@@ -6,6 +6,12 @@
 
 ---
 
+## 🥔 In development
+
+xstd is still in development, meaning it doesn't yet cover 100% of stdlib's features.
+
+---
+
 ## ✨ Features
 
 - 🔐 Safer APIs with built-in result types and error checking
@@ -76,7 +82,7 @@ if (res.error != ERR_OK)
 
 List list = res.value;
 
-ResultHeapStr dupeRes = string_dupe(&c_allocator, "Hello");
+ResultOwnedStr dupeRes = string_dupe(&c_allocator, "Hello");
 
 if (dupeRes.error != ERR_OK)
 {
@@ -176,6 +182,7 @@ file_close(&fileRes.value);
 | String searching | ✅ |
 | Hashmaps / Dictionaries | 🔜 |
 | Filesystem API | 🔜 |
+| Stringification | 🔜 |
 | utf-8 support | 🔜 |
 | JSON/CSV parsing | 🔜 |
 
@@ -186,7 +193,7 @@ file_close(&fileRes.value);
 - Compile only modules you use.
 - Replace `malloc`/`free`/`realloc` with `c_allocator` or your own custom `Allocator`.
 - Include `xstd_err.h` and `xstd_result.h` for strong error handling.
-- Use `list_*` and `string_*` instead of raw array manipulation.
+- Use `buffer_*` and `string_*` instead of raw array manipulation.
 - Use `x_assert` during development/debug builds to catch errors early.
 
 ---
@@ -214,6 +221,16 @@ This is a work-in-progress foundation. Suggestions or pull requests are welcome.
 | ZIG CC | ✅ |
 | MSVC | 🔜 |
 | Others | 🔜 |
+
+---
+
+## OS Compatibility
+
+| OS | Status |
+|----|--------|
+| Windows | ✅ |
+| Linux | Untested |
+| Mac | Untested |
 
 ---
 

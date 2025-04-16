@@ -334,6 +334,35 @@ void *list_getref_unsafe(List *list, u64 i)
 }
 
 /**
+ * @brief Get value stored in `list[i]` as a pointer.
+ * Memory is NOT owned by the caller.
+ *
+ * ```c
+ * String s = ConstToHeapStr("Test string");
+ * list_push(&list, &s);
+ * String resultStr = list_get_as_ptr(&list, 0);
+ * if (!resultStr) // Error!
+ * // resultStr == &"Test string"
+ * ```
+ * @param list
+ * @param i index
+ * @return void*
+ */
+void *list_get_as_ptr(List *list, u64 i)
+{
+    if (!list)
+        return NULL;
+
+    if (list->_typeSize != sizeof(i8 *))
+        return NULL;
+
+    if (i >= list->_itemCnt)
+        return NULL;
+
+    return *(void **)_list_i_to_ptr(list, i);
+}
+
+/**
  * @brief Writes contents of `item` to `list[i]`
  * Emplaces a copy of the item pointed to by `item` into the list slot i.
  * Prefer `ListSetT` macro as it provides compiler type checking.

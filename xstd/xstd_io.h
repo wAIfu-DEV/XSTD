@@ -6,6 +6,12 @@
 #define IoStderr ((File){._handle = stderr, ._valid = 1})
 #define IoStdin ((File){._handle = stdin, ._valid = 1})
 
+void io_print_char(const char c)
+{
+    File f = IoStdout;
+    file_write_char(&f, c);
+}
+
 /**
  * @brief Prints text to stdout and displays it on the console.
  *
@@ -44,12 +50,6 @@ void io_print_float(const f64 flt, const u64 precision)
 {
     File f = IoStdout;
     file_write_f64(&f, flt, precision);
-}
-
-void io_print_char(const char c)
-{
-    File f = IoStdout;
-    file_write_char(&f, c);
 }
 
 /**
