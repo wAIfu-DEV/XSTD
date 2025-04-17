@@ -32,7 +32,7 @@ const struct _file_open_mode
 
 typedef struct _file
 {
-    FILE *_handle;
+    void *_handle;
     ibool _valid;
 } File;
 
@@ -90,7 +90,7 @@ ResultFile file_open(ConstStr path, const FileOpenMode mode)
             .error = ERR_INVALID_PARAMETER,
         };
 
-    FILE *f;
+    void *f;
 
 #ifdef _MSC_VER
     errno_t err = __file_os_int.open(&f, path, openArg);
