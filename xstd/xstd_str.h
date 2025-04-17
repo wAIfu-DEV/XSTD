@@ -973,7 +973,7 @@ ibool string_ends_with(ConstStr s, ConstStr what)
 
 ibool char_is_alpha(const i8 c)
 {
-    return (c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z');
+    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
 }
 
 ibool char_is_digit(const i8 c)

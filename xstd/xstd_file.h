@@ -1,14 +1,14 @@
 #pragma once
 
-#include "stdio.h"
-#include "errno.h"
-
 #include "xstd_coretypes.h"
 #include "xstd_err.h"
 #include "xstd_result.h"
 #include "xstd_list.h"
 #include "xstd_str.h"
 #include "xstd_buffer.h"
+
+#include "errno.h"
+#include "xstd_file_os_int.h"
 
 typedef u8 FileOpenMode;
 
@@ -92,10 +92,10 @@ ResultFile file_open(ConstStr path, const FileOpenMode mode)
 
     FILE *f;
 
-#if defined(_MSC_VER)
-    errno_t err = fopen_s(&f, path, openArg);
+#ifdef _MSC_VER
+    errno_t err = __file_os_int.open(&f, path, openArg);
 #else
-    f = fopen(path, openArg);
+    f = __file_os_int.open(path, openArg);
     int err = f == NULL ? 0 : errno;
 #endif
 
@@ -147,7 +147,7 @@ void file_close(File *file)
     if (!file->_valid)
         return;
 
-    fclose(file->_handle);
+    __file_os_int.close(file->_handle);
     file->_valid = false;
 }
 
@@ -165,10 +165,15 @@ u64 file_size(File *file)
     if (!file || !file->_valid)
         return 0;
 
-    long ogTell = ftell(file->_handle);
-    fseek(file->_handle, 0, SEEK_END);
-    long fileSize = ftell(file->_handle);
-    fseek(file->_handle, ogTell, SEEK_SET);
+    const int seekEnd = 2;
+    const int seekSet = 0;
+
+    long ogTell = __file_os_int.tell(file->_handle);
+
+    __file_os_int.seek(file->_handle, 0, seekEnd);
+    long fileSize = __file_os_int.tell(file->_handle);
+
+    __file_os_int.seek(file->_handle, ogTell, seekSet);
     return (u64)fileSize;
 }
 
@@ -209,11 +214,11 @@ ResultOwnedStr file_read_str(Allocator *alloc, File *file, const u64 nBytes)
             .error = ERR_OUT_OF_MEMORY,
         };
 
-#if defined(_MSC_VER)
-    u64 readSize = fread_s(newStr, nBytes + 1, sizeof(i8), nBytes, file->_handle);
-#else
-    u64 readSize = fread(newStr, sizeof(i8), nBytes, file->_handle);
-#endif
+    // #if defined(_MSC_VER)
+    //     u64 readSize = fread_s(newStr, nBytes + 1, sizeof(i8), nBytes, file->_handle);
+    // #else
+    u64 readSize = __file_os_int.read(newStr, sizeof(i8), nBytes, file->_handle);
+    // #endif
 
     if (!readSize)
     {
@@ -269,11 +274,11 @@ ResultOwnedBuff file_read_bytes(Allocator *alloc, File *file, const u64 nBytes)
             .error = ERR_OUT_OF_MEMORY,
         };
 
-#if defined(_MSC_VER)
-    u64 readSize = fread_s(new, nBytes, sizeof(i8), nBytes, file->_handle);
-#else
-    u64 readSize = fread(new, sizeof(i8), nBytes, file->_handle);
-#endif
+    // #if defined(_MSC_VER)
+    //     u64 readSize = fread_s(new, nBytes, sizeof(i8), nBytes, file->_handle);
+    // #else
+    u64 readSize = __file_os_int.read(new, sizeof(i8), nBytes, file->_handle);
+    // #endif
 
     if (!readSize)
     {
@@ -317,7 +322,7 @@ HeapStr file_read_str_unsafe(Allocator *alloc, File *file, u64 nBytes)
     if (!newStr)
         return NULL;
 
-    u64 readSize = fread(newStr, sizeof(i8), nBytes, file->_handle);
+    u64 readSize = __file_os_int.read(newStr, sizeof(i8), nBytes, file->_handle);
     if (!readSize)
     {
         alloc->free(alloc, newStr);
@@ -355,7 +360,7 @@ HeapBuff file_read_bytes_unsafe(Allocator *alloc, File *file, u64 nBytes)
     if (!new)
         return (HeapBuff){.bytes = NULL, .size = 0};
 
-    u64 readSize = fread(new, sizeof(i8), nBytes, file->_handle);
+    u64 readSize = __file_os_int.read(new, sizeof(i8), nBytes, file->_handle);
     if (!readSize)
     {
         alloc->free(alloc, new);
@@ -459,7 +464,7 @@ void file_write_byte(File *file, const i8 byte)
         return;
 
     FILE *f = file->_handle;
-    fputc(byte, f);
+    __file_os_int.putc(byte, f);
 }
 
 void file_write_char(File *file, const i8 c)
@@ -536,7 +541,7 @@ void file_flush(File *file)
     if (!file || !file->_valid)
         return;
 
-    fflush(file->_handle);
+    __file_os_int.flush(file->_handle);
 }
 
 /**
@@ -560,7 +565,7 @@ ibool file_is_eof(File *file)
     if (!file || !file->_valid)
         return true;
 
-    return feof(file->_handle);
+    return __file_os_int.eof(file->_handle);
 }
 
 void file_write_null(File *file)

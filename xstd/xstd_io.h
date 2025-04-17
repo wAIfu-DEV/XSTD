@@ -2,9 +2,9 @@
 
 #include "xstd_file.h"
 
-#define IoStdout ((File){._handle = stdout, ._valid = 1})
-#define IoStderr ((File){._handle = stderr, ._valid = 1})
-#define IoStdin ((File){._handle = stdin, ._valid = 1})
+#define IoStdout ((File){._handle = __file_os_int.fstdout(), ._valid = 1})
+#define IoStderr ((File){._handle = __file_os_int.fstderr(), ._valid = 1})
+#define IoStdin ((File){._handle = __file_os_int.fstdin(), ._valid = 1})
 
 void io_print_char(const char c)
 {
@@ -29,7 +29,7 @@ void io_print(ConstStr text)
 
     while (*text)
     {
-        fputc(*text, f._handle);
+        file_write_char(&f, *text);
         ++text;
     }
 }
@@ -64,16 +64,16 @@ void io_println(ConstStr text)
     if (!text)
     {
         file_write_null(&f);
-        fputc('\n', f._handle);
+        file_write_char(&f, '\n');
         return;
     }
 
     while (*text)
     {
-        fputc(*text, f._handle);
+        file_write_char(&f, *text);
         ++text;
     }
-    fputc('\n', f._handle);
+    file_write_char(&f, '\n');
 }
 
 /**
@@ -93,10 +93,10 @@ void io_printerr(ConstStr text)
 
     while (*text)
     {
-        fputc(*text, f._handle);
+        file_write_char(&f, *text);
         ++text;
     }
-    fflush(f._handle);
+    file_flush(&f);
 }
 
 /**
@@ -111,17 +111,17 @@ void io_printerrln(ConstStr text)
     if (!text)
     {
         file_write_null(&f);
-        fputc('\n', f._handle);
+        file_write_char(&f, '\n');
         return;
     }
 
     while (*text)
     {
-        fputc(*text, f._handle);
+        file_write_char(&f, *text);
         ++text;
     }
-    fputc('\n', f._handle);
-    fflush(f._handle);
+    file_write_char(&f, '\n');
+    file_flush(&f);
 }
 
 /**
@@ -136,7 +136,10 @@ void x_assert(const ibool condition, ConstStr falseMessage)
 {
     if (condition)
         return;
-    io_printerr("[ASSERT FAILURE]: ");
+
+    File f = IoStderr;
+
+    file_write_str(&f, "[ASSERT FAILURE]: ");
     io_printerrln(falseMessage);
 
     while (true)
@@ -157,10 +160,12 @@ void x_assertErr(const Error err, ConstStr isErrMessage)
     if (err == ERR_OK)
         return;
 
-    io_printerr("[ASSERT ERR FAILURE]");
-    io_printerr("(ERROR: ");
-    io_printerr(ErrorToString(err));
-    io_printerr("): ");
+    File f = IoStderr;
+
+    // We use file_write here to not spam file_flush
+    file_write_str(&f, "[ASSERT ERR FAILURE](ERROR: ");
+    file_write_str(&f, ErrorToString(err));
+    file_write_str(&f, "): ");
     io_printerrln(isErrMessage);
 
     while (true)
@@ -180,7 +185,9 @@ void x_assertStrEq(ConstStr a, ConstStr b, ConstStr falseMessage)
     if (string_equals(a, b))
         return;
 
-    io_printerr("[ASSERT STR EQ FAILURE]: ");
+    File f = IoStderr;
+
+    file_write_str(&f, "[ASSERT STR EQ FAILURE]: ");
     io_printerrln(falseMessage);
 
     while (true)
