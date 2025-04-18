@@ -1,7 +1,7 @@
 #pragma once
 
-#include "xstd_coretypes.h"
-#include "xstd_err.h"
+#include "xstd_core.h"
+#include "xstd_error.h"
 
 // If `error` != `ERR_OK` then `value` is invalid. Do not access without checking.
 //
@@ -42,6 +42,13 @@ typedef struct _result_float
     f64 value;
     Error error;
 } ResultF64;
+
+// If `error` != `ERR_OK` then `value` is invalid. Do not access without checking.
+typedef struct _result_byte
+{
+    i8 value;
+    Error error;
+} ResultByte;
 
 // If `error` != `ERR_OK` then `value` is invalid. Do not access without checking.
 typedef struct _result_str

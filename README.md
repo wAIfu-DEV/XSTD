@@ -29,8 +29,8 @@ xstd is still in development, meaning it doesn't yet cover 100% of stdlib's feat
 Include only what you need.
 
 ```c
-#include "xstd_coretypes.h"
-#include "xstd_str.h"
+#include "xstd_core.h"
+#include "xstd_string.h"
 ```
 
 Or everything.
@@ -48,7 +48,7 @@ No external dependencies are required, just copy the files to your project and y
 ### Strings
 
 ```c
-#include "xstd_str.h"
+#include "xstd_string.h"
 
 ConstStr a = "Hello";
 ConstStr b = ", World!";
@@ -132,12 +132,12 @@ file_close(&fileRes.value);
 
 | Module | Description |
 |--------|-------------|
-| `xstd_coretypes.h` | Foundational types: `u8`, `i32`, `String`, `Buffer`, etc. |
+| `xstd_core.h` | Foundational types: `u8`, `i32`, `String`, `Buffer`, etc. |
 | `xstd_alloc.h` | Allocation abstraction (`Allocator` interface) |
 | `xstd_debugalloc.h` | Debug allocator wrapper (tracks allocs, logs usage) |
-| `xstd_err.h` | Typed error codes with descriptions |
+| `xstd_error.h` | Typed error codes with descriptions |
 | `xstd_result.h` | `Result<T>` wrappers for error-safe operations |
-| `xstd_str.h` | Safer and simple string manipulation |
+| `xstd_string.h` | Safer and simple string manipulation |
 | `xstd_buffer.h` | Generic binary buffer manipulation |
 | `xstd_list.h` | Relatively type-safe dynamic lists (vectors) |
 | `xstd_io.h` | IO abstraction and assertion/log helpers |
@@ -192,7 +192,7 @@ file_close(&fileRes.value);
 
 - Compile only modules you use.
 - Replace `malloc`/`free`/`realloc` with `c_allocator` or your own custom `Allocator`.
-- Include `xstd_err.h` and `xstd_result.h` for strong error handling.
+- Include `xstd_error.h` and `xstd_result.h` for strong error handling.
 - Use `buffer_*` and `string_*` instead of raw array manipulation.
 - Use `x_assert` during development/debug builds to catch errors early.
 

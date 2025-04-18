@@ -3,6 +3,7 @@
 #include "xstd_file_os_int.h"
 
 #include "stdio.h"
+#include "errno.h"
 
 void *__file_io_c_fstdout(void)
 {
@@ -19,26 +20,24 @@ void *__file_io_c_fstdin(void)
     return stdin;
 }
 
+int __file_io_c_fopen(void **stream, const char *fileName, const char *mode)
+{
 #ifdef _MSC_VER
-errno_t __file_io_c_fopen_s(void **stream, const char *fileName, const char *mode)
-{
-    return fopen_s((FILE **)stream, fileName, mode);
-}
+    return (int)fopen_s((FILE **)stream, fileName, mode);
 #else
-void *__file_io_c_fopen(const char *fileName, const char *mode)
-{
-    return (void *)fopen(fileName, mode);
-}
+    *(FILE **)stream = fopen(fileName, mode);
+    return *(FILE **)stream == NULL ? 0 : errno;
 #endif
+}
 
 int __file_io_c_fclose(void *stream)
 {
     return fclose((FILE *)stream);
 }
 
-size_t __file_io_c_fread(void *buff, size_t elemSize, size_t elemCount, void *stream)
+int __file_io_c_fgetc(void *stream)
 {
-    return fread(buff, elemSize, elemCount, (FILE *)stream);
+    return fgetc((FILE *)stream);
 }
 
 int __file_io_c_fseek(void *stream, long off, int origin)
@@ -72,13 +71,9 @@ _FileOsInterface __file_os_int = {
     .fstdout = __file_io_c_fstdout,
     .fstderr = __file_io_c_fstderr,
     .fstdin = __file_io_c_fstdin,
-#ifdef _MSC_VER
-    .open = __file_io_c_fopen_s,
-#else
     .open = __file_io_c_fopen,
-#endif
     .close = __file_io_c_fclose,
-    .read = __file_io_c_fread,
+    .getc = __file_io_c_fgetc,
     .seek = __file_io_c_fseek,
     .tell = __file_io_c_ftell,
     .putc = __file_io_c_fputc,
@@ -86,7 +81,7 @@ _FileOsInterface __file_os_int = {
     .eof = __file_io_c_feof,
 };
 
-void file_set_io_interface(_FileOsInterface interface)
+void file_set_os_interface(_FileOsInterface interface)
 {
     __file_os_int = interface;
 }

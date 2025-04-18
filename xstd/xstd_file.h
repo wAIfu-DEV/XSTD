@@ -1,13 +1,11 @@
 #pragma once
 
-#include "xstd_coretypes.h"
-#include "xstd_err.h"
+#include "xstd_core.h"
+#include "xstd_error.h"
 #include "xstd_result.h"
 #include "xstd_list.h"
-#include "xstd_str.h"
+#include "xstd_string.h"
 #include "xstd_buffer.h"
-
-#include "errno.h"
 #include "xstd_file_os_int.h"
 
 typedef u8 FileOpenMode;
@@ -92,12 +90,7 @@ ResultFile file_open(ConstStr path, const FileOpenMode mode)
 
     void *f;
 
-#ifdef _MSC_VER
-    errno_t err = __file_os_int.open(&f, path, openArg);
-#else
-    f = __file_os_int.open(path, openArg);
-    int err = f == NULL ? 0 : errno;
-#endif
+    int err = __file_os_int.open(&f, path, openArg);
 
     if (err)
     {
@@ -177,64 +170,25 @@ u64 file_size(File *file)
     return (u64)fileSize;
 }
 
-/**
- * @brief Reads `nBytes` (or less if EOF) of the file into a newly allocated HeapStr.
- *
- * Memory is owned by the caller and should be freed.
- *
- * ```c
- * // Read file in chunks
- * while(!file_is_eof(file))
- * {
- *     ResultOwnedStr res = file_read_str(&allocator, file, 256);
- *     if (res.error) // Error!
- *     HeapStr fileChunk = res.value;
- *     // Do string stuff
- *     allocator.free(&allocator, fileChunk);
- * }
- * ```
- * @param alloc
- * @param file
- * @param nBytes
- * @return ResultOwnedStr
- */
-ResultOwnedStr file_read_str(Allocator *alloc, File *file, const u64 nBytes)
+u64 __file_read_internal(File *f, i8 *buff, const u64 nBytes, ibool terminate)
 {
-    if (!alloc || !file || !file->_valid)
-        return (ResultOwnedStr){
-            .value = NULL,
-            .error = ERR_INVALID_PARAMETER,
-        };
+    if (!f || !nBytes || !buff)
+        return 0;
 
-    HeapStr newStr = alloc->alloc(alloc, nBytes + 1);
+    u64 readPos = 0;
 
-    if (!newStr)
-        return (ResultOwnedStr){
-            .value = NULL,
-            .error = ERR_OUT_OF_MEMORY,
-        };
-
-    // #if defined(_MSC_VER)
-    //     u64 readSize = fread_s(newStr, nBytes + 1, sizeof(i8), nBytes, file->_handle);
-    // #else
-    u64 readSize = __file_os_int.read(newStr, sizeof(i8), nBytes, file->_handle);
-    // #endif
-
-    if (!readSize)
+    int read;
+    while (!__file_os_int.eof(f->_handle) && readPos < nBytes)
     {
-        alloc->free(alloc, newStr);
-        return (ResultOwnedStr){
-            .value = NULL,
-            .error = ERR_FILE_CANT_READ,
-        };
+        read = __file_os_int.getc(f->_handle);
+        buff[readPos] = (i8)read;
+        ++readPos;
     }
 
-    newStr[nBytes] = (i8)0;
+    if (terminate)
+        buff[readPos] = (i8)0;
 
-    return (ResultOwnedStr){
-        .value = newStr,
-        .error = ERR_OK,
-    };
+    return readPos;
 }
 
 /**
@@ -274,13 +228,9 @@ ResultOwnedBuff file_read_bytes(Allocator *alloc, File *file, const u64 nBytes)
             .error = ERR_OUT_OF_MEMORY,
         };
 
-    // #if defined(_MSC_VER)
-    //     u64 readSize = fread_s(new, nBytes, sizeof(i8), nBytes, file->_handle);
-    // #else
-    u64 readSize = __file_os_int.read(new, sizeof(i8), nBytes, file->_handle);
-    // #endif
+    u64 readSize = __file_read_internal(file, new, nBytes, false);
 
-    if (!readSize)
+    if (readSize == 0)
     {
         alloc->free(alloc, new);
         return (ResultOwnedBuff){
@@ -291,6 +241,60 @@ ResultOwnedBuff file_read_bytes(Allocator *alloc, File *file, const u64 nBytes)
 
     return (ResultOwnedBuff){
         .value = (HeapBuff){.bytes = new, .size = readSize},
+        .error = ERR_OK,
+    };
+}
+
+/**
+ * @brief Reads `nBytes` (or less if EOF) of the file into a newly allocated HeapStr.
+ *
+ * Memory is owned by the caller and should be freed.
+ *
+ * ```c
+ * // Read file in chunks
+ * while(!file_is_eof(file))
+ * {
+ *     ResultOwnedStr res = file_read_str(&allocator, file, 256);
+ *     if (res.error) // Error!
+ *     HeapStr fileChunk = res.value;
+ *     // Do string stuff
+ *     allocator.free(&allocator, fileChunk);
+ * }
+ * ```
+ * @param alloc
+ * @param file
+ * @param nBytes
+ * @return ResultOwnedStr
+ */
+ResultOwnedStr file_read_str(Allocator *alloc, File *file, const u64 nBytes)
+{
+    if (!alloc || !file || !file->_valid)
+        return (ResultOwnedStr){
+            .value = NULL,
+            .error = ERR_INVALID_PARAMETER,
+        };
+
+    HeapStr newStr = alloc->alloc(alloc, nBytes + 1);
+
+    if (!newStr)
+        return (ResultOwnedStr){
+            .value = NULL,
+            .error = ERR_OUT_OF_MEMORY,
+        };
+
+    u64 readSize = __file_read_internal(file, newStr, nBytes, true);
+
+    if (readSize == 0)
+    {
+        alloc->free(alloc, newStr);
+        return (ResultOwnedStr){
+            .value = NULL,
+            .error = ERR_FILE_CANT_READ,
+        };
+    }
+
+    return (ResultOwnedStr){
+        .value = newStr,
         .error = ERR_OK,
     };
 }
@@ -322,14 +326,13 @@ HeapStr file_read_str_unsafe(Allocator *alloc, File *file, u64 nBytes)
     if (!newStr)
         return NULL;
 
-    u64 readSize = __file_os_int.read(newStr, sizeof(i8), nBytes, file->_handle);
-    if (!readSize)
+    u64 readSize = __file_read_internal(file, newStr, nBytes, true);
+
+    if (readSize == 0)
     {
         alloc->free(alloc, newStr);
         return NULL;
     }
-
-    newStr[nBytes] = (i8)0;
     return newStr;
 }
 
@@ -360,8 +363,9 @@ HeapBuff file_read_bytes_unsafe(Allocator *alloc, File *file, u64 nBytes)
     if (!new)
         return (HeapBuff){.bytes = NULL, .size = 0};
 
-    u64 readSize = __file_os_int.read(new, sizeof(i8), nBytes, file->_handle);
-    if (!readSize)
+    u64 readSize = __file_read_internal(file, new, nBytes, false);
+
+    if (readSize == 0)
     {
         alloc->free(alloc, new);
         return (HeapBuff){.bytes = NULL, .size = 0};

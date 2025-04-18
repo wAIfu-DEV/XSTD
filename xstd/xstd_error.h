@@ -1,6 +1,6 @@
 #pragma once
 
-#include "xstd_coretypes.h"
+#include "xstd_core.h"
 
 /**
  * @brief Represents the state of an operation. If err == ERR_OK then no issues

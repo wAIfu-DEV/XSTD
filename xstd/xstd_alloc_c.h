@@ -30,7 +30,7 @@ void __c_alloc_free(Allocator *this, void *block)
  * ```
  * @return Allocator
  */
-const Allocator c_allocator = {
+Allocator c_allocator = {
     ._internalState = NULL,
     .alloc = &__c_alloc_malloc,
     .free = &__c_alloc_free,

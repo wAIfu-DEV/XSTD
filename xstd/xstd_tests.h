@@ -1,9 +1,9 @@
 #pragma once
 
-#include "xstd_coretypes.h"
+#include "xstd_core.h"
 #include "xstd_alloc.h"
 #include "xstd_io.h"
-#include "xstd_str.h"
+#include "xstd_string.h"
 
 void *_xstd_bad_alloc_alloc(Allocator *a, u64 s)
 {
@@ -49,7 +49,7 @@ void _xstd_foreach_test(void *itemPtr, u64 index)
     itemStr[0] = ' ';
 }
 
-void _xstd_string_tests(Allocator alloc)
+void _xstd_stringing_tests(Allocator alloc)
 {
     Error err;
     Allocator badAlloc = _xstd_bad_alloc();

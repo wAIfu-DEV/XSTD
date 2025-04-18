@@ -1,13 +1,13 @@
 #pragma once
 
-#include "xstd/xstd_coretypes.h"
-#include "xstd/xstd_err.h"
+#include "xstd/xstd_core.h"
+#include "xstd/xstd_error.h"
 #include "xstd/xstd_result.h"
 #include "xstd/xstd_alloc.h"
 #include "xstd/xstd_alloc_c.h"
 #include "xstd/xstd_buffer.h"
 #include "xstd/xstd_list.h"
-#include "xstd/xstd_str.h"
+#include "xstd/xstd_string.h"
 #include "xstd/xstd_file_os_int.h"
 #include "xstd/xstd_file_os_int_c.h"
 #include "xstd/xstd_file.h"

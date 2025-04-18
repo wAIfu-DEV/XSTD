@@ -12,7 +12,7 @@ int main(void)
     _xstd_list_tests(dbgAlloc);
 
     io_print("strings");
-    _xstd_string_tests(dbgAlloc);
+    _xstd_stringing_tests(dbgAlloc);
 
     io_println(" - Passed.");
 
