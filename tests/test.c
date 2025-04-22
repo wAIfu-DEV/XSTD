@@ -4,7 +4,10 @@
 int main(void)
 {
     DebugAllocatorState dbgState;
-    Allocator dbgAlloc = debug_allocator(&dbgState, &c_allocator);
+    ResultAllocator dbgAllocRes = debug_allocator(&dbgState, &c_allocator);
+    x_assertErr(dbgAllocRes.error, "Failed to create debug allocator.");
+
+    Allocator dbgAlloc = dbgAllocRes.value;
 
     io_print("Tests: ");
 

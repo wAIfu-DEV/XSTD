@@ -2,9 +2,9 @@
 
 #include "xstd_file.h"
 
-#define IoStdout ((File){._handle = __file_os_int.fstdout(), ._valid = 1})
-#define IoStderr ((File){._handle = __file_os_int.fstderr(), ._valid = 1})
-#define IoStdin ((File){._handle = __file_os_int.fstdin(), ._valid = 1})
+#define IoStdout ((File){._handle = __file_os_int.fstdout(), ._valid = true})
+#define IoStderr ((File){._handle = __file_os_int.fstderr(), ._valid = true})
+#define IoStdin ((File){._handle = __file_os_int.fstdin(), ._valid = true})
 
 void io_print_char(const char c)
 {
@@ -85,6 +85,8 @@ void io_printerr(ConstStr text)
 {
     File f = IoStderr;
 
+    file_write_str(&f, "\x1b[1;31m");
+
     if (!text)
     {
         file_write_null(&f);
@@ -96,6 +98,8 @@ void io_printerr(ConstStr text)
         file_write_char(&f, *text);
         ++text;
     }
+
+    file_write_str(&f, "\x1b[0m");
     file_flush(&f);
 }
 
@@ -107,6 +111,8 @@ void io_printerr(ConstStr text)
 void io_printerrln(ConstStr text)
 {
     File f = IoStderr;
+
+    file_write_str(&f, "\x1b[1;31m");
 
     if (!text)
     {
@@ -120,7 +126,9 @@ void io_printerrln(ConstStr text)
         file_write_char(&f, *text);
         ++text;
     }
+
     file_write_char(&f, '\n');
+    file_write_str(&f, "\x1b[0m");
     file_flush(&f);
 }
 
@@ -210,6 +218,7 @@ void x_assert(const ibool condition, ConstStr falseMessage)
 
     File f = IoStderr;
 
+    file_write_str(&f, "\x1b[1;31m");
     file_write_str(&f, "[ASSERT FAILURE]: ");
     io_printerrln(falseMessage);
 
@@ -234,6 +243,7 @@ void x_assertErr(const Error err, ConstStr isErrMessage)
     File f = IoStderr;
 
     // We use file_write here to not spam file_flush
+    file_write_str(&f, "\x1b[1;31m");
     file_write_str(&f, "[ASSERT ERR FAILURE](ERROR: ");
     file_write_str(&f, ErrorToString(err));
     file_write_str(&f, "): ");
@@ -258,6 +268,7 @@ void x_assertStrEq(ConstStr a, ConstStr b, ConstStr falseMessage)
 
     File f = IoStderr;
 
+    file_write_str(&f, "\x1b[1;31m");
     file_write_str(&f, "[ASSERT STR EQ FAILURE]: ");
     io_printerrln(falseMessage);
 

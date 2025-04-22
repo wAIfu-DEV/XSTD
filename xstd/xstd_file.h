@@ -445,11 +445,7 @@ ResultList file_read_lines(Allocator *alloc, File *file)
             .error = res.error,
         };
 
-    // Does this work with \r\n ??
-    // TODO: FIX THIS SHIT (implement string_split using string_find)
-    // actually might be more efficient to have a function specifically for
-    // splitting on both \r\n AND \n
-    ResultList split = string_split_char(alloc, res.value, '\n');
+    ResultList split = string_split_lines(alloc, res.value);
     if (split.error)
         return (ResultList){
             .value = {0},

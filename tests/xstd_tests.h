@@ -43,8 +43,9 @@ void _xstd_print_strlist(void *itemPtr, u64 index)
     io_println(*(HeapStr *)itemPtr);
 }
 
-void _xstd_foreach_test(void *itemPtr, u64 index)
+void _xstd_foreach_test(void *itemPtr, u64 index, void* userArg)
 {
+    (void)userArg;
     HeapStr itemStr = *(HeapStr *)itemPtr;
     itemStr[0] = ' ';
 }
@@ -1040,7 +1041,7 @@ void _xstd_list_tests(Allocator alloc)
         ListPushT(HeapStr, &l, &str1);
         ListPushT(HeapStr, &l, &str2);
 
-        list_for_each(&l, _xstd_foreach_test);
+        list_for_each(&l, _xstd_foreach_test, NULL);
 
         HeapStr *strRef1 = list_getref(&l, 0);
         x_assertStrEq(*strRef1, " est string 1", "list_for_each *strRef1 != \" est string 1\"");

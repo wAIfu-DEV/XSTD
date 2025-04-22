@@ -594,6 +594,86 @@ ResultList string_split_char(Allocator *alloc, ConstStr s, i8 delimiter)
 }
 
 /**
+ * @brief Splits a string on every occurrence of `\r\n` or `\n`.
+ *
+ * Memory of both strings and the list is owned by the caller and should be freed using the same allocator.
+ *
+ * ```c
+ * ConstStr myStr = "Hello,\nWorld!";
+ * ResultList split = string_split_lines(&c_allocator, myStr);
+ * if (split.error) // Error!
+ * // split.value == List["Hello,", "World!"]
+ * List l = res.value;
+ * // Do list stuff
+ * list_free_items(&c_allocator, &l); // Frees all allocated strings
+ * list_deinit(&l); // Free the list
+ * ```
+ * @param alloc
+ * @param s
+ * @return ResultList
+ */
+ResultList string_split_lines(Allocator *alloc, ConstStr s)
+{
+    // What a mess...
+
+    if (!s)
+        return (ResultList){
+            .value = {0},
+            .error = ERR_INVALID_PARAMETER,
+        };
+
+    ResultList resList = ListInitT(HeapStr, alloc);
+
+    if (resList.error)
+        return resList;
+
+    List l = resList.value;
+
+    u64 bound = string_size(s);
+    u64 i = 0;
+    u64 segStart = i;
+
+    while (s[i])
+    {
+        if (s[i] == '\n' || (s[i] == '\r' && s[i+1] == '\n'))
+        {
+            HeapStr subStr = string_substr_unsafe(alloc, s, segStart, i);
+
+            if (!subStr)
+                return (ResultList){
+                    .value = {0},
+                    .error = ERR_OUT_OF_MEMORY,
+                };
+
+            list_push(&l, &subStr);
+
+            if (s[i] == '\r') ++i;
+
+            ++i;
+            segStart = i;
+            continue;
+        }
+
+        ++i;
+    }
+
+    HeapStr subStr = string_substr_unsafe(alloc, s, segStart, bound);
+
+    if (!subStr)
+        return (ResultList){
+            .value = {0},
+            .error = ERR_OUT_OF_MEMORY,
+        };
+
+    list_push(&l, &subStr);
+
+    return (ResultList){
+        .value = l,
+        .error = ERR_OK,
+    };
+}
+
+/**
  * @brief Returns the index of the first occurrence of `needle` within `haystack`
  * If no occurrences have been found, returns -1;
  *

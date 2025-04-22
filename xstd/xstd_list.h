@@ -610,12 +610,12 @@ void list_clear_nofree(List *list)
  * @param list
  * @param func
  */
-void list_for_each(List *list, void (*func)(void *itemPtr, u64 index))
+void list_for_each(List *list, void (*func)(void *itemPtr, u64 index, void* userArg), void* userArg)
 {
     u64 bound = list->_itemCnt;
     for (u64 i = 0; i < bound; ++i)
     {
-        func(list_getref_unsafe(list, i), i);
+        func(list_getref_unsafe(list, i), i, userArg);
     }
 }
 

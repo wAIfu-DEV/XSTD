@@ -3,16 +3,20 @@
 #include "xstd_core.h"
 #include "xstd_alloc.h"
 #include "xstd_io.h"
+#include "xstd_hashmap.h"
 
 typedef struct _debug_allocator_state
 {
-    const Allocator *targetAllocator;
+    Allocator *targetAllocator;
     u64 totalMallocCalls;
     u64 totalFreeCalls;
     u64 totalAllocBytes;
     u64 totalFreedBytes;
     u64 activeBytes;
     u64 activeAllocs;
+
+    HashMap ptrAllocMap;
+
     ibool verbosePrint;
 } DebugAllocatorState;
 
@@ -33,6 +37,11 @@ void *__debug_alloc(Allocator *this, u64 size)
     state->totalAllocBytes += size;
     state->activeAllocs += 1;
     state->activeBytes += size;
+
+    // ptrAllocMap[ptr] = size
+    Buffer mapKey = (Buffer){ .bytes = (i8*)&ptr, .size = sizeof(u64) };
+    Error _ = hashmap_set(&state->ptrAllocMap, mapKey, &size);
+    (void)_;
 
     if (state->verbosePrint)
     {
@@ -65,6 +74,11 @@ void *__debug_realloc(Allocator *this, void *block, u64 newSize)
     state->activeAllocs += 1;
     state->activeBytes += newSize;
 
+    // ptrAllocMap[ptr] = size
+    Buffer mapKey = (Buffer){ .bytes = (i8*)&ptr, .size = sizeof(u64) };
+    Error _ = hashmap_set(&state->ptrAllocMap, mapKey, &newSize);
+    (void)_;
+
     if (state->verbosePrint)
     {
         File f = IoStderr;
@@ -94,6 +108,10 @@ void __debug_free(Allocator *this, void *block)
 
     if (state->activeAllocs > 0)
         state->activeAllocs -= 1;
+    
+    Buffer mapKey = (Buffer){ .bytes = (i8*)&block, .size = sizeof(u64) };
+    Error _ = hashmap_remove(&state->ptrAllocMap, mapKey);
+    (void)_;
 
     state->targetAllocator->free((Allocator *)state->targetAllocator, block);
 }
@@ -110,10 +128,16 @@ void __debug_free(Allocator *this, void *block)
  * ```
  * @param internalStatePtr pointer to a persistent DebugAllocatorState
  * @param wrappedAllocator allocator to forward calls to
- * @return Allocator
+ * @return ResultAllocator
  */
-Allocator debug_allocator(DebugAllocatorState *internalStatePtr, const Allocator *wrappedAllocator)
+ResultAllocator debug_allocator(DebugAllocatorState *internalStatePtr, Allocator *wrappedAllocator)
 {
+    if (!wrappedAllocator || !internalStatePtr)
+        return (ResultAllocator){
+            .value = {0},
+            .error = ERR_INVALID_PARAMETER,
+        };
+
     *internalStatePtr = (DebugAllocatorState){
         .targetAllocator = wrappedAllocator,
         .totalMallocCalls = 0,
@@ -124,12 +148,38 @@ Allocator debug_allocator(DebugAllocatorState *internalStatePtr, const Allocator
         .activeBytes = 0,
     };
 
-    return (Allocator){
-        ._internalState = internalStatePtr,
-        .alloc = __debug_alloc,
-        .realloc = __debug_realloc,
-        .free = __debug_free,
+    ResultHashMap hmRes = HashMapInitT(u64, wrappedAllocator);
+
+    if (hmRes.error)
+        return (ResultAllocator){
+            .value = {0},
+            .error = hmRes.error,
+        };
+    
+    internalStatePtr->ptrAllocMap = hmRes.value;
+
+    return (ResultAllocator){
+        .value = (Allocator) {
+            ._internalState = internalStatePtr,
+            .alloc = __debug_alloc,
+            .realloc = __debug_realloc,
+            .free = __debug_free,
+        },
+        .error = ERR_OK,
     };
+}
+
+void __debug_allocator_print_active(Buffer key, void* value, void* userArg)
+{
+    File f = IoStderr;
+
+    file_write_str(&f, "ptr=");
+    file_write_uint(&f, *(u64*)key.bytes);
+    file_write_str(&f, " size=");
+    file_write_uint(&f, *(u64*)value);
+    file_write_char(&f, '\n');
+
+    file_flush(&f);
 }
 
 /**
@@ -155,8 +205,11 @@ void debug_allocator_logstats(DebugAllocatorState *state)
     file_write_uint(&f, state->activeAllocs);
     io_printerrln("");
 
-    // TODO: We need to implement a map structure to map pointers to their footprint
-    // io_printerr("- Active bytes: ");
-    // file_write_uint(&f, state->activeBytes);
-    // io_printerrln("");
+    io_printerr("- Active bytes:\n");
+    hashmap_for_each(&state->ptrAllocMap, __debug_allocator_print_active, NULL);
+
+    if (state->activeAllocs == 0)
+    {
+        io_printerrln("none");
+    }
 }
