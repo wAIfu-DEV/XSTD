@@ -42,3 +42,19 @@ typedef struct _buffer_const
     const i8 *bytes;
     u64 size;
 } ConstBuff;
+
+#define U8_MAXVAL (u8)-1
+#define U16_MAXVAL (u16)-1
+#define U32_MAXVAL (u32)-1
+#define U64_MAXVAL (u64)-1
+
+const u64 l = U64_MAXVAL;
+
+#define I8_MAXVAL (i8)127
+#define I8_MINVAL (i8)(-128)
+#define I16_MAXVAL (i16)32767
+#define I16_MINVAL (i16)(-32768)
+#define I32_MAXVAL (i32)2147483647
+#define I32_MINVAL (i32)(-2147483648)
+#define I64_MAXVAL (i64)((u64)-1 / (i64)2)
+#define I64_MINVAL (i64)(-((u64)-1 / (i64)2) - (i64)1)

@@ -1,9 +1,9 @@
 #pragma once
 
-#include "xstd_core.h"
-#include "xstd_alloc.h"
-#include "xstd_io.h"
-#include "xstd_string.h"
+#include "../xstd/xstd_core.h"
+#include "../xstd/xstd_alloc.h"
+#include "../xstd/xstd_io.h"
+#include "../xstd/xstd_string.h"
 
 void *_xstd_bad_alloc_alloc(Allocator *a, u64 s)
 {
@@ -431,43 +431,51 @@ void _xstd_stringing_tests(Allocator alloc)
         ConstStr strSpl0 = " This is a split string ";
         ConstStr strSpl1 = "This is a  split string";
 
-        ResultList strSpl2 = string_splitc(&alloc, strSpl1, ' ');
+        ResultList strSpl2 = string_split_char(&alloc, strSpl1, ' ');
         x_assertErr(strSpl2.error, "string_splitc strSpl2.error != ERR_OK");
 
         List l = strSpl2.value;
 
         u64 listSize = list_size(&l);
-        x_assert(listSize == 5, "string_splitc size strSpl2 != 5");
+        x_assert(listSize == 6, "string_splitc size strSpl2 != 6");
 
         HeapStr strSpl3;
         ListGetT(HeapStr, &l, 0, &strSpl3);
         x_assertStrEq(strSpl3, "This", "string_splitc strSpl3 != \"This\"");
 
+        HeapStr strSpl3_2;
+        ListGetT(HeapStr, &l, 3, &strSpl3_2);
+        x_assertStrEq(strSpl3_2, "", "string_splitc strSpl3_2 != \"\"");
+
         HeapStr strSpl3_5;
-        ListGetT(HeapStr, &l, 3, &strSpl3_5);
+        ListGetT(HeapStr, &l, 4, &strSpl3_5);
         x_assertStrEq(strSpl3_5, "split", "string_splitc strSpl3_5 != \"split\"");
 
         HeapStr strSpl4;
-        ListGetT(HeapStr, &l, 4, &strSpl4);
+        ListGetT(HeapStr, &l, 5, &strSpl4);
         x_assertStrEq(strSpl4, "string", "string_splitc strSpl4 != \"string\"");
 
-        ResultList strSpl5 = string_splitc(&alloc, NULL, ' ');
+        ResultList strSpl5 = string_split_char(&alloc, NULL, ' ');
         x_assert(strSpl5.error != ERR_OK, "string_splitc strSpl5.error == ERR_OK");
 
-        ResultList strSpl6 = string_splitc(&alloc, strSpl0, ' ');
+        ResultList strSpl6 = string_split_char(&alloc, strSpl0, ' ');
         x_assert(strSpl6.error == ERR_OK, "string_splitc strSpl6.error != ERR_OK");
 
         List l2 = strSpl6.value;
 
         u64 listSize2 = list_size(&l2);
-        x_assert(listSize2 == 5, "string_splitc size strSpl6 != 5");
+        x_assert(listSize2 == 7, "string_splitc size strSpl7 != 5");
 
         HeapStr strSpl7;
         ListGetT(HeapStr, &l2, 0, &strSpl7);
-        x_assertStrEq(strSpl7, "This", "string_splitc strSpl7 != \"This\"");
+        x_assertStrEq(strSpl7, "", "string_splitc strSpl7 != \"\"");
+
+        HeapStr strSpl7_5;
+        ListGetT(HeapStr, &l2, 1, &strSpl7_5);
+        x_assertStrEq(strSpl7_5, "This", "string_splitc strSpl7_5 != \"This\"");
 
         HeapStr strSpl8;
-        ListGetT(HeapStr, &l2, 4, &strSpl8);
+        ListGetT(HeapStr, &l2, 5, &strSpl8);
         x_assertStrEq(strSpl8, "string", "string_splitc strSpl8 != \"string\"");
 
         list_free_items(&alloc, &l);
@@ -505,6 +513,30 @@ void _xstd_stringing_tests(Allocator alloc)
 
         found = string_find(strFin1, "");
         x_assert(found == 0, "string_find strFin1 \"\" found != 0");
+    }
+    // =========================================================================
+    // TEST string_find_char
+    // =========================================================================
+    {
+        ConstStr strFin1 = "Thus is a test string";
+
+        i64 found = string_find_char(strFin1, 'u');
+        x_assert(found == 2, "string_find_char strFin1 u found != 2");
+
+        found = string_find_char(strFin1, 'r');
+        x_assert(found == 17, "string_find_char strFin1 r found != 17");
+
+        found = string_find_char(strFin1, 'w');
+        x_assert(found == -1, "string_find_char strFin1 w found != -1");
+
+        found = string_find_char(strFin1, 0);
+        x_assert(found == -1, "string_find_char strFin1 0 found != -1");
+
+        found = string_find_char(NULL, 'a');
+        x_assert(found == -1, "string_find_char NULL2 found != -1");
+
+        found = string_find_char(NULL, 0);
+        x_assert(found == -1, "string_find_char NULL3 found != -1");
     }
     // =========================================================================
     // TEST StringBuilder
@@ -545,6 +577,175 @@ void _xstd_stringing_tests(Allocator alloc)
         alloc.free(&alloc, built);
 
         strbuilder_deinit(&builder);
+    }
+    // =========================================================================
+    // TEST string_replace
+    // =========================================================================
+    {
+        ConstStr strRep1 = "This is a test";
+
+        ResultOwnedStr resRep1 = string_replace(&alloc, strRep1, "is", "os");
+        x_assertErr(resRep1.error, "string_replace resRep1 != ERR_OK");
+        x_assertStrEq(resRep1.value, "Thos os a test", "string_replace resRep1 != \"Thos os a test\"");
+
+        ResultOwnedStr resRep2 = string_replace(&alloc, strRep1, " a ", " a burger ");
+        x_assertErr(resRep2.error, "string_replace resRep2 != ERR_OK");
+        x_assertStrEq(resRep2.value, "This is a burger test", "string_replace resRep2 != \"This is a burger test\"");
+
+        ResultOwnedStr resRep3 = string_replace(&alloc, strRep1, NULL, " a burger ");
+        x_assert(resRep3.error != ERR_OK, "string_replace resRep3 == ERR_OK");
+
+        ResultOwnedStr resRep4 = string_replace(&alloc, strRep1, " ", NULL);
+        x_assert(resRep4.error != ERR_OK, "string_replace resRep4 == ERR_OK");
+
+        ResultOwnedStr resRep5 = string_replace(&alloc, strRep1, NULL, NULL);
+        x_assert(resRep5.error != ERR_OK, "string_replace resRep5 == ERR_OK");
+
+        ResultOwnedStr resRep6 = string_replace(&alloc, NULL, NULL, NULL);
+        x_assert(resRep6.error != ERR_OK, "string_replace resRep6 == ERR_OK");
+
+        alloc.free(&alloc, resRep1.value);
+        alloc.free(&alloc, resRep2.value);
+    }
+    // =========================================================================
+    // TEST string_starts_with
+    // =========================================================================
+    {
+        ibool strStaWth1 = string_starts_with("This is a test", "This");
+        x_assert(strStaWth1, "string_starts_with strStaWth1 != true");
+
+        ibool strStaWth2 = string_starts_with("This is a test", "Though");
+        x_assert(!strStaWth2, "string_starts_with strStaWth2 == true");
+
+        ibool strStaWth3 = string_starts_with("This is a test", NULL);
+        x_assert(!strStaWth3, "string_starts_with strStaWth3 == true");
+
+        ibool strStaWth4 = string_starts_with(NULL, "");
+        x_assert(!strStaWth4, "string_starts_with strStaWth4 == true");
+
+        ibool strStaWth5 = string_starts_with(NULL, NULL);
+        x_assert(!strStaWth5, "string_starts_with strStaWth5 == true");
+
+        ibool strStaWth6 = string_starts_with("This is a test", "");
+        x_assert(strStaWth6, "string_starts_with strStaWth6 != true");
+    }
+    // =========================================================================
+    // TEST string_ends_with
+    // =========================================================================
+    {
+        ibool strEndWth1 = string_ends_with("This is a test", "test");
+        x_assert(strEndWth1, "string_ends_with strEndWth1 != true");
+
+        ibool strEndWth2 = string_ends_with("This is a test", "tes");
+        x_assert(!strEndWth2, "string_ends_with strEndWth2 == true");
+
+        ibool strEndWth3 = string_ends_with("This is a test", NULL);
+        x_assert(!strEndWth3, "string_ends_with strEndWth3 == true");
+
+        ibool strEndWth4 = string_ends_with(NULL, "");
+        x_assert(!strEndWth4, "string_ends_with strEndWth4 == true");
+
+        ibool strEndWth5 = string_ends_with(NULL, NULL);
+        x_assert(!strEndWth5, "string_ends_with strEndWth5 == true");
+
+        ibool strEndWth6 = string_ends_with("This is a test", "");
+        x_assert(strEndWth6, "string_ends_with strEndWth6 != true");
+    }
+    // =========================================================================
+    // TEST char_is_alpha
+    // =========================================================================
+    {
+        x_assert(!char_is_alpha('a' - 1), "char_is_alpha invalid range <a");
+
+        i8 c = 'a';
+        while (c <= 'z')
+        {
+            x_assert(char_is_alpha(c), "char_is_alpha invalid range a-z");
+            ++c;
+        }
+
+        x_assert(!char_is_alpha('z' + 1), "char_is_alpha invalid range >z");
+
+        x_assert(!char_is_alpha('A' - 1), "char_is_alpha invalid range <A");
+        
+        c = 'A';
+        while (c <= 'Z')
+        {
+            x_assert(char_is_alpha(c), "char_is_alpha invalid range A-Z");
+            ++c;
+        }
+
+        x_assert(!char_is_alpha('Z' + 1), "char_is_alpha invalid range >Z");
+    }
+    // =========================================================================
+    // TEST char_is_digit
+    // =========================================================================
+    {
+        x_assert(!char_is_digit('0' - 1), "char_is_digit invalid range <0");
+
+        i8 c = '0';
+        while (c <= '9')
+        {
+            x_assert(char_is_digit(c), "char_is_digit invalid range 0-9");
+            ++c;
+        }
+
+        x_assert(!char_is_digit('9' + 1), "char_is_digit invalid range >9");
+    }
+    // =========================================================================
+    // TEST char_is_alphanum
+    // =========================================================================
+    {
+        x_assert(!char_is_alphanum('a' - 1), "char_is_alphanum invalid range <a");
+
+        i8 c = 'a';
+        while (c <= 'z')
+        {
+            x_assert(char_is_alphanum(c), "char_is_alphanum invalid range a-z");
+            ++c;
+        }
+
+        x_assert(!char_is_alphanum('z' + 1), "char_is_alphanum invalid range >z");
+
+        x_assert(!char_is_alphanum('A' - 1), "char_is_alphanum invalid range <A");
+        
+        c = 'A';
+        while (c <= 'Z')
+        {
+            x_assert(char_is_alphanum(c), "char_is_alphanum invalid range A-Z");
+            ++c;
+        }
+
+        x_assert(!char_is_alphanum('Z' + 1), "char_is_alphanum invalid range >Z");
+
+        x_assert(!char_is_alphanum('0' - 1), "char_is_alphanum invalid range <0");
+
+        c = '0';
+        while (c <= '9')
+        {
+            x_assert(char_is_alphanum(c), "char_is_alphanum invalid range 0-9");
+            ++c;
+        }
+
+        x_assert(!char_is_alphanum('9' + 1), "char_is_alphanum invalid range >9");
+    }
+    // =========================================================================
+    // TEST string_trim_whitespace
+    // =========================================================================
+    {
+        ResultOwnedStr strTrim1 = string_trim_whitespace(&alloc, "  \n  This is a test.", true, true);
+        x_assertErr(strTrim1.error, "string_trim_whitespace strTrim1 != OK");
+        x_assertStrEq(strTrim1.value, "This is a test.", "string_trim_whitespace strTrim1 != \"This is a test.\"");
+
+        ResultOwnedStr strTrim2 = string_trim_whitespace(&alloc, "  \n  This is a test. \t  ", true, true);
+        x_assertErr(strTrim2.error, "string_trim_whitespace strTrim2 != OK");
+        x_assertStrEq(strTrim2.value, "This is a test.", "string_trim_whitespace strTrim2 != \"This is a test.\"");
+
+        ResultOwnedStr strTrim3 = string_trim_whitespace(&alloc, NULL, true, true);
+        x_assert(strTrim3.error != ERR_OK, "string_trim_whitespace strTrim3 == OK");
+
+        alloc.free(&alloc, strTrim1.value);
+        alloc.free(&alloc, strTrim2.value);
     }
 }
 

@@ -8,25 +8,15 @@ int main(void)
     {
         // Read line from stdin
         ResultOwnedStr inputRes = io_read_line(&c_allocator);
-
-        // Handle possible errors
-        switch (inputRes.error)
-        {
-        case ERR_FILE_CANT_READ:
-            continue;
-        default:
-            x_assertErr(inputRes.error, "Could not read from stdin.");
-        }
-
-        HeapStr input = inputRes.value;
+        x_assertErr(inputRes.error, "Could not read from stdin.");
 
         // Handle exit
-        if (string_equals(input, "quit"))
+        if (string_equals(inputRes.value, "quit"))
             return 0;
 
-        io_println(input);
+        io_println(inputRes.value);
 
         // Free owned memory
-        c_allocator.free(&c_allocator, input);
+        c_allocator.free(&c_allocator, inputRes.value);
     }
 }

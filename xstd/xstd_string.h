@@ -521,7 +521,7 @@ HeapStr string_substr_unsafe(Allocator *alloc, ConstStr s, u64 start, u64 end)
  *
  * ```c
  * ConstStr myStr = "Hello, World!";
- * ResultList split = string_splitc(&c_allocator, myStr, ' ');
+ * ResultList split = string_split_char(&c_allocator, myStr, ' ');
  * if (split.error) // Error!
  * // split.value == List["Hello,", "World!"]
  * List l = res.value;
@@ -534,7 +534,7 @@ HeapStr string_substr_unsafe(Allocator *alloc, ConstStr s, u64 start, u64 end)
  * @param delimiter
  * @return String
  */
-ResultList string_splitc(Allocator *alloc, ConstStr s, i8 delimiter)
+ResultList string_split_char(Allocator *alloc, ConstStr s, i8 delimiter)
 {
     // What a mess...
 
@@ -551,58 +551,70 @@ ResultList string_splitc(Allocator *alloc, ConstStr s, i8 delimiter)
 
     List l = resList.value;
 
-    u64 end = string_size(s);
+    u64 bound = string_size(s);
     u64 i = 0;
-    while (i < end && s[i] == delimiter)
+    u64 segStart = i;
+
+    while (s[i])
     {
-        ++i;
-    }
-    u64 start = i;
-
-    while (end > start && s[end - 1] == delimiter)
-    {
-        --end;
-    }
-
-    if (start == end)
-        return (ResultList){
-            .value = l,
-            .error = ERR_OK,
-        };
-
-    for (; i < end; ++i)
-    {
-        if (start == i)
-            continue;
-
-        if (s[i] != delimiter)
-            continue;
-
-        HeapStr subStr = string_substr_unsafe(alloc, s, start, i);
-
-        if (!subStr)
-            return (ResultList){
-                .value = {0},
-                .error = ERR_OUT_OF_MEMORY,
-            };
-
-        list_push(&l, &subStr);
-
-        while (s[i] == delimiter)
+        if (s[i] == delimiter)
         {
+            HeapStr subStr = string_substr_unsafe(alloc, s, segStart, i);
+
+            if (!subStr)
+                return (ResultList){
+                    .value = {0},
+                    .error = ERR_OUT_OF_MEMORY,
+                };
+
+            list_push(&l, &subStr);
+
             ++i;
+            segStart = i;
+            continue;
         }
 
-        start = i;
+        ++i;
     }
 
-    HeapStr subStr = string_substr_unsafe(alloc, s, start, end);
+    HeapStr subStr = string_substr_unsafe(alloc, s, segStart, bound);
+
+    if (!subStr)
+        return (ResultList){
+            .value = {0},
+            .error = ERR_OUT_OF_MEMORY,
+        };
+
     list_push(&l, &subStr);
 
     return (ResultList){
         .value = l,
         .error = ERR_OK,
     };
+}
+
+/**
+ * @brief Returns the index of the first occurrence of `needle` within `haystack`
+ * If no occurrences have been found, returns -1;
+ *
+ * @param haystack
+ * @param needle
+ * @return i64
+ */
+i64 string_find_char(ConstStr haystack, i8 needle)
+{
+    if (!haystack || !needle)
+        return -1;
+
+    u64 i = 0;
+    while (haystack[i])
+    {
+        if (haystack[i] == needle)
+            return i;
+
+        ++i;
+    }
+    return -1;
 }
 
 /**
@@ -785,8 +797,8 @@ ResultOwnedStr strbuilder_get_string(StringBuilder *builder)
 
     for (u64 i = 0; i < bound; ++i)
     {
-        HeapStr *s = list_getref_unsafe(&builder->_strings, i);
-        totalSize += string_size(*s);
+        HeapStr s = list_get_as_ptr(&builder->_strings, i);
+        totalSize += string_size(s);
     }
 
     Allocator *alloc = &builder->_strings._allocator;
@@ -801,8 +813,8 @@ ResultOwnedStr strbuilder_get_string(StringBuilder *builder)
     u64 offset = 0;
     for (u64 i = 0; i < bound; ++i)
     {
-        HeapStr *s = list_getref_unsafe(&builder->_strings, i);
-        HeapStr source = *s;
+        HeapStr s = list_get_as_ptr(&builder->_strings, i);
+        HeapStr source = s;
 
         u64 j = 0;
         while (source[j])
@@ -999,12 +1011,12 @@ ibool char_is_whitespace(const i8 c)
  *
  * ```c
  * ConstStr myStr = "  Hello, World!  ";
- * ResultOwnedStr trimmed = string_trim(&c_allocator, myStr, true, true);
+ * ResultOwnedStr trimmed = string_trim_whitespace(&c_allocator, myStr, true, true);
  * if (trimmed.error) // Error!
  * // trimmed.value == "Hello, World!"
  *
  * ConstStr myStr2 = "  Hello, World!  ";
- * ResultOwnedStr trimStart = string_trim(&c_allocator, myStr2, true, false);
+ * ResultOwnedStr trimStart = string_trim_whitespace(&c_allocator, myStr2, true, false);
  * if (trimStart.error) // Error!
  * // trimStart.value == "Hello, World!  "
  * ```
@@ -1015,7 +1027,7 @@ ibool char_is_whitespace(const i8 c)
  * @param end If !0 (true), trim from the end of the string
  * @return ResultOwnedStr
  */
-ResultOwnedStr string_trim(Allocator *alloc, ConstStr s, ibool start, ibool end)
+ResultOwnedStr string_trim_whitespace(Allocator *alloc, ConstStr s, ibool start, ibool end)
 {
     if (!alloc || !s)
         return (ResultOwnedStr){

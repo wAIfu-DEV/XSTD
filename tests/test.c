@@ -1,5 +1,5 @@
 #include "../xstd.h"
-#include "../xstd/xstd_tests.h"
+#include "xstd_tests.h"
 
 int main(void)
 {
