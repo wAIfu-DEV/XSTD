@@ -260,6 +260,9 @@ Error __hashmap_set(HashMap *map, Buffer key, const void *value, u64 hash)
 
 Error __hashmap_rehash(HashMap *map, u64 newBucketCount)
 {
+    if (newBucketCount == 0)
+        return ERR_INVALID_PARAMETER;
+
     Allocator *alloc = &map->_allocator;
     _HashMapEntry **newBuckets = (_HashMapEntry **)alloc->alloc(alloc, sizeof(_HashMapEntry *) * newBucketCount);
 
@@ -310,6 +313,13 @@ Error hashmap_set(HashMap *map, Buffer key, const void *value)
     return __hashmap_set(map, key, value, __hashmap_fnv1a64(key.bytes, key.size));
 }
 
+#define HashMapSetBuffT(T, mapPtr, keyBuff, valPtr) \
+    { \
+        T *mapItemTypeCheck = (valPtr); \
+        (void)mapItemTypeCheck; \
+        hashmap_set((mapPtr), (keyBuff), (valPtr)) \
+    }
+
 /**
  * @brief Sets or overwrites value for provided `key` of type `String`
  * 
@@ -326,6 +336,13 @@ Error hashmap_set_str(HashMap *map, ConstStr key, const void *value)
     Buffer keyBuff = {.bytes = (i8 *)key, .size = string_size(key)};
     return hashmap_set(map, keyBuff, value);
 }
+
+#define HashMapSetStrT(T, mapPtr, keyStr, valPtr) \
+    { \
+        T *mapItemTypeCheck = (valPtr); \
+        (void)mapItemTypeCheck; \
+        hashmap_set_str((mapPtr), (keyStr), (valPtr)) \
+    }
 
 /**
  * @brief Fetches a value from a provided `key` of type `Buffer`

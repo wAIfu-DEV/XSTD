@@ -1,20 +1,18 @@
 #pragma once
 
-#include "stdio.h"
-
 typedef struct _file_os_interface
 {
     void *_internalState;
 
-    void *(*fstdout)(void);
-    void *(*fstderr)(void);
-    void *(*fstdin)(void);
-    int (*open)(void **stream, const char *fileName, const char *mode);
-    int (*close)(void *stream);
-    int (*getc)(void *stream);
-    int (*seek)(void *stream, long off, int origin);
-    long (*tell)(void *stream);
-    int (*putc)(int c, void *stream);
-    int (*flush)(void *stream);
-    int (*eof)(void *stream);
+    void *(*const fstdout)(void);
+    void *(*const fstderr)(void);
+    void *(*const fstdin)(void);
+    int (*const open)(void **stream, const char *fileName, const char *mode);
+    int (*const close)(void *stream);
+    int (*const getc)(void *stream);
+    int (*const seek)(void *stream, long off, int origin);
+    long (*const tell)(void *stream);
+    int (*const putc)(int c, void *stream);
+    int (*const flush)(void *stream);
+    int (*const eof)(void *stream);
 } _FileOsInterface;

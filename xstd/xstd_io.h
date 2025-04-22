@@ -203,15 +203,47 @@ ResultOwnedStr io_read_line(Allocator *alloc)
     };
 }
 
+void crash(i16 code)
+{
+    while (true)
+        exit(code);
+}
+
+void crash_print(ConstStr errMsg, i16 code)
+{
+    File f = IoStderr;
+
+    // We use file_write here to not spam file_flush
+    file_write_str(&f, "\x1b[1;31m");
+    file_write_str(&f, "[CRASH]: ");
+    io_printerrln(errMsg);
+
+    crash(code);
+}
+
+void crash_print_error(Error err, ConstStr errMsg, i16 code)
+{
+    File f = IoStderr;
+
+    // We use file_write here to not spam file_flush
+    file_write_str(&f, "\x1b[1;31m");
+    file_write_str(&f, "[CRASH](ERROR: ");
+    file_write_str(&f, ErrorToString(err));
+    file_write_str(&f, "): ");
+    io_printerrln(errMsg);
+
+    crash(code);
+}
+
 /**
  * @brief Crashes the program if `condition` is 0 (false) and prints `falseMessage` to stderr.
  *
  * ```
- * x_assert(0 == 0, "Somehow, 0 is not equal to 0.");
+ * assert_true(0 == 0, "Somehow, 0 is not equal to 0.");
  * ```
  * @param text
  */
-void x_assert(const ibool condition, ConstStr falseMessage)
+void assert_true(const ibool condition, ConstStr falseMessage)
 {
     if (condition)
         return;
@@ -222,8 +254,7 @@ void x_assert(const ibool condition, ConstStr falseMessage)
     file_write_str(&f, "[ASSERT FAILURE]: ");
     io_printerrln(falseMessage);
 
-    while (true)
-        exit(1);
+    crash(1);
 }
 
 /**
@@ -231,11 +262,11 @@ void x_assert(const ibool condition, ConstStr falseMessage)
  *
  * ```
  * ResultFile res = file_open("example.txt", FileOpenModes.READ);
- * x_assertErr(res.error, "Failed to open the file.");
+ * assert_ok(res.error, "Failed to open the file.");
  * ```
  * @param text
  */
-void x_assertErr(const Error err, ConstStr isErrMessage)
+void assert_ok(const Error err, ConstStr isErrMessage)
 {
     if (err == ERR_OK)
         return;
@@ -249,19 +280,18 @@ void x_assertErr(const Error err, ConstStr isErrMessage)
     file_write_str(&f, "): ");
     io_printerrln(isErrMessage);
 
-    while (true)
-        exit(1);
+    crash(1);
 }
 
 /**
  * @brief Crashes the program if `a` and `b` are different and prints `falseMessage` to stderr.
  *
  * ```
- * x_assertStrEq("0", "0", "Somehow, \"0\" is not equal to \"0\".");
+ * assert_str_eq("0", "0", "Somehow, \"0\" is not equal to \"0\".");
  * ```
  * @param text
  */
-void x_assertStrEq(ConstStr a, ConstStr b, ConstStr falseMessage)
+void assert_str_eq(ConstStr a, ConstStr b, ConstStr falseMessage)
 {
     if (string_equals(a, b))
         return;
@@ -272,6 +302,5 @@ void x_assertStrEq(ConstStr a, ConstStr b, ConstStr falseMessage)
     file_write_str(&f, "[ASSERT STR EQ FAILURE]: ");
     io_printerrln(falseMessage);
 
-    while (true)
-        exit(1);
+    crash(1);
 }

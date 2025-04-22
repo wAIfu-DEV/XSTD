@@ -8,7 +8,7 @@ int main(void)
     {
         // Read line from stdin
         ResultOwnedStr inputRes = io_read_line(&c_allocator);
-        x_assertErr(inputRes.error, "Could not read from stdin.");
+        assert_ok(inputRes.error, "Could not read from stdin.");
 
         // Handle exit
         if (string_equals(inputRes.value, "quit"))

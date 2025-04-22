@@ -4,7 +4,7 @@ int main(void)
 {
     // OPEN FILE ===============================================================
     ResultFile resFile = file_open("sample.csv", FileOpenModes.READ);
-    x_assertErr(resFile.error, "Failed to open sample file");
+    assert_ok(resFile.error, "Failed to open sample file");
 
     File file = resFile.value;
 
@@ -21,7 +21,7 @@ int main(void)
 
         // Initialize alloc allocator
         ResultAllocator resArena = arena_allocator(arenaBuffer, false);
-        x_assertErr(resArena.error, "Failed to initialize alloc.");
+        assert_ok(resArena.error, "Failed to initialize alloc.");
 
         Allocator alloc = resArena.value;
 
@@ -34,7 +34,7 @@ int main(void)
 
         // Read file as list of lines
         ResultList resLines = file_read_lines(&alloc, &file);
-        x_assertErr(resLines.error, "Failed to read file as lines");
+        assert_ok(resLines.error, "Failed to read file as lines");
 
         List lines = resLines.value;
 
@@ -49,7 +49,7 @@ int main(void)
 
         // Initialize result list
         ResultList resultListRes = ListInitT(CsvLine, &alloc);
-        x_assertErr(resultListRes.error, "Failed to initialize result list.");
+        assert_ok(resultListRes.error, "Failed to initialize result list.");
 
         List resultList = resultListRes.value;
 
@@ -62,8 +62,8 @@ int main(void)
             HeapStr line = list_get_as_ptr(&lines, i);
 
             // Split line on ',' character, returns list of strings
-            ResultList resSplit = string_splitc(&alloc, line, ',');
-            x_assertErr(resSplit.error, "Failed to split line.");
+            ResultList resSplit = string_split_char(&alloc, line, ',');
+            assert_ok(resSplit.error, "Failed to split line.");
 
             List split = resSplit.value;
 
@@ -79,10 +79,10 @@ int main(void)
 
             // Parse ID and age strings as numbers
             ResultU64 idRes = string_parse_uint(idStr);
-            x_assertErr(idRes.error, "Failed to parse ID.");
+            assert_ok(idRes.error, "Failed to parse ID.");
 
             ResultU64 ageRes = string_parse_uint(ageStr);
-            x_assertErr(ageRes.error, "Failed to parse age.");
+            assert_ok(ageRes.error, "Failed to parse age.");
 
             // Add parsed line to result list
             CsvLine parsed;
@@ -93,7 +93,7 @@ int main(void)
             ListPushT(CsvLine, &resultList, &parsed);
         }
 
-        x_assert(list_size(&resultList) > 0, "Could not parse any lines.");
+        assert_true(list_size(&resultList) > 0, "Could not parse any lines.");
 
         // PRINT RESULTS =======================================================
 

@@ -619,4 +619,7 @@ void list_for_each(List *list, void (*func)(void *itemPtr, u64 index, void* user
     }
 }
 
-// TODO: remove_at, insert_at
+// TODO:
+// 1. remove_at (useful for pop_front alt)
+// 2. insert_at (useful for push_front alt)
+// 3. sorting

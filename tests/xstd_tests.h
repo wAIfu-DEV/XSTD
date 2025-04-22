@@ -50,7 +50,7 @@ void _xstd_foreach_test(void *itemPtr, u64 index, void* userArg)
     itemStr[0] = ' ';
 }
 
-void _xstd_stringing_tests(Allocator alloc)
+void _xstd_string_tests(Allocator alloc)
 {
     Error err;
     Allocator badAlloc = _xstd_bad_alloc();
@@ -60,13 +60,13 @@ void _xstd_stringing_tests(Allocator alloc)
     // =========================================================================
     {
         ConstStr strLen22 = "This string is 22 long";
-        x_assert(string_size(strLen22) == 22, "string_size 22 != 22");
+        assert_true(string_size(strLen22) == 22, "string_size 22 != 22");
 
         ConstStr strLen0 = "";
-        x_assert(string_size(strLen0) == 0, "string_size 0 != 0");
+        assert_true(string_size(strLen0) == 0, "string_size 0 != 0");
 
         ConstStr strLenNull = NULL;
-        x_assert(string_size(strLenNull) == 0, "string_size NULL != 0");
+        assert_true(string_size(strLenNull) == 0, "string_size NULL != 0");
     }
     // =========================================================================
     // TEST string_equals
@@ -74,51 +74,51 @@ void _xstd_stringing_tests(Allocator alloc)
     {
         ConstStr strEq1 = "This is equal.";
         ConstStr strEq2 = "This is equal.";
-        x_assert(string_equals(strEq1, strEq2), "string_equals strEq1 != strEq2");
-        x_assert(string_equals(strEq2, strEq1), "string_equals strEq2 != strEq1");
+        assert_true(string_equals(strEq1, strEq2), "string_equals strEq1 != strEq2");
+        assert_true(string_equals(strEq2, strEq1), "string_equals strEq2 != strEq1");
 
         ConstStr strNeq3 = "This is not equal.";
-        x_assert(!string_equals(strEq1, strNeq3), "string_equals strEq1 == strNeq3");
-        x_assert(!string_equals(strNeq3, strEq1), "string_equals strNeq3 == strEq1");
+        assert_true(!string_equals(strEq1, strNeq3), "string_equals strEq1 == strNeq3");
+        assert_true(!string_equals(strNeq3, strEq1), "string_equals strNeq3 == strEq1");
 
         ConstStr strShortEq1 = "a";
         ConstStr strShortEq2 = "a";
-        x_assert(string_equals(strShortEq1, strShortEq2), "string_equals strShortEq1 != strShortEq2");
-        x_assert(string_equals(strShortEq2, strShortEq1), "string_equals strShortEq2 != strShortEq1");
+        assert_true(string_equals(strShortEq1, strShortEq2), "string_equals strShortEq1 != strShortEq2");
+        assert_true(string_equals(strShortEq2, strShortEq1), "string_equals strShortEq2 != strShortEq1");
 
         ConstStr strShortNeq3 = "b";
-        x_assert(!string_equals(strShortEq1, strShortNeq3), "string_equals strShortEq1 == strShortNeq3");
-        x_assert(!string_equals(strShortNeq3, strShortEq1), "string_equals strShortNeq3 == strShortEq1");
+        assert_true(!string_equals(strShortEq1, strShortNeq3), "string_equals strShortEq1 == strShortNeq3");
+        assert_true(!string_equals(strShortNeq3, strShortEq1), "string_equals strShortNeq3 == strShortEq1");
 
         ConstStr strShortEq4 = "ab";
-        x_assert(string_equals(strShortEq4, strShortEq4), "string_equals strShortEq4 != strShortEq4");
+        assert_true(string_equals(strShortEq4, strShortEq4), "string_equals strShortEq4 != strShortEq4");
 
-        x_assert(!string_equals(strEq1, NULL), "string_equals strEq1 == NULL");
-        x_assert(!string_equals(NULL, strEq1), "string_equals NULL == strEq1");
-        x_assert(string_equals(NULL, NULL), "string_equals NULL != NULL");
+        assert_true(!string_equals(strEq1, NULL), "string_equals strEq1 == NULL");
+        assert_true(!string_equals(NULL, strEq1), "string_equals NULL == strEq1");
+        assert_true(string_equals(NULL, NULL), "string_equals NULL != NULL");
     }
     // =========================================================================
     // TEST string_alloc
     // =========================================================================
     {
         ResultOwnedStr strHeapRes1 = string_alloc(&alloc, 5, ' ');
-        x_assert(strHeapRes1.error == ERR_OK, "string_alloc strHeapRes1.error != ERR_OK");
+        assert_true(strHeapRes1.error == ERR_OK, "string_alloc strHeapRes1.error != ERR_OK");
 
         HeapStr strHeap1 = strHeapRes1.value;
-        x_assert(strHeap1 != NULL, "string_alloc strHeapRes1.value == NULL");
-        x_assert(string_size(strHeap1) == 5, "string_alloc size strHeapRes1.value != 5");
-        x_assert(string_equals(strHeap1, "     "), "string_alloc strHeap1 != \"     \"");
+        assert_true(strHeap1 != NULL, "string_alloc strHeapRes1.value == NULL");
+        assert_true(string_size(strHeap1) == 5, "string_alloc size strHeapRes1.value != 5");
+        assert_true(string_equals(strHeap1, "     "), "string_alloc strHeap1 != \"     \"");
 
         ResultOwnedStr strHeapRes2 = string_alloc(&alloc, 0, ' ');
-        x_assert(strHeapRes2.error == ERR_OK, "string_alloc strHeapRes2.error != ERR_OK");
+        assert_true(strHeapRes2.error == ERR_OK, "string_alloc strHeapRes2.error != ERR_OK");
 
         HeapStr strHeap2 = strHeapRes2.value;
-        x_assert(strHeap2 != NULL, "string_alloc strHeapRes2.value == NULL");
-        x_assert(string_size(strHeap2) == 0, "string_alloc size strHeapRes2.value != 0");
-        x_assert(string_equals(strHeap2, ""), "string_alloc strHeap2 != \"\"");
+        assert_true(strHeap2 != NULL, "string_alloc strHeapRes2.value == NULL");
+        assert_true(string_size(strHeap2) == 0, "string_alloc size strHeapRes2.value != 0");
+        assert_true(string_equals(strHeap2, ""), "string_alloc strHeap2 != \"\"");
 
         ResultOwnedStr strHeapRes3 = string_alloc(&badAlloc, 5, ' ');
-        x_assert(strHeapRes3.error != ERR_OK, "string_alloc strHeapRes3.error == ERR_OK");
+        assert_true(strHeapRes3.error != ERR_OK, "string_alloc strHeapRes3.error == ERR_OK");
 
         alloc.free(&alloc, strHeap1);
         alloc.free(&alloc, strHeap2);
@@ -130,16 +130,16 @@ void _xstd_stringing_tests(Allocator alloc)
         ConstStr strCopyUn1 = "Copied.";
 
         ResultOwnedStr strCopyUnRes2 = string_alloc(&alloc, 7, ' ');
-        x_assert(strCopyUnRes2.error == ERR_OK, "string_copy_unsafe strCopyUnRes2.error != ERR_OK");
+        assert_true(strCopyUnRes2.error == ERR_OK, "string_copy_unsafe strCopyUnRes2.error != ERR_OK");
         HeapStr strCopyUn2 = strCopyUnRes2.value;
         string_copy_unsafe(strCopyUn1, strCopyUn2);
-        x_assert(string_equals(strCopyUn1, strCopyUn2), "string_copy_unsafe strCopyUn1 != strCopyUn2");
+        assert_true(string_equals(strCopyUn1, strCopyUn2), "string_copy_unsafe strCopyUn1 != strCopyUn2");
 
         ResultOwnedStr strCopyUnRes3 = string_alloc(&alloc, 10, ' ');
-        x_assert(strCopyUnRes3.error == ERR_OK, "string_copy_unsafe strCopyUnRes3.error != ERR_OK");
+        assert_true(strCopyUnRes3.error == ERR_OK, "string_copy_unsafe strCopyUnRes3.error != ERR_OK");
         HeapStr strCopyUn3 = strCopyUnRes3.value;
         string_copy_unsafe(strCopyUn1, strCopyUn3);
-        x_assert(string_equals(strCopyUn3, strCopyUn1), "string_copy_unsafe strCopyUn3 != strCopyUn1");
+        assert_true(string_equals(strCopyUn3, strCopyUn1), "string_copy_unsafe strCopyUn3 != strCopyUn1");
 
         alloc.free(&alloc, strCopyUn2);
         alloc.free(&alloc, strCopyUn3);
@@ -151,28 +151,28 @@ void _xstd_stringing_tests(Allocator alloc)
         ConstStr strCopyNUn1 = "Copied.";
 
         ResultOwnedStr strCopyNUnRes2 = string_alloc(&alloc, 7, ' ');
-        x_assert(strCopyNUnRes2.error == ERR_OK, "string_copy_n_unsafe strCopyNUnRes2.error != ERR_OK");
+        assert_true(strCopyNUnRes2.error == ERR_OK, "string_copy_n_unsafe strCopyNUnRes2.error != ERR_OK");
         HeapStr strCopyNUn2 = strCopyNUnRes2.value;
         string_copy_n_unsafe(strCopyNUn1, strCopyNUn2, 7, false);
-        x_assert(string_equals(strCopyNUn1, strCopyNUn2), "string_copy_n_unsafe strCopyNUn1 != strCopyNUn2");
+        assert_true(string_equals(strCopyNUn1, strCopyNUn2), "string_copy_n_unsafe strCopyNUn1 != strCopyNUn2");
 
         ResultOwnedStr strCopyNUnRes3 = string_alloc(&alloc, 10, ' ');
-        x_assert(strCopyNUnRes3.error == ERR_OK, "string_copy_n_unsafe strCopyNUnRes3.error != ERR_OK");
+        assert_true(strCopyNUnRes3.error == ERR_OK, "string_copy_n_unsafe strCopyNUnRes3.error != ERR_OK");
         HeapStr strCopyNUn3 = strCopyNUnRes3.value;
         string_copy_n_unsafe(strCopyNUn1, strCopyNUn3, 7, false);
-        x_assert(string_equals(strCopyNUn3, "Copied.   "), "string_copy_n_unsafe strCopyNUn3 != \"Copied.   \"");
+        assert_true(string_equals(strCopyNUn3, "Copied.   "), "string_copy_n_unsafe strCopyNUn3 != \"Copied.   \"");
 
         ResultOwnedStr strCopyNUnRes4 = string_alloc(&alloc, 10, ' ');
-        x_assert(strCopyNUnRes4.error == ERR_OK, "string_copy_n_unsafe strCopyNUnRes4.error != ERR_OK");
+        assert_true(strCopyNUnRes4.error == ERR_OK, "string_copy_n_unsafe strCopyNUnRes4.error != ERR_OK");
         HeapStr strCopyNUn4 = strCopyNUnRes4.value;
         string_copy_n_unsafe(strCopyNUn1, strCopyNUn4, 3, false);
-        x_assert(string_equals(strCopyNUn4, "Cop       "), "string_copy_n_unsafe strCopyNUn4 != \"Cop       \"");
+        assert_true(string_equals(strCopyNUn4, "Cop       "), "string_copy_n_unsafe strCopyNUn4 != \"Cop       \"");
 
         ResultOwnedStr strCopyNUnRes5 = string_alloc(&alloc, 10, ' ');
-        x_assert(strCopyNUnRes5.error == ERR_OK, "string_copy_n_unsafe strCopyNUnRes5.error != ERR_OK");
+        assert_true(strCopyNUnRes5.error == ERR_OK, "string_copy_n_unsafe strCopyNUnRes5.error != ERR_OK");
         HeapStr strCopyNUn5 = strCopyNUnRes5.value;
         string_copy_n_unsafe(strCopyNUn1, strCopyNUn5, 0, false);
-        x_assert(string_equals(strCopyNUn5, "          "), "string_copy_n_unsafe strCopyNUn5 != \"          \"");
+        assert_true(string_equals(strCopyNUn5, "          "), "string_copy_n_unsafe strCopyNUn5 != \"          \"");
 
         // TODO: Add testing for terminate==true
 
@@ -188,30 +188,30 @@ void _xstd_stringing_tests(Allocator alloc)
         ConstStr strCopy1 = "Copied.";
 
         ResultOwnedStr strCopyRes2 = string_alloc(&alloc, 7, ' ');
-        x_assert(strCopyRes2.error == ERR_OK, "string_copy strCopyRes2.error != ERR_OK");
+        assert_true(strCopyRes2.error == ERR_OK, "string_copy strCopyRes2.error != ERR_OK");
         HeapStr strCopy2 = strCopyRes2.value;
         err = string_copy(strCopy1, strCopy2);
-        x_assert(err == ERR_OK, "string_copy strCopy2 err != ERR_OK");
-        x_assert(string_equals(strCopy1, strCopy2), "string_copy strCopy1 != strCopy2");
+        assert_true(err == ERR_OK, "string_copy strCopy2 err != ERR_OK");
+        assert_true(string_equals(strCopy1, strCopy2), "string_copy strCopy1 != strCopy2");
 
         ResultOwnedStr strCopyRes3 = string_alloc(&alloc, 10, ' ');
-        x_assert(strCopyRes3.error == ERR_OK, "string_copy strCopyRes3.error != ERR_OK");
+        assert_true(strCopyRes3.error == ERR_OK, "string_copy strCopyRes3.error != ERR_OK");
         HeapStr strCopy3 = strCopyRes3.value;
         err = string_copy(strCopy1, strCopy3);
-        x_assert(err == ERR_OK, "string_copy strCopy3 err != ERR_OK");
-        x_assert(string_equals(strCopy3, strCopy1), "string_copy strCopy3 != strCopy1");
+        assert_true(err == ERR_OK, "string_copy strCopy3 err != ERR_OK");
+        assert_true(string_equals(strCopy3, strCopy1), "string_copy strCopy3 != strCopy1");
 
         err = string_copy(strCopy1, NULL);
-        x_assert(err != ERR_OK, "string_copy NULL arg2 err == ERR_OK");
+        assert_true(err != ERR_OK, "string_copy NULL arg2 err == ERR_OK");
 
         err = string_copy(NULL, strCopy3);
-        x_assert(err != ERR_OK, "string_copy NULL arg1 err == ERR_OK");
+        assert_true(err != ERR_OK, "string_copy NULL arg1 err == ERR_OK");
 
         err = string_copy(NULL, NULL);
-        x_assert(err != ERR_OK, "string_copy NULL args err == ERR_OK");
+        assert_true(err != ERR_OK, "string_copy NULL args err == ERR_OK");
 
         err = string_copy("                              ", strCopy2);
-        x_assert(err != ERR_OK, "string_copy arg2 smaller err == ERR_OK");
+        assert_true(err != ERR_OK, "string_copy arg2 smaller err == ERR_OK");
 
         alloc.free(&alloc, strCopy2);
         alloc.free(&alloc, strCopy3);
@@ -223,53 +223,53 @@ void _xstd_stringing_tests(Allocator alloc)
         ConstStr strCopyN1 = "Copied.";
 
         ResultOwnedStr strCopyNRes2 = string_alloc(&alloc, 7, ' ');
-        x_assert(strCopyNRes2.error == ERR_OK, "string_copy_n strCopyNRes2.error != ERR_OK");
+        assert_true(strCopyNRes2.error == ERR_OK, "string_copy_n strCopyNRes2.error != ERR_OK");
         HeapStr strCopyN2 = strCopyNRes2.value;
         err = string_copy_n(strCopyN1, strCopyN2, 7, false);
-        x_assert(err == ERR_OK, "string_copy_n strCopyN2 err != ERR_OK");
-        x_assert(string_equals(strCopyN1, strCopyN2), "string_copy_n strCopyN1 != strCopyN2");
+        assert_true(err == ERR_OK, "string_copy_n strCopyN2 err != ERR_OK");
+        assert_true(string_equals(strCopyN1, strCopyN2), "string_copy_n strCopyN1 != strCopyN2");
 
         ResultOwnedStr strCopyNRes3 = string_alloc(&alloc, 10, ' ');
-        x_assert(strCopyNRes3.error == ERR_OK, "string_copy_n strCopyNRes3.error != ERR_OK");
+        assert_true(strCopyNRes3.error == ERR_OK, "string_copy_n strCopyNRes3.error != ERR_OK");
         HeapStr strCopyN3 = strCopyNRes3.value;
         err = string_copy_n(strCopyN1, strCopyN3, 7, false);
-        x_assert(err == ERR_OK, "string_copy_n strCopyN3 err != ERR_OK");
-        x_assert(string_equals(strCopyN3, "Copied.   "), "string_copy_n strCopyN3 != \"Copied.   \"");
+        assert_true(err == ERR_OK, "string_copy_n strCopyN3 err != ERR_OK");
+        assert_true(string_equals(strCopyN3, "Copied.   "), "string_copy_n strCopyN3 != \"Copied.   \"");
 
         ResultOwnedStr strCopyNRes4 = string_alloc(&alloc, 10, ' ');
-        x_assert(strCopyNRes4.error == ERR_OK, "string_copy_n strCopyNRes4.error != ERR_OK");
+        assert_true(strCopyNRes4.error == ERR_OK, "string_copy_n strCopyNRes4.error != ERR_OK");
         HeapStr strCopyN4 = strCopyNRes4.value;
         err = string_copy_n(strCopyN1, strCopyN4, 3, false);
-        x_assert(err == ERR_OK, "string_copy_n strCopyN4 err != ERR_OK");
-        x_assert(string_equals(strCopyN4, "Cop       "), "string_copy_n strCopyN4 != \"Cop       \"");
+        assert_true(err == ERR_OK, "string_copy_n strCopyN4 err != ERR_OK");
+        assert_true(string_equals(strCopyN4, "Cop       "), "string_copy_n strCopyN4 != \"Cop       \"");
 
         ResultOwnedStr strCopyNRes5 = string_alloc(&alloc, 10, ' ');
-        x_assert(strCopyNRes5.error == ERR_OK, "string_copy_n strCopyNRes5.error != ERR_OK");
+        assert_true(strCopyNRes5.error == ERR_OK, "string_copy_n strCopyNRes5.error != ERR_OK");
         HeapStr strCopyN5 = strCopyNRes5.value;
         err = string_copy_n(strCopyN1, strCopyN5, 0, false);
-        x_assert(err == ERR_OK, "string_copy_n strCopyN5 err != ERR_OK");
-        x_assert(string_equals(strCopyN5, "          "), "string_copy_n strCopyN5 != \"          \"");
+        assert_true(err == ERR_OK, "string_copy_n strCopyN5 err != ERR_OK");
+        assert_true(string_equals(strCopyN5, "          "), "string_copy_n strCopyN5 != \"          \"");
 
         err = string_copy_n(strCopyN1, NULL, 5, false);
-        x_assert(err != ERR_OK, "string_copy_n NULL arg2 err == ERR_OK");
+        assert_true(err != ERR_OK, "string_copy_n NULL arg2 err == ERR_OK");
 
         err = string_copy_n(NULL, strCopyN3, 5, false);
-        x_assert(err != ERR_OK, "string_copy_n NULL arg1 err == ERR_OK");
+        assert_true(err != ERR_OK, "string_copy_n NULL arg1 err == ERR_OK");
 
         err = string_copy_n(NULL, NULL, 5, false);
-        x_assert(err != ERR_OK, "string_copy_n NULL args err == ERR_OK");
+        assert_true(err != ERR_OK, "string_copy_n NULL args err == ERR_OK");
 
         err = string_copy_n(" ", strCopyN2, 5, false);
-        x_assert(err != ERR_OK, "string_copy_n arg1 smaller than n err == ERR_OK");
+        assert_true(err != ERR_OK, "string_copy_n arg1 smaller than n err == ERR_OK");
 
         err = string_copy_n("             ", strCopyN2, 8, false);
-        x_assert(err != ERR_OK, "string_copy_n arg2 smaller than n err == ERR_OK");
+        assert_true(err != ERR_OK, "string_copy_n arg2 smaller than n err == ERR_OK");
 
         err = string_copy_n(strCopyN1, strCopyN3, 0, false);
-        x_assert(err == ERR_OK, "string_copy_n 0 arg3 err != ERR_OK");
+        assert_true(err == ERR_OK, "string_copy_n 0 arg3 err != ERR_OK");
 
         err = string_copy_n(strCopyN1, strCopyN3, 99, false);
-        x_assert(err != ERR_OK, "string_copy_n 99 arg3 err == ERR_OK");
+        assert_true(err != ERR_OK, "string_copy_n 99 arg3 err == ERR_OK");
 
         // TODO: Add testing for terminate==true
 
@@ -286,18 +286,18 @@ void _xstd_stringing_tests(Allocator alloc)
         ConstStr strDupe1 = "Copied.";
 
         ResultOwnedStr strDupe2 = string_dupe(&alloc, strDupe1);
-        x_assert(strDupe2.error == ERR_OK, "string_dupe strDupe2.error != ERR_OK");
-        x_assert(string_equals(strDupe1, strDupe2.value), "string_dupe strDupe1 != strDupe2");
+        assert_true(strDupe2.error == ERR_OK, "string_dupe strDupe2.error != ERR_OK");
+        assert_true(string_equals(strDupe1, strDupe2.value), "string_dupe strDupe1 != strDupe2");
 
         ResultOwnedStr strDupe3 = string_dupe(&alloc, strDupe0);
-        x_assert(strDupe3.error == ERR_OK, "string_dupe strDupe3.error != ERR_OK");
-        x_assert(string_equals(strDupe0, strDupe3.value), "string_dupe strDupe0 != strDupe3");
+        assert_true(strDupe3.error == ERR_OK, "string_dupe strDupe3.error != ERR_OK");
+        assert_true(string_equals(strDupe0, strDupe3.value), "string_dupe strDupe0 != strDupe3");
 
         ResultOwnedStr strDupe4 = string_dupe(&alloc, NULL);
-        x_assert(strDupe4.error != ERR_OK, "string_dupe strDupe4.error == ERR_OK");
+        assert_true(strDupe4.error != ERR_OK, "string_dupe strDupe4.error == ERR_OK");
 
         ResultOwnedStr strDupe5 = string_dupe(&badAlloc, strDupe1);
-        x_assert(strDupe5.error != ERR_OK, "string_dupe strDupe5.error == ERR_OK");
+        assert_true(strDupe5.error != ERR_OK, "string_dupe strDupe5.error == ERR_OK");
 
         alloc.free(&alloc, strDupe2.value);
         alloc.free(&alloc, strDupe3.value);
@@ -310,18 +310,18 @@ void _xstd_stringing_tests(Allocator alloc)
         ConstStr strDupeNr1 = "Copied.";
 
         HeapStr strDupeNr2 = string_dupe_noresult(&alloc, strDupeNr1);
-        x_assert(strDupeNr2 != NULL, "string_dupe_noresult strDupeNr2 != NULL");
-        x_assert(string_equals(strDupeNr1, strDupeNr2), "string_dupe_noresult strDupeNr1 != strDupeNr2");
+        assert_true(strDupeNr2 != NULL, "string_dupe_noresult strDupeNr2 != NULL");
+        assert_true(string_equals(strDupeNr1, strDupeNr2), "string_dupe_noresult strDupeNr1 != strDupeNr2");
 
         HeapStr strDupeNr3 = string_dupe_noresult(&alloc, strDupeNr0);
-        x_assert(strDupeNr3 != NULL, "string_dupe_noresult strDupeNr3 != NULL");
-        x_assert(string_equals(strDupeNr0, strDupeNr3), "string_dupe_noresult strDupeNr0 != strDupeNr3");
+        assert_true(strDupeNr3 != NULL, "string_dupe_noresult strDupeNr3 != NULL");
+        assert_true(string_equals(strDupeNr0, strDupeNr3), "string_dupe_noresult strDupeNr0 != strDupeNr3");
 
         HeapStr strDupeNr4 = string_dupe_noresult(&alloc, NULL);
-        x_assert(strDupeNr4 == NULL, "string_dupe_noresult strDupeNr4 != NULL");
+        assert_true(strDupeNr4 == NULL, "string_dupe_noresult strDupeNr4 != NULL");
 
         HeapStr strDupeNr5 = string_dupe_noresult(&badAlloc, strDupeNr1);
-        x_assert(strDupeNr5 == NULL, "string_dupe_noresult strDupeNr5 != NULL");
+        assert_true(strDupeNr5 == NULL, "string_dupe_noresult strDupeNr5 != NULL");
 
         alloc.free(&alloc, strDupeNr2);
         alloc.free(&alloc, strDupeNr3);
@@ -333,22 +333,22 @@ void _xstd_stringing_tests(Allocator alloc)
         ConstStr strRes1 = "Resized";
 
         ResultOwnedStr strRes2 = string_resize(&alloc, strRes1, 15, '_');
-        x_assert(strRes2.error == ERR_OK, "string_resize strRes2.error != ERR_OK");
-        x_assert(string_equals(strRes2.value, "Resized________"), "string_resize strRes2 != \"Resized________\"");
+        assert_true(strRes2.error == ERR_OK, "string_resize strRes2.error != ERR_OK");
+        assert_true(string_equals(strRes2.value, "Resized________"), "string_resize strRes2 != \"Resized________\"");
 
         ResultOwnedStr strRes3 = string_resize(&alloc, strRes1, 3, '_');
-        x_assert(strRes3.error == ERR_OK, "string_resize strRes3.error != ERR_OK");
-        x_assert(string_equals(strRes3.value, "Res"), "string_resize strRes3 != \"Res\"");
+        assert_true(strRes3.error == ERR_OK, "string_resize strRes3.error != ERR_OK");
+        assert_true(string_equals(strRes3.value, "Res"), "string_resize strRes3 != \"Res\"");
 
         ResultOwnedStr strRes4 = string_resize(&alloc, NULL, 12, '_');
-        x_assert(strRes4.error != ERR_OK, "string_resize strRes4.error == ERR_OK");
+        assert_true(strRes4.error != ERR_OK, "string_resize strRes4.error == ERR_OK");
 
         ResultOwnedStr strRes5 = string_resize(&alloc, strRes1, 0, '_');
-        x_assert(strRes5.error == ERR_OK, "string_resize strRes5.error != ERR_OK");
-        x_assert(string_equals(strRes5.value, ""), "string_resize strRes5 != \"\"");
+        assert_true(strRes5.error == ERR_OK, "string_resize strRes5.error != ERR_OK");
+        assert_true(string_equals(strRes5.value, ""), "string_resize strRes5 != \"\"");
 
         ResultOwnedStr strRes6 = string_resize(&badAlloc, strRes1, 12, '_');
-        x_assert(strRes6.error != ERR_OK, "string_resize strRes6.error == ERR_OK");
+        assert_true(strRes6.error != ERR_OK, "string_resize strRes6.error == ERR_OK");
 
         alloc.free(&alloc, strRes2.value);
         alloc.free(&alloc, strRes3.value);
@@ -362,17 +362,17 @@ void _xstd_stringing_tests(Allocator alloc)
         ConstStr strConc2 = "Right";
 
         ResultOwnedStr strConc3 = string_concat(&alloc, strConc1, strConc2);
-        x_assert(strConc3.error == ERR_OK, "string_concat strConc3.error != ERR_OK");
-        x_assert(string_equals(strConc3.value, "Left Right"), "string_concat strConc3 != \"Left Right\"");
+        assert_true(strConc3.error == ERR_OK, "string_concat strConc3.error != ERR_OK");
+        assert_true(string_equals(strConc3.value, "Left Right"), "string_concat strConc3 != \"Left Right\"");
 
         ResultOwnedStr strConc4 = string_concat(&alloc, strConc1, NULL);
-        x_assert(strConc4.error != ERR_OK, "string_concat strConc4.error == ERR_OK");
+        assert_true(strConc4.error != ERR_OK, "string_concat strConc4.error == ERR_OK");
 
         ResultOwnedStr strConc5 = string_concat(&alloc, NULL, strConc2);
-        x_assert(strConc5.error != ERR_OK, "string_concat strConc5.error == ERR_OK");
+        assert_true(strConc5.error != ERR_OK, "string_concat strConc5.error == ERR_OK");
 
         ResultOwnedStr strConc6 = string_concat(&badAlloc, strConc1, strConc2);
-        x_assert(strConc6.error != ERR_OK, "string_concat strConc6.error == ERR_OK");
+        assert_true(strConc6.error != ERR_OK, "string_concat strConc6.error == ERR_OK");
 
         alloc.free(&alloc, strConc3.value);
         alloc.free(&alloc, strConc4.value);
@@ -385,21 +385,21 @@ void _xstd_stringing_tests(Allocator alloc)
 
         ResultOwnedStr strSub2 = string_substr(&alloc, strSub1, 10, 19);
 
-        x_assert(strSub2.error == ERR_OK, "string_substr strSub2.error != ERR_OK");
-        x_assert(string_equals(strSub2.value, "substring"), "string_substr strSub2 != \"substring\"");
+        assert_true(strSub2.error == ERR_OK, "string_substr strSub2.error != ERR_OK");
+        assert_true(string_equals(strSub2.value, "substring"), "string_substr strSub2 != \"substring\"");
 
         ResultOwnedStr strSub3 = string_substr(&alloc, strSub1, 0, 4);
-        x_assert(strSub3.error == ERR_OK, "string_substr strSub3.error != ERR_OK");
-        x_assert(string_equals(strSub3.value, "This"), "string_substr strSub3 != \"This\"");
+        assert_true(strSub3.error == ERR_OK, "string_substr strSub3.error != ERR_OK");
+        assert_true(string_equals(strSub3.value, "This"), "string_substr strSub3 != \"This\"");
 
         ResultOwnedStr strSub4 = string_substr(&alloc, strSub1, 10, 20);
-        x_assert(strSub4.error != ERR_OK, "string_substr strSub4.error == ERR_OK");
+        assert_true(strSub4.error != ERR_OK, "string_substr strSub4.error == ERR_OK");
 
         ResultOwnedStr strSub5 = string_substr(&alloc, NULL, 10, 20);
-        x_assert(strSub5.error != ERR_OK, "string_substr strSub5.error == ERR_OK");
+        assert_true(strSub5.error != ERR_OK, "string_substr strSub5.error == ERR_OK");
 
         ResultOwnedStr strSub6 = string_substr(&badAlloc, strSub1, 10, 19);
-        x_assert(strSub6.error != ERR_OK, "string_substr strSub6.error == ERR_OK");
+        assert_true(strSub6.error != ERR_OK, "string_substr strSub6.error == ERR_OK");
 
         alloc.free(&alloc, strSub2.value);
         alloc.free(&alloc, strSub3.value);
@@ -412,15 +412,15 @@ void _xstd_stringing_tests(Allocator alloc)
 
         HeapStr strSub2 = string_substr_unsafe(&alloc, strSub1, 10, 19);
 
-        x_assert(strSub2 != NULL, "string_substr_unsafe strSub2 == NULL");
-        x_assert(string_equals(strSub2, "substring"), "string_substr_unsafe strSub2 != \"substring\"");
+        assert_true(strSub2 != NULL, "string_substr_unsafe strSub2 == NULL");
+        assert_true(string_equals(strSub2, "substring"), "string_substr_unsafe strSub2 != \"substring\"");
 
         HeapStr strSub3 = string_substr_unsafe(&alloc, strSub1, 0, 4);
-        x_assert(strSub3 != NULL, "string_substr_unsafe strSub3 == NULL");
-        x_assert(string_equals(strSub3, "This"), "string_substr_unsafe strSub3 != \"This\"");
+        assert_true(strSub3 != NULL, "string_substr_unsafe strSub3 == NULL");
+        assert_true(string_equals(strSub3, "This"), "string_substr_unsafe strSub3 != \"This\"");
 
         HeapStr strSub6 = string_substr_unsafe(&badAlloc, strSub1, 10, 19);
-        x_assert(strSub6 == NULL, "string_substr_unsafe strSub6 != NULL");
+        assert_true(strSub6 == NULL, "string_substr_unsafe strSub6 != NULL");
 
         alloc.free(&alloc, strSub2);
         alloc.free(&alloc, strSub3);
@@ -433,51 +433,58 @@ void _xstd_stringing_tests(Allocator alloc)
         ConstStr strSpl1 = "This is a  split string";
 
         ResultList strSpl2 = string_split_char(&alloc, strSpl1, ' ');
-        x_assertErr(strSpl2.error, "string_splitc strSpl2.error != ERR_OK");
+        assert_ok(strSpl2.error, "string_splitc strSpl2.error != ERR_OK");
 
         List l = strSpl2.value;
 
         u64 listSize = list_size(&l);
-        x_assert(listSize == 6, "string_splitc size strSpl2 != 6");
+        assert_true(listSize == 6, "string_splitc size strSpl2 != 6");
 
-        HeapStr strSpl3;
+        HeapStr strSpl3 = NULL;
         ListGetT(HeapStr, &l, 0, &strSpl3);
-        x_assertStrEq(strSpl3, "This", "string_splitc strSpl3 != \"This\"");
+        assert_true(!!strSpl3, "string_splitc strSpl3 == NULL");
+        assert_str_eq(strSpl3, "This", "string_splitc strSpl3 != \"This\"");
 
-        HeapStr strSpl3_2;
+        HeapStr strSpl3_2 = NULL;
         ListGetT(HeapStr, &l, 3, &strSpl3_2);
-        x_assertStrEq(strSpl3_2, "", "string_splitc strSpl3_2 != \"\"");
+        assert_true(!!strSpl3_2, "string_splitc strSpl3_2 == NULL");
+        assert_str_eq(strSpl3_2, "", "string_splitc strSpl3_2 != \"\"");
 
-        HeapStr strSpl3_5;
+        HeapStr strSpl3_5 = NULL;
         ListGetT(HeapStr, &l, 4, &strSpl3_5);
-        x_assertStrEq(strSpl3_5, "split", "string_splitc strSpl3_5 != \"split\"");
+        assert_true(!!strSpl3_5, "string_splitc strSpl3_5 == NULL");
+        assert_str_eq(strSpl3_5, "split", "string_splitc strSpl3_5 != \"split\"");
 
-        HeapStr strSpl4;
+        HeapStr strSpl4 = NULL;
         ListGetT(HeapStr, &l, 5, &strSpl4);
-        x_assertStrEq(strSpl4, "string", "string_splitc strSpl4 != \"string\"");
+        assert_true(!!strSpl4, "string_splitc strSpl4 == NULL");
+        assert_str_eq(strSpl4, "string", "string_splitc strSpl4 != \"string\"");
 
         ResultList strSpl5 = string_split_char(&alloc, NULL, ' ');
-        x_assert(strSpl5.error != ERR_OK, "string_splitc strSpl5.error == ERR_OK");
+        assert_true(strSpl5.error != ERR_OK, "string_splitc strSpl5.error == ERR_OK");
 
         ResultList strSpl6 = string_split_char(&alloc, strSpl0, ' ');
-        x_assert(strSpl6.error == ERR_OK, "string_splitc strSpl6.error != ERR_OK");
+        assert_true(strSpl6.error == ERR_OK, "string_splitc strSpl6.error != ERR_OK");
 
         List l2 = strSpl6.value;
 
         u64 listSize2 = list_size(&l2);
-        x_assert(listSize2 == 7, "string_splitc size strSpl7 != 5");
+        assert_true(listSize2 == 7, "string_splitc size strSpl7 != 5");
 
-        HeapStr strSpl7;
+        HeapStr strSpl7 = NULL;
         ListGetT(HeapStr, &l2, 0, &strSpl7);
-        x_assertStrEq(strSpl7, "", "string_splitc strSpl7 != \"\"");
+        assert_true(!!strSpl7, "string_splitc strSpl7 == NULL");
+        assert_str_eq(strSpl7, "", "string_splitc strSpl7 != \"\"");
 
-        HeapStr strSpl7_5;
+        HeapStr strSpl7_5 = NULL;
         ListGetT(HeapStr, &l2, 1, &strSpl7_5);
-        x_assertStrEq(strSpl7_5, "This", "string_splitc strSpl7_5 != \"This\"");
+        assert_true(!!strSpl7_5, "string_splitc strSpl7_5 == NULL");
+        assert_str_eq(strSpl7_5, "This", "string_splitc strSpl7_5 != \"This\"");
 
-        HeapStr strSpl8;
+        HeapStr strSpl8 = NULL;
         ListGetT(HeapStr, &l2, 5, &strSpl8);
-        x_assertStrEq(strSpl8, "string", "string_splitc strSpl8 != \"string\"");
+        assert_true(!!strSpl8, "string_splitc strSpl8 == NULL");
+        assert_str_eq(strSpl8, "string", "string_splitc strSpl8 != \"string\"");
 
         list_free_items(&alloc, &l);
         list_deinit(&l);
@@ -492,28 +499,28 @@ void _xstd_stringing_tests(Allocator alloc)
         ConstStr strFin1 = "Thus is a test string";
 
         i64 found = string_find(strFin1, "is");
-        x_assert(found == 5, "string_find strFin1 is found != 5");
+        assert_true(found == 5, "string_find strFin1 is found != 5");
 
         found = string_find(strFin1, "lol");
-        x_assert(found == -1, "string_find strFin1 lol found != -1");
+        assert_true(found == -1, "string_find strFin1 lol found != -1");
 
         found = string_find(strFin1, "string");
-        x_assert(found == 15, "string_find strFin1 string found != 15");
+        assert_true(found == 15, "string_find strFin1 string found != 15");
 
         found = string_find(strFin1, "Thus");
-        x_assert(found == 0, "string_find strFin1 Thus found != 0");
+        assert_true(found == 0, "string_find strFin1 Thus found != 0");
 
         found = string_find(strFin1, NULL);
-        x_assert(found == -1, "string_find strFin1 NULL found != -1");
+        assert_true(found == -1, "string_find strFin1 NULL found != -1");
 
         found = string_find(NULL, "is");
-        x_assert(found == -1, "string_find NULL2 found != -1");
+        assert_true(found == -1, "string_find NULL2 found != -1");
 
         found = string_find(NULL, NULL);
-        x_assert(found == -1, "string_find NULL3 found != -1");
+        assert_true(found == -1, "string_find NULL3 found != -1");
 
         found = string_find(strFin1, "");
-        x_assert(found == 0, "string_find strFin1 \"\" found != 0");
+        assert_true(found == 0, "string_find strFin1 \"\" found != 0");
     }
     // =========================================================================
     // TEST string_find_char
@@ -522,58 +529,58 @@ void _xstd_stringing_tests(Allocator alloc)
         ConstStr strFin1 = "Thus is a test string";
 
         i64 found = string_find_char(strFin1, 'u');
-        x_assert(found == 2, "string_find_char strFin1 u found != 2");
+        assert_true(found == 2, "string_find_char strFin1 u found != 2");
 
         found = string_find_char(strFin1, 'r');
-        x_assert(found == 17, "string_find_char strFin1 r found != 17");
+        assert_true(found == 17, "string_find_char strFin1 r found != 17");
 
         found = string_find_char(strFin1, 'w');
-        x_assert(found == -1, "string_find_char strFin1 w found != -1");
+        assert_true(found == -1, "string_find_char strFin1 w found != -1");
 
         found = string_find_char(strFin1, 0);
-        x_assert(found == -1, "string_find_char strFin1 0 found != -1");
+        assert_true(found == -1, "string_find_char strFin1 0 found != -1");
 
         found = string_find_char(NULL, 'a');
-        x_assert(found == -1, "string_find_char NULL2 found != -1");
+        assert_true(found == -1, "string_find_char NULL2 found != -1");
 
         found = string_find_char(NULL, 0);
-        x_assert(found == -1, "string_find_char NULL3 found != -1");
+        assert_true(found == -1, "string_find_char NULL3 found != -1");
     }
     // =========================================================================
     // TEST StringBuilder
     // =========================================================================
     {
         ResultStrBuilder resBld = strbuilder_init(&alloc);
-        x_assertErr(resBld.error, "StringBuilder resBld.error != ERR_OK");
+        assert_ok(resBld.error, "StringBuilder resBld.error != ERR_OK");
 
         ResultStrBuilder resBld2 = strbuilder_init(&badAlloc);
-        x_assert(resBld2.error != ERR_OK, "StringBuilder resBld2.error == ERR_OK");
+        assert_true(resBld2.error != ERR_OK, "StringBuilder resBld2.error == ERR_OK");
 
         StringBuilder builder = resBld.value;
 
         strbuilder_push_copy(&builder, "This");
 
         ResultOwnedStr resStr = strbuilder_get_string(&builder);
-        x_assertErr(resStr.error, "StringBuilder resStr.error != ERR_OK");
+        assert_ok(resStr.error, "StringBuilder resStr.error != ERR_OK");
 
         HeapStr built = resStr.value;
-        x_assertStrEq(built, "This", "StringBuilder built != \"This\"");
+        assert_str_eq(built, "This", "StringBuilder built != \"This\"");
 
         alloc.free(&alloc, built);
 
         strbuilder_push_owned(&builder, ConstToHeapStr(" is a"));
         resStr = strbuilder_get_string(&builder);
-        x_assertErr(resStr.error, "StringBuilder resStr2.error != ERR_OK");
+        assert_ok(resStr.error, "StringBuilder resStr2.error != ERR_OK");
         built = resStr.value;
-        x_assertStrEq(built, "This is a", "StringBuilder built2 != \"This is a\"");
+        assert_str_eq(built, "This is a", "StringBuilder built2 != \"This is a\"");
 
         alloc.free(&alloc, built);
 
         strbuilder_push_copy(&builder, " test.");
         resStr = strbuilder_get_string(&builder);
-        x_assertErr(resStr.error, "StringBuilder resStr3.error != ERR_OK");
+        assert_ok(resStr.error, "StringBuilder resStr3.error != ERR_OK");
         built = resStr.value;
-        x_assertStrEq(built, "This is a test.", "StringBuilder built3 != \"This is a test.\"");
+        assert_str_eq(built, "This is a test.", "StringBuilder built3 != \"This is a test.\"");
 
         alloc.free(&alloc, built);
 
@@ -586,24 +593,24 @@ void _xstd_stringing_tests(Allocator alloc)
         ConstStr strRep1 = "This is a test";
 
         ResultOwnedStr resRep1 = string_replace(&alloc, strRep1, "is", "os");
-        x_assertErr(resRep1.error, "string_replace resRep1 != ERR_OK");
-        x_assertStrEq(resRep1.value, "Thos os a test", "string_replace resRep1 != \"Thos os a test\"");
+        assert_ok(resRep1.error, "string_replace resRep1 != ERR_OK");
+        assert_str_eq(resRep1.value, "Thos os a test", "string_replace resRep1 != \"Thos os a test\"");
 
         ResultOwnedStr resRep2 = string_replace(&alloc, strRep1, " a ", " a burger ");
-        x_assertErr(resRep2.error, "string_replace resRep2 != ERR_OK");
-        x_assertStrEq(resRep2.value, "This is a burger test", "string_replace resRep2 != \"This is a burger test\"");
+        assert_ok(resRep2.error, "string_replace resRep2 != ERR_OK");
+        assert_str_eq(resRep2.value, "This is a burger test", "string_replace resRep2 != \"This is a burger test\"");
 
         ResultOwnedStr resRep3 = string_replace(&alloc, strRep1, NULL, " a burger ");
-        x_assert(resRep3.error != ERR_OK, "string_replace resRep3 == ERR_OK");
+        assert_true(resRep3.error != ERR_OK, "string_replace resRep3 == ERR_OK");
 
         ResultOwnedStr resRep4 = string_replace(&alloc, strRep1, " ", NULL);
-        x_assert(resRep4.error != ERR_OK, "string_replace resRep4 == ERR_OK");
+        assert_true(resRep4.error != ERR_OK, "string_replace resRep4 == ERR_OK");
 
         ResultOwnedStr resRep5 = string_replace(&alloc, strRep1, NULL, NULL);
-        x_assert(resRep5.error != ERR_OK, "string_replace resRep5 == ERR_OK");
+        assert_true(resRep5.error != ERR_OK, "string_replace resRep5 == ERR_OK");
 
         ResultOwnedStr resRep6 = string_replace(&alloc, NULL, NULL, NULL);
-        x_assert(resRep6.error != ERR_OK, "string_replace resRep6 == ERR_OK");
+        assert_true(resRep6.error != ERR_OK, "string_replace resRep6 == ERR_OK");
 
         alloc.free(&alloc, resRep1.value);
         alloc.free(&alloc, resRep2.value);
@@ -613,137 +620,137 @@ void _xstd_stringing_tests(Allocator alloc)
     // =========================================================================
     {
         ibool strStaWth1 = string_starts_with("This is a test", "This");
-        x_assert(strStaWth1, "string_starts_with strStaWth1 != true");
+        assert_true(strStaWth1, "string_starts_with strStaWth1 != true");
 
         ibool strStaWth2 = string_starts_with("This is a test", "Though");
-        x_assert(!strStaWth2, "string_starts_with strStaWth2 == true");
+        assert_true(!strStaWth2, "string_starts_with strStaWth2 == true");
 
         ibool strStaWth3 = string_starts_with("This is a test", NULL);
-        x_assert(!strStaWth3, "string_starts_with strStaWth3 == true");
+        assert_true(!strStaWth3, "string_starts_with strStaWth3 == true");
 
         ibool strStaWth4 = string_starts_with(NULL, "");
-        x_assert(!strStaWth4, "string_starts_with strStaWth4 == true");
+        assert_true(!strStaWth4, "string_starts_with strStaWth4 == true");
 
         ibool strStaWth5 = string_starts_with(NULL, NULL);
-        x_assert(!strStaWth5, "string_starts_with strStaWth5 == true");
+        assert_true(!strStaWth5, "string_starts_with strStaWth5 == true");
 
         ibool strStaWth6 = string_starts_with("This is a test", "");
-        x_assert(strStaWth6, "string_starts_with strStaWth6 != true");
+        assert_true(strStaWth6, "string_starts_with strStaWth6 != true");
     }
     // =========================================================================
     // TEST string_ends_with
     // =========================================================================
     {
         ibool strEndWth1 = string_ends_with("This is a test", "test");
-        x_assert(strEndWth1, "string_ends_with strEndWth1 != true");
+        assert_true(strEndWth1, "string_ends_with strEndWth1 != true");
 
         ibool strEndWth2 = string_ends_with("This is a test", "tes");
-        x_assert(!strEndWth2, "string_ends_with strEndWth2 == true");
+        assert_true(!strEndWth2, "string_ends_with strEndWth2 == true");
 
         ibool strEndWth3 = string_ends_with("This is a test", NULL);
-        x_assert(!strEndWth3, "string_ends_with strEndWth3 == true");
+        assert_true(!strEndWth3, "string_ends_with strEndWth3 == true");
 
         ibool strEndWth4 = string_ends_with(NULL, "");
-        x_assert(!strEndWth4, "string_ends_with strEndWth4 == true");
+        assert_true(!strEndWth4, "string_ends_with strEndWth4 == true");
 
         ibool strEndWth5 = string_ends_with(NULL, NULL);
-        x_assert(!strEndWth5, "string_ends_with strEndWth5 == true");
+        assert_true(!strEndWth5, "string_ends_with strEndWth5 == true");
 
         ibool strEndWth6 = string_ends_with("This is a test", "");
-        x_assert(strEndWth6, "string_ends_with strEndWth6 != true");
+        assert_true(strEndWth6, "string_ends_with strEndWth6 != true");
     }
     // =========================================================================
     // TEST char_is_alpha
     // =========================================================================
     {
-        x_assert(!char_is_alpha('a' - 1), "char_is_alpha invalid range <a");
+        assert_true(!char_is_alpha('a' - 1), "char_is_alpha invalid range <a");
 
         i8 c = 'a';
         while (c <= 'z')
         {
-            x_assert(char_is_alpha(c), "char_is_alpha invalid range a-z");
+            assert_true(char_is_alpha(c), "char_is_alpha invalid range a-z");
             ++c;
         }
 
-        x_assert(!char_is_alpha('z' + 1), "char_is_alpha invalid range >z");
+        assert_true(!char_is_alpha('z' + 1), "char_is_alpha invalid range >z");
 
-        x_assert(!char_is_alpha('A' - 1), "char_is_alpha invalid range <A");
+        assert_true(!char_is_alpha('A' - 1), "char_is_alpha invalid range <A");
         
         c = 'A';
         while (c <= 'Z')
         {
-            x_assert(char_is_alpha(c), "char_is_alpha invalid range A-Z");
+            assert_true(char_is_alpha(c), "char_is_alpha invalid range A-Z");
             ++c;
         }
 
-        x_assert(!char_is_alpha('Z' + 1), "char_is_alpha invalid range >Z");
+        assert_true(!char_is_alpha('Z' + 1), "char_is_alpha invalid range >Z");
     }
     // =========================================================================
     // TEST char_is_digit
     // =========================================================================
     {
-        x_assert(!char_is_digit('0' - 1), "char_is_digit invalid range <0");
+        assert_true(!char_is_digit('0' - 1), "char_is_digit invalid range <0");
 
         i8 c = '0';
         while (c <= '9')
         {
-            x_assert(char_is_digit(c), "char_is_digit invalid range 0-9");
+            assert_true(char_is_digit(c), "char_is_digit invalid range 0-9");
             ++c;
         }
 
-        x_assert(!char_is_digit('9' + 1), "char_is_digit invalid range >9");
+        assert_true(!char_is_digit('9' + 1), "char_is_digit invalid range >9");
     }
     // =========================================================================
     // TEST char_is_alphanum
     // =========================================================================
     {
-        x_assert(!char_is_alphanum('a' - 1), "char_is_alphanum invalid range <a");
+        assert_true(!char_is_alphanum('a' - 1), "char_is_alphanum invalid range <a");
 
         i8 c = 'a';
         while (c <= 'z')
         {
-            x_assert(char_is_alphanum(c), "char_is_alphanum invalid range a-z");
+            assert_true(char_is_alphanum(c), "char_is_alphanum invalid range a-z");
             ++c;
         }
 
-        x_assert(!char_is_alphanum('z' + 1), "char_is_alphanum invalid range >z");
+        assert_true(!char_is_alphanum('z' + 1), "char_is_alphanum invalid range >z");
 
-        x_assert(!char_is_alphanum('A' - 1), "char_is_alphanum invalid range <A");
+        assert_true(!char_is_alphanum('A' - 1), "char_is_alphanum invalid range <A");
         
         c = 'A';
         while (c <= 'Z')
         {
-            x_assert(char_is_alphanum(c), "char_is_alphanum invalid range A-Z");
+            assert_true(char_is_alphanum(c), "char_is_alphanum invalid range A-Z");
             ++c;
         }
 
-        x_assert(!char_is_alphanum('Z' + 1), "char_is_alphanum invalid range >Z");
+        assert_true(!char_is_alphanum('Z' + 1), "char_is_alphanum invalid range >Z");
 
-        x_assert(!char_is_alphanum('0' - 1), "char_is_alphanum invalid range <0");
+        assert_true(!char_is_alphanum('0' - 1), "char_is_alphanum invalid range <0");
 
         c = '0';
         while (c <= '9')
         {
-            x_assert(char_is_alphanum(c), "char_is_alphanum invalid range 0-9");
+            assert_true(char_is_alphanum(c), "char_is_alphanum invalid range 0-9");
             ++c;
         }
 
-        x_assert(!char_is_alphanum('9' + 1), "char_is_alphanum invalid range >9");
+        assert_true(!char_is_alphanum('9' + 1), "char_is_alphanum invalid range >9");
     }
     // =========================================================================
     // TEST string_trim_whitespace
     // =========================================================================
     {
         ResultOwnedStr strTrim1 = string_trim_whitespace(&alloc, "  \n  This is a test.", true, true);
-        x_assertErr(strTrim1.error, "string_trim_whitespace strTrim1 != OK");
-        x_assertStrEq(strTrim1.value, "This is a test.", "string_trim_whitespace strTrim1 != \"This is a test.\"");
+        assert_ok(strTrim1.error, "string_trim_whitespace strTrim1 != OK");
+        assert_str_eq(strTrim1.value, "This is a test.", "string_trim_whitespace strTrim1 != \"This is a test.\"");
 
         ResultOwnedStr strTrim2 = string_trim_whitespace(&alloc, "  \n  This is a test. \t  ", true, true);
-        x_assertErr(strTrim2.error, "string_trim_whitespace strTrim2 != OK");
-        x_assertStrEq(strTrim2.value, "This is a test.", "string_trim_whitespace strTrim2 != \"This is a test.\"");
+        assert_ok(strTrim2.error, "string_trim_whitespace strTrim2 != OK");
+        assert_str_eq(strTrim2.value, "This is a test.", "string_trim_whitespace strTrim2 != \"This is a test.\"");
 
         ResultOwnedStr strTrim3 = string_trim_whitespace(&alloc, NULL, true, true);
-        x_assert(strTrim3.error != ERR_OK, "string_trim_whitespace strTrim3 == OK");
+        assert_true(strTrim3.error != ERR_OK, "string_trim_whitespace strTrim3 == OK");
 
         alloc.free(&alloc, strTrim1.value);
         alloc.free(&alloc, strTrim2.value);
@@ -760,27 +767,27 @@ void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
-        x_assertErr(res.error, "list_init res.error != ERR_OK");
+        assert_ok(res.error, "list_init res.error != ERR_OK");
 
         List l = res.value;
 
         u64 listSize = list_size(&l);
-        x_assert(listSize == 0, "list_init size l != 0");
+        assert_true(listSize == 0, "list_init size l != 0");
 
         list_deinit(&l);
 
         ResultList res2 = list_init(&badAlloc, sizeof(u64), 16);
-        x_assert(res2.error != ERR_OK, "list_init res2.error == ERR_OK");
+        assert_true(res2.error != ERR_OK, "list_init res2.error == ERR_OK");
 
         ResultList res3 = list_init(&alloc, 0, 16);
-        x_assert(res3.error != ERR_OK, "list_init res3.error == ERR_OK");
+        assert_true(res3.error != ERR_OK, "list_init res3.error == ERR_OK");
     }
     // =========================================================================
     // TEST list_push
     // =========================================================================
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
-        x_assertErr(res.error, "list_push res.error != ERR_OK");
+        assert_ok(res.error, "list_push res.error != ERR_OK");
 
         List l = res.value;
 
@@ -788,7 +795,7 @@ void _xstd_list_tests(Allocator alloc)
         list_push(&l, &item);
 
         u64 listSize = list_size(&l);
-        x_assert(listSize == 1, "list_push size l != 1");
+        assert_true(listSize == 1, "list_push size l != 1");
 
         for (u64 i = 0; i < 16; ++i)
         {
@@ -796,8 +803,8 @@ void _xstd_list_tests(Allocator alloc)
         }
 
         listSize = list_size(&l);
-        x_assert(listSize == 17, "list_push size l != 17");
-        x_assert(l._allocCnt == 16 * 2, "list_push allocsize l != 16*2");
+        assert_true(listSize == 17, "list_push size l != 17");
+        assert_true(l._allocCnt == 16 * 2, "list_push allocsize l != 16*2");
 
         list_deinit(&l);
     }
@@ -806,7 +813,7 @@ void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
-        x_assertErr(res.error, "list_pop res.error != ERR_OK");
+        assert_ok(res.error, "list_pop res.error != ERR_OK");
 
         List l = res.value;
 
@@ -815,11 +822,11 @@ void _xstd_list_tests(Allocator alloc)
 
         u64 out = 0;
         err = list_pop(&l, &out);
-        x_assertErr(err, "list_pop err1 != ERR_OK");
-        x_assert(out == 5, "list_pop out != 5");
+        assert_ok(err, "list_pop err1 != ERR_OK");
+        assert_true(out == 5, "list_pop out != 5");
 
         u64 listSize = list_size(&l);
-        x_assert(listSize == 0, "list_push size l != 0");
+        assert_true(listSize == 0, "list_push size l != 0");
 
         for (u64 i = 0; i < 17; ++i)
         {
@@ -827,14 +834,14 @@ void _xstd_list_tests(Allocator alloc)
         }
 
         err = list_pop(&l, &out);
-        x_assertErr(err, "list_pop err2 != ERR_OK");
+        assert_ok(err, "list_pop err2 != ERR_OK");
 
         err = list_pop(&l, &out);
-        x_assertErr(err, "list_pop err3 != ERR_OK");
+        assert_ok(err, "list_pop err3 != ERR_OK");
 
         listSize = list_size(&l);
-        x_assert(listSize == 15, "list_push size l != 15");
-        x_assert(l._allocCnt == 16, "list_push allocsize l != 16");
+        assert_true(listSize == 15, "list_push size l != 15");
+        assert_true(l._allocCnt == 16, "list_push allocsize l != 16");
 
         list_deinit(&l);
     }
@@ -843,7 +850,7 @@ void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
-        x_assertErr(res.error, "list_get res.error != ERR_OK");
+        assert_ok(res.error, "list_get res.error != ERR_OK");
 
         List l = res.value;
 
@@ -852,19 +859,19 @@ void _xstd_list_tests(Allocator alloc)
 
         u64 out = 0;
         err = list_get(&l, 0, &out);
-        x_assertErr(err, "list_get err != ERR_OK");
-        x_assert(out == 5, "list_get out != 5");
+        assert_ok(err, "list_get err != ERR_OK");
+        assert_true(out == 5, "list_get out != 5");
 
         u64 out2 = 0;
         err = list_get(&l, 5, &out2);
-        x_assert(err != ERR_OK, "list_get err2 == ERR_OK");
+        assert_true(err != ERR_OK, "list_get err2 == ERR_OK");
 
         err = list_get(&l, 5, NULL);
-        x_assert(err != ERR_OK, "list_get err3 == ERR_OK");
+        assert_true(err != ERR_OK, "list_get err3 == ERR_OK");
 
         u64 out3;
         err = list_get(NULL, 0, &out3);
-        x_assert(err != ERR_OK, "list_get err4 == ERR_OK");
+        assert_true(err != ERR_OK, "list_get err4 == ERR_OK");
 
         list_deinit(&l);
     }
@@ -873,7 +880,7 @@ void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
-        x_assertErr(res.error, "list_set res.error != ERR_OK");
+        assert_ok(res.error, "list_set res.error != ERR_OK");
 
         List l = res.value;
 
@@ -885,8 +892,8 @@ void _xstd_list_tests(Allocator alloc)
 
         u64 out = 0;
         err = list_get(&l, 0, &out);
-        x_assertErr(err, "list_set err != ERR_OK");
-        x_assert(out == 1, "list_set out != 1");
+        assert_ok(err, "list_set err != ERR_OK");
+        assert_true(out == 1, "list_set out != 1");
 
         list_deinit(&l);
     }
@@ -895,7 +902,7 @@ void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
-        x_assertErr(res.error, "list_getref res.error != ERR_OK");
+        assert_ok(res.error, "list_getref res.error != ERR_OK");
 
         List l = res.value;
 
@@ -903,14 +910,14 @@ void _xstd_list_tests(Allocator alloc)
         list_push(&l, &item);
 
         u64 *ref = list_getref(&l, 0);
-        x_assert(ref != NULL, "list_getref ref == NULL");
-        x_assert(*ref == 5, "list_getref *ref != 5");
+        assert_true(ref != NULL, "list_getref ref == NULL");
+        assert_true(*ref == 5, "list_getref *ref != 5");
 
         u64 *ref2 = list_getref(&l, 5);
-        x_assert(ref2 == NULL, "list_getref ref2 != NULL");
+        assert_true(ref2 == NULL, "list_getref ref2 != NULL");
 
         u64 *ref3 = list_getref(NULL, 0);
-        x_assert(ref3 == NULL, "list_getref ref3 != NULL");
+        assert_true(ref3 == NULL, "list_getref ref3 != NULL");
 
         list_deinit(&l);
     }
@@ -919,7 +926,7 @@ void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
-        x_assertErr(res.error, "list_get_unsafe res.error != ERR_OK");
+        assert_ok(res.error, "list_get_unsafe res.error != ERR_OK");
 
         List l = res.value;
 
@@ -928,7 +935,7 @@ void _xstd_list_tests(Allocator alloc)
 
         u64 out = 0;
         list_get_unsafe(&l, 0, &out);
-        x_assert(out == 5, "list_get_unsafe out != 5");
+        assert_true(out == 5, "list_get_unsafe out != 5");
 
         list_deinit(&l);
     }
@@ -937,7 +944,7 @@ void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
-        x_assertErr(res.error, "list_set_unsafe res.error != ERR_OK");
+        assert_ok(res.error, "list_set_unsafe res.error != ERR_OK");
 
         List l = res.value;
 
@@ -949,8 +956,8 @@ void _xstd_list_tests(Allocator alloc)
 
         u64 out = 0;
         err = list_get(&l, 0, &out);
-        x_assertErr(err, "list_set_unsafe err != ERR_OK");
-        x_assert(out == 1, "list_set_unsafe out != 1");
+        assert_ok(err, "list_set_unsafe err != ERR_OK");
+        assert_true(out == 1, "list_set_unsafe out != 1");
 
         list_deinit(&l);
     }
@@ -959,7 +966,7 @@ void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
-        x_assertErr(res.error, "list_getref_unsafe res.error != ERR_OK");
+        assert_ok(res.error, "list_getref_unsafe res.error != ERR_OK");
 
         List l = res.value;
 
@@ -967,8 +974,8 @@ void _xstd_list_tests(Allocator alloc)
         list_push(&l, &item);
 
         u64 *ref = list_getref_unsafe(&l, 0);
-        x_assert(ref != NULL, "list_getref_unsafe ref == NULL");
-        x_assert(*ref == 5, "list_getref_unsafe *ref != 5");
+        assert_true(ref != NULL, "list_getref_unsafe ref == NULL");
+        assert_true(*ref == 5, "list_getref_unsafe *ref != 5");
 
         list_deinit(&l);
     }
@@ -977,7 +984,7 @@ void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     {
         ResultList res = ListInitT(HeapStr, &alloc);
-        x_assertErr(res.error, "list_free_items res.error != ERR_OK");
+        assert_ok(res.error, "list_free_items res.error != ERR_OK");
 
         List l = res.value;
 
@@ -995,7 +1002,7 @@ void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
-        x_assertErr(res.error, "list_clear res.error != ERR_OK");
+        assert_ok(res.error, "list_clear res.error != ERR_OK");
 
         List l = res.value;
 
@@ -1004,7 +1011,7 @@ void _xstd_list_tests(Allocator alloc)
 
         list_clear(&l);
         u64 listSize = list_size(&l);
-        x_assert(listSize == 0, "list_clear listSize != 0");
+        assert_true(listSize == 0, "list_clear listSize != 0");
 
         list_deinit(&l);
     }
@@ -1013,7 +1020,7 @@ void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
-        x_assertErr(res.error, "list_clear_nofree res.error != ERR_OK");
+        assert_ok(res.error, "list_clear_nofree res.error != ERR_OK");
 
         List l = res.value;
 
@@ -1022,7 +1029,7 @@ void _xstd_list_tests(Allocator alloc)
 
         list_clear_nofree(&l);
         u64 listSize = list_size(&l);
-        x_assert(listSize == 0, "list_clear_nofree listSize != 0");
+        assert_true(listSize == 0, "list_clear_nofree listSize != 0");
 
         list_deinit(&l);
     }
@@ -1031,7 +1038,7 @@ void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     {
         ResultList res = ListInitT(HeapStr, &alloc);
-        x_assertErr(res.error, "list_for_each res.error != ERR_OK");
+        assert_ok(res.error, "list_for_each res.error != ERR_OK");
 
         List l = res.value;
 
@@ -1044,12 +1051,80 @@ void _xstd_list_tests(Allocator alloc)
         list_for_each(&l, _xstd_foreach_test, NULL);
 
         HeapStr *strRef1 = list_getref(&l, 0);
-        x_assertStrEq(*strRef1, " est string 1", "list_for_each *strRef1 != \" est string 1\"");
+        assert_str_eq(*strRef1, " est string 1", "list_for_each *strRef1 != \" est string 1\"");
 
         HeapStr *strRef2 = list_getref(&l, 1);
-        x_assertStrEq(*strRef2, " est string 2", "list_for_each *strRef2 != \" est string 2\"");
+        assert_str_eq(*strRef2, " est string 2", "list_for_each *strRef2 != \" est string 2\"");
 
         list_free_items(&alloc, &l);
         list_deinit(&l);
+    }
+}
+
+void _xstd_math_tests(Allocator alloc)
+{
+    (void)alloc;
+    // =========================================================================
+    // TEST add
+    // =========================================================================
+    {
+        u8 addRes1 = math_u8_add(0, 1);
+        assert_true(addRes1 == 1, "math_u8_add addRes1 != 1");
+
+        i8 addResI1 = math_i8_add(0, 1);
+        assert_true(addResI1 == 1, "math_i8_add addResI1 != 1");
+
+        u8 addRes2 = math_u8_add(U8_MAXVAL, 1);
+        assert_true(addRes2 == 0, "math_u8_add addRes2 != 0");
+
+        u16 addRes3 = math_u16_add(0, 1);
+        assert_true(addRes3 == 1, "math_u16_add addRes3 != 1");
+
+        u16 addRes4 = math_u16_add(U16_MAXVAL, 1);
+        assert_true(addRes4 == 0, "math_u16_add addRes4 != 0");
+
+        u16 addRes5 = math_u32_add(0, 1);
+        assert_true(addRes5 == 1, "math_u32_add addRes5 != 1");
+
+        u16 addRes6 = math_u32_add(U32_MAXVAL, 1);
+        assert_true(addRes6 == 0, "math_u32_add addRes6 != 0");
+
+        u16 addRes7 = math_u64_add(0, 1);
+        assert_true(addRes7 == 1, "math_u64_add addRes7 != 1");
+
+        u16 addRes8 = math_u64_add(U64_MAXVAL, 1);
+        assert_true(addRes8 == 0, "math_u64_add addRes8 != 0");
+    }
+    // =========================================================================
+    // TEST add_nooverflow
+    // =========================================================================
+    {
+        ResultU8 addResNo1 = math_u8_add_nooverflow(0, 1);
+        assert_ok(addResNo1.error, "math_u8_add_nooverflow addResNo1 != OK");
+        assert_true(addResNo1.value == 1, "math_u8_add_nooverflow addResNo1 != 1");
+
+        ResultU8 addResNo2 = math_u8_add_nooverflow(U8_MAXVAL, 1);
+        assert_true(addResNo2.error != ERR_OK, "math_u8_add_nooverflow addResNo2 == OK");
+
+        ResultU16 addResNo3 = math_u16_add_nooverflow(0, 1);
+        assert_ok(addResNo3.error, "math_u16_add_nooverflow addResNo3 != OK");
+        assert_true(addResNo3.value == 1, "math_u16_add_nooverflow addResNo3 != 1");
+
+        ResultU16 addResNo4 = math_u16_add_nooverflow(U16_MAXVAL, 1);
+        assert_true(addResNo4.error != ERR_OK, "math_u16_add_nooverflow addResNo4 == OK");
+
+        ResultU32 addResNo5 = math_u32_add_nooverflow(0, 1);
+        assert_ok(addResNo5.error, "math_u32_add_nooverflow addResNo5 != OK");
+        assert_true(addResNo5.value == 1, "math_u32_add_nooverflow addResNo5 != 1");
+
+        ResultU32 addResNo6 = math_u32_add_nooverflow(U32_MAXVAL, 1);
+        assert_true(addResNo6.error != ERR_OK, "math_u32_add_nooverflow addResNo6 == OK");
+
+        ResultU64 addResNo7 = math_u64_add_nooverflow(0, 1);
+        assert_ok(addResNo7.error, "math_u32_add_nooverflow addResNo7 != OK");
+        assert_true(addResNo7.value == 1, "math_u32_add_nooverflow addResNo7 != 1");
+
+        ResultU64 addResNo8 = math_u64_add_nooverflow(U64_MAXVAL, 1);
+        assert_true(addResNo8.error != ERR_OK, "math_u32_add_nooverflow addResNo8 == OK");
     }
 }

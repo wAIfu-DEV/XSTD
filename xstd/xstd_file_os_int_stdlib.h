@@ -65,7 +65,7 @@ int __file_io_c_feof(void *stream)
     return feof((FILE *)stream);
 }
 
-_FileOsInterface __file_os_int = {
+const _FileOsInterface __file_os_int = {
     ._internalState = NULL,
 
     .fstdout = __file_io_c_fstdout,
@@ -80,8 +80,3 @@ _FileOsInterface __file_os_int = {
     .flush = __file_io_c_fflush,
     .eof = __file_io_c_feof,
 };
-
-void file_set_os_interface(_FileOsInterface interface)
-{
-    __file_os_int = interface;
-}

@@ -195,7 +195,7 @@ typedef struct _result_f32
     {                                   \
         T r = 1;                        \
         T b = math_##T##_abs(exponent); \
-        for (T i = 0; i < b; ++i)       \
+        for (u64 i = 0; i < b; ++i)     \
         {                               \
             r *= x;                     \
         }                               \
@@ -209,7 +209,7 @@ typedef struct _result_f32
     {                                                 \
         LT r = 1;                                     \
         LT b = math_##T##_abs(exponent);              \
-        for (LT i = 0; i < b; ++i)                    \
+        for (u64 i = 0; i < b; ++i)                   \
         {                                             \
             r *= (x);                                 \
             if (r != (T)r)                            \
