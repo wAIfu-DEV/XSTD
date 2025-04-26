@@ -10,6 +10,10 @@ typedef char ibool; // 8bit value representing two states: 0 (false) | not 0 (tr
 #define false 0
 #endif
 
+#ifndef NULL
+#define NULL 0
+#endif
+
 typedef char i8;       // 8bit value representing an integer number or character.
 typedef short i16;     // 16bit value representing an integer number.
 typedef int i32;       // 32bit value representing an integer number.
