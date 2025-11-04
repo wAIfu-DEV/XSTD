@@ -67,7 +67,8 @@ typedef f32 f64; // 64bit value representing a decimal number.
 
 typedef i8 *String;         // Pointer to string of characters terminated with 0.
 typedef const i8 *ConstStr; // Pointer to immutable string of characters terminated with 0.
-typedef i8 *HeapStr;        // Pointer to heap-allocated string of characters terminated with 0. Should be freed.
+typedef i8 *HeapStr;        // Pointer to heap-allocated string of characters terminated with 0.
+typedef i8 *OwnedStr;       // Pointer to heap-allocated string of characters terminated with 0. Should be freed.
 
 // Represents an area of memory either on the stack or on the heap.
 typedef struct _buffer

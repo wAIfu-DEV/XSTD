@@ -133,12 +133,12 @@ void io_printerrln(ConstStr text)
 }
 
 /**
- * @brief Reads a single line from stdin, returns a HeapStr owned by the caller.
+ * @brief Reads a single line from stdin, returns a OwnedStr owned by the caller.
  * The string will be null-terminated, but does NOT include the trailing `\n` unless EOF.
  * Caller is responsible for freeing the string.
  *
  * @param alloc Allocator to use for allocating the buffer
- * @return HeapStr or NULL on allocation failure or EOF
+ * @return OwnedStr or NULL on allocation failure or EOF
  */
 ResultOwnedStr io_read_line(Allocator *alloc)
 {

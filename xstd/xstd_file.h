@@ -246,7 +246,7 @@ ResultOwnedBuff file_read_bytes(Allocator *alloc, File *file, const u64 nBytes)
 }
 
 /**
- * @brief Reads `nBytes` (or less if EOF) of the file into a newly allocated HeapStr.
+ * @brief Reads `nBytes` (or less if EOF) of the file into a newly allocated OwnedStr.
  *
  * Memory is owned by the caller and should be freed.
  *
@@ -256,7 +256,7 @@ ResultOwnedBuff file_read_bytes(Allocator *alloc, File *file, const u64 nBytes)
  * {
  *     ResultOwnedStr res = file_read_str(&allocator, file, 256);
  *     if (res.error.code) // Error!
- *     HeapStr fileChunk = res.value;
+ *     OwnedStr fileChunk = res.value;
  *     // Do string stuff
  *     allocator.free(&allocator, fileChunk);
  * }
@@ -308,7 +308,7 @@ ResultOwnedStr file_read_str(Allocator *alloc, File *file, const u64 nBytes)
  * // Read file in chunks
  * while(!file_is_eof(file))
  * {
- *     HeapStr fileChunk = file_read_str_unsafe(&allocator, file, 256);
+ *     OwnedStr fileChunk = file_read_str_unsafe(&allocator, file, 256);
  *     if (!fileChunk) // Error!
  *     // Do string stuff
  *     allocator.free(&allocator, fileChunk);
@@ -317,9 +317,9 @@ ResultOwnedStr file_read_str(Allocator *alloc, File *file, const u64 nBytes)
  * @param alloc
  * @param file
  * @param nBytes
- * @return HeapStr
+ * @return OwnedStr
  */
-HeapStr file_read_str_unsafe(Allocator *alloc, File *file, u64 nBytes)
+OwnedStr file_read_str_unsafe(Allocator *alloc, File *file, u64 nBytes)
 {
     HeapStr newStr = alloc->alloc(alloc, nBytes + 1);
 
@@ -375,14 +375,14 @@ HeapBuff file_read_bytes_unsafe(Allocator *alloc, File *file, u64 nBytes)
 }
 
 /**
- * @brief Reads the entirety of the file into a newly allocated HeapStr.
+ * @brief Reads the entirety of the file into a newly allocated OwnedStr.
  *
  * Memory is owned by the caller and should be freed.
  *
  * ```c
  * ResultOwnedStr res = file_readall_str(&allocator, file);
  * if (res.error.code) // Error!
- * HeapStr fileContents = res.value;
+ * OwnedStr fileContents = res.value;
  * // Do string stuff
  * allocator.free(&allocator, fileContents);
  * ```
@@ -553,7 +553,7 @@ void file_flush(File *file)
  * // Read file in chunks
  * while(!file_is_eof(file))
  * {
- *     HeapStr fileChunk = file_read_str_unsafe(&c_allocator, file, 256);
+ *     OwnedStr fileChunk = file_read_str_unsafe(&c_allocator, file, 256);
  *     if (!fileChunk) // Error!
  *     // Do string stuff
  *     c_allocator.free(&c_allocator, fileChunk);

@@ -43,7 +43,7 @@ int main(void)
         typedef struct _csv_line
         {
             u64 id;
-            HeapStr name;
+            OwnedStr name;
             u64 age;
         } CsvLine;
 
@@ -57,9 +57,9 @@ int main(void)
         u64 linesNb = list_size(&lines);
         for (u64 i = 1; i < linesNb; ++i)
         {
-            // If list items are pointers (here HeapStr which are i8*)
+            // If list items are pointers (here String which is an alias of i8*)
             // list_get_as_ptr allows direct retrieval of the item as a pointer
-            HeapStr line = list_get_as_ptr(&lines, i);
+            String line = list_get_as_ptr(&lines, i);
 
             // Split line on ',' character, returns list of strings
             ResultList resSplit = string_split_char(&alloc, line, ',');
@@ -67,9 +67,9 @@ int main(void)
 
             List split = resSplit.value;
 
-            HeapStr idStr = list_get_as_ptr(&split, 0);
-            HeapStr nameStr = list_get_as_ptr(&split, 1);
-            HeapStr ageStr = list_get_as_ptr(&split, 2);
+            String idStr = list_get_as_ptr(&split, 0);
+            String nameStr = list_get_as_ptr(&split, 1);
+            String ageStr = list_get_as_ptr(&split, 2);
 
             if (!idStr || !nameStr || !ageStr)
             {

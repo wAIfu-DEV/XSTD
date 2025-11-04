@@ -156,7 +156,7 @@ void buffer_free(Allocator *alloc, HeapBuff *buff)
  *
  * ```c
  * ConstStr source =     "Example string";
- * HeapStr dest = ConstToHeapStr("____________________");
+ * OwnedStr dest = ConstToHeapStr("____________________");
  *
  * ConstBuff srcBuff = (ConstBuff){ .bytes = source, .size = string_size(source) + 1 };
  * HeapBuff destBuff = (HeapBuff){ .bytes = dest, .size = string_size(dest) + 1 };
@@ -198,7 +198,7 @@ Error buffer_copy(ConstBuff source, Buffer destination)
  *
  * ```c
  * ConstStr source = "Example string";
- * HeapStr dest = ConstToHeapStr("______________");
+ * OwnedStr dest = ConstToHeapStr("______________");
  *
  * ConstBuff srcBuff = (ConstBuff){ .bytes = source, .size = string_size(source) + 1 };
  * HeapBuff destBuff = (HeapBuff){ .bytes = dest, .size = string_size(dest) + 1 };

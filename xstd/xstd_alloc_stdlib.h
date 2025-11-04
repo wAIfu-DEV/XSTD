@@ -28,7 +28,7 @@ void __c_alloc_free(Allocator *this, void *block)
  * @brief Default allocator making use of stdlib's malloc, realloc and free.
  *
  * ```c
- * HeapStr newStr = c_allocator.alloc(&c_allocator, sizeof(i8) * 64);
+ * OwnedStr newStr = c_allocator.alloc(&c_allocator, sizeof(i8) * 64);
  * ```
  * @return Allocator
  */

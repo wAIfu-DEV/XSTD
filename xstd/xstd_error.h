@@ -11,7 +11,7 @@ typedef struct _xstd_err
 
 typedef struct _xstd_err_owned
 {
-    HeapStr msgOwned;
+    OwnedStr msgOwned;
     ErrorCode code;
 } ErrorOwnedStr;
 

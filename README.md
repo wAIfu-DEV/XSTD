@@ -22,11 +22,11 @@
 
 The C standard library (stdlib) has served faithfully for decades, but:
 
-❌ Memory management is unsafe and invisible — `malloc()` is opaque, leaks happen silently.
-❌ Error handling is often ignored — `fopen()` returns NULL and you’re already segfaulting.
+❌ Memory management is unsafe and sometimes invisible — allocations are opaque, leaks happen silently.
+❌ Error handling is often unintuitive — `fopen()` returns NULL and you’re already segfaulting.
 ❌ Working with strings is error-prone — `strcat`, `strlen`, global buffers...
 ❌ Arrays are unsafe — you never know their size.
-❌ No modern constructs — no optional types, no results, no built-in containers, no writer APIs.
+❌ Unsafe and deprecated functions are still widely usable.
 
 We think: **C deserves better tooling**, and we've built **xstd** to fill that void — a modern, fully C99-compatible library with minimal dependencies and huge ergonomics improvements.
 
@@ -111,11 +111,12 @@ Simple, portable, and transparent. Absolutely no macros unless for type safety. 
 i32 main() {
     Allocator *a = &c_allocator;
 
-    ResultList builderRes = strbuilder_init(a);
+    // Most XSTD functions will either return void, Error, or ResultT
+    ResultStrBuilder builderRes = strbuilder_init(a);
     
     // Check for errors by comparing error code against 0
-    // Error code of 0 means success and a defined value,
-    // But error code != 0 means failure, and a likely undefined value.
+    // Error code of 0 (ERR_OK) means success and a defined value,
+    // But error code != 0 means failure, and a very likely undefined value.
     if (r.error.code != ERR_OK) {
         io_printerrln(ErrorToString(r.error.code)) // All standard error codes have string representations
         io_printerrln(r.error.msg); // All xstd library errors will also have a descriptive error message!
@@ -129,8 +130,8 @@ i32 main() {
     strbuilder_push_copy(&builder, "We ");
     strbuilder_push_copy(&builder, "Can!");
 
-    // Strings the user need to free will be returned through HeapStr or ResultOwnedStr
-    // This way, the intent is clear.
+    // Strings the user need to free will be returned through OwnedStr or ResultOwnedStr.
+    // This way, the intent is clear and explicitly declared through the code.
     ResultOwnedStr builtRes = strbuilder_get_string(&builder);
 
     // You do not have to compare the code to ERR_OK for it to achieve the same thing
@@ -139,13 +140,15 @@ i32 main() {
         return 1;
     }
 
-    HeapStr built = builtRes.value;
+    OwnedStr built = builtRes.value;
     io_println(built);
 
-    // We free the result string, as we own it.
+    // We free the result string, since OwnedStr implies the consumer owns the
+    // string, it is our responsibility to free it.
+    // Strings that do not require freeing are passed as either ConstStr or String
     a->free(a, built);
 
-    // Any call to x_init() should be followed by a call to x_deinit()
+    // Any call to x_init() should be followed by a call to x_deinit(),
     // in order to free the memory.
     strbuilder_deinit(&builder);
 }
@@ -280,3 +283,6 @@ Projects making use of xstd:
 
 ---
 🛠 Built with love for C ❤️
+
+---
+I'd like to thank ChatGPT for writing this README, really cool.

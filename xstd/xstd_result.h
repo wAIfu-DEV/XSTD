@@ -59,10 +59,10 @@ typedef struct _result_str
 
 // If `error` != `ERR_OK` then `value` is invalid. Do not access without checking.
 //
-// HeapStr `value` should be freed after use if valid.
+// OwnedStr `value` should be freed after use if valid.
 typedef struct _result_owned_str
 {
-    HeapStr value;
+    OwnedStr value;
     Error error;
 } ResultOwnedStr;
 

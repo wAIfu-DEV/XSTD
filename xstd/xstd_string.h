@@ -305,7 +305,7 @@ ResultOwnedStr string_dupe(Allocator *alloc, ConstStr source)
  *
  * ```c
  * ConstStr source = "Example string";
- * String newString = string_dupe_noresult(&c_allocator, source);
+ * OwnedStr newString = string_dupe_noresult(&c_allocator, source);
  * if (!newString) // Error!
  * // newString == "Example string"
  * ```
@@ -313,7 +313,7 @@ ResultOwnedStr string_dupe(Allocator *alloc, ConstStr source)
  * @param source Terminated string
  * @return String
  */
-HeapStr string_dupe_noresult(Allocator *alloc, ConstStr source)
+OwnedStr string_dupe_noresult(Allocator *alloc, ConstStr source)
 {
     if (!source)
         return NULL;
@@ -328,7 +328,7 @@ HeapStr string_dupe_noresult(Allocator *alloc, ConstStr source)
     return newStr;
 }
 
-// Converts a const char* to HeapStr, uses default allocator.
+// Converts a const char* to OwnedStr, uses default allocator.
 // TODO: take allocator instead of defaulting to c_alloc
 #define ConstToHeapStr(constStr) string_dupe_noresult((Allocator *)&c_allocator, constStr)
 
@@ -497,7 +497,7 @@ ResultOwnedStr string_substr(Allocator *alloc, ConstStr s, u64 start, u64 end)
  *
  * ```c
  * ConstStr myStr = "Hello, World!";
- * HeapStr subStr = string_substr_unsafe(&c_allocator, myStr, 7, 12);
+ * OwnedStr subStr = string_substr_unsafe(&c_allocator, myStr, 7, 12);
  * if (!subStr) // Error!
  * // subStr == "World"
  * ```
@@ -505,9 +505,9 @@ ResultOwnedStr string_substr(Allocator *alloc, ConstStr s, u64 start, u64 end)
  * @param s
  * @param start
  * @param end
- * @return HeapStr
+ * @return OwnedStr
  */
-HeapStr string_substr_unsafe(Allocator *alloc, ConstStr s, u64 start, u64 end)
+OwnedStr string_substr_unsafe(Allocator *alloc, ConstStr s, u64 start, u64 end)
 {
     u64 subSize = end - start;
     HeapStr newStr = alloc->alloc(alloc, subSize + 1);
@@ -747,7 +747,7 @@ i64 string_find(ConstStr haystack, ConstStr needle)
  * strbuilder_push_owned(&builder, ConstToHeapStr(" World!"));
  * ResultOwnedStr resBuiltStr = strbuilder_get_string(&builder);
  * if (resBuiltStr.error.code) // Error!
- * HeapStr builtStr = resBuiltStr.value;
+ * OwnedStr builtStr = resBuiltStr.value;
  * strbuilder_deinit(&builder);
  * ```
  * @param alloc
@@ -820,7 +820,7 @@ void strbuilder_deinit(StringBuilder *builder)
  * @param builder
  * @param s
  */
-void strbuilder_push_owned(StringBuilder *builder, HeapStr s)
+void strbuilder_push_owned(StringBuilder *builder, OwnedStr s)
 {
     if (!builder || !builder->_valid)
         return;
@@ -865,7 +865,7 @@ void strbuilder_push_copy(StringBuilder *builder, ConstStr s)
  * strbuilder_push_owned(&builder, ConstToHeapStr("World!"));
  * ResultOwnedStr built = strbuilder_get_string(&builder);
  * if (built.error.code) // Error!
- * HeapStr resultStr = built.value;
+ * OwnedStr resultStr = built.value;
  * strbuilder_deinit(&builder);
  * ```
  * @param builder
@@ -927,7 +927,7 @@ ResultOwnedStr strbuilder_get_string(StringBuilder *builder)
  * ```c
  * ResultOwnedStr res = string_replace(&alloc, "This is a test, or is it?", "is", "is not");
  * if (res.error.code) // Error!
- * HeapStr replaced = res.value;
+ * OwnedStr replaced = res.value;
  * // replaced == "This is not a test, or is not it?"
  * ```
  * @param alloc
