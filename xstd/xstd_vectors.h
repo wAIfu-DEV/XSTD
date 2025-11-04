@@ -7,7 +7,7 @@
     { \
         T x; \
         T y; \
-    } Vec2##T;
+    } Vec2##T
 
 #define __DEF_VEC3_T(T) \
     typedef struct _vec3_##T \
@@ -15,7 +15,7 @@
         T x; \
         T y; \
         T z;  \
-    } Vec3##T;
+    } Vec3##T
 
 __DEF_VEC2_T(i8);
 __DEF_VEC2_T(u8);

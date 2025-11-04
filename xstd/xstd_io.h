@@ -147,7 +147,7 @@ ResultOwnedStr io_read_line(Allocator *alloc)
     if (!alloc)
         return (ResultOwnedStr){
             .value = NULL,
-            .error = ERR_INVALID_PARAMETER,
+            .error = X_ERR_EXT("io", "io_read_line", ERR_INVALID_PARAMETER, "null allocator"),
         };
 
     File f = IoStdin;
@@ -158,7 +158,7 @@ ResultOwnedStr io_read_line(Allocator *alloc)
     if (!buffer)
         return (ResultOwnedStr){
             .value = NULL,
-            .error = ERR_OUT_OF_MEMORY,
+            .error = X_ERR_EXT("io", "io_read_line", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
     u64 len = 0;
@@ -178,7 +178,7 @@ ResultOwnedStr io_read_line(Allocator *alloc)
                 alloc->free(alloc, buffer);
                 return (ResultOwnedStr){
                     .value = NULL,
-                    .error = ERR_OUT_OF_MEMORY,
+                    .error = X_ERR_EXT("io", "io_read_line", ERR_OUT_OF_MEMORY, "alloc failure"),
                 };
             }
             buffer = newBuff;
@@ -192,14 +192,14 @@ ResultOwnedStr io_read_line(Allocator *alloc)
         alloc->free(alloc, buffer);
         return (ResultOwnedStr){
             .value = NULL,
-            .error = ERR_FILE_CANT_READ,
+            .error = X_ERR_EXT("io", "io_read_line", ERR_FILE_CANT_READ, "cannot read from file"),
         };
     }
     buffer[len] = 0;
 
     return (ResultOwnedStr){
         .value = buffer,
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }
 
@@ -228,7 +228,7 @@ void crash_print_error(Error err, ConstStr errMsg, i16 code)
     // We use file_write here to not spam file_flush
     file_write_str(&f, "\x1b[1;31m");
     file_write_str(&f, "[CRASH](ERROR: ");
-    file_write_str(&f, ErrorToString(err));
+    file_write_str(&f, ErrorToString(err.code));
     file_write_str(&f, "): ");
     io_printerrln(errMsg);
 
@@ -268,7 +268,7 @@ void assert_true(const ibool condition, ConstStr falseMessage)
  */
 void assert_ok(const Error err, ConstStr isErrMessage)
 {
-    if (err == ERR_OK)
+    if (err.code == ERR_OK)
         return;
 
     File f = IoStderr;
@@ -276,7 +276,9 @@ void assert_ok(const Error err, ConstStr isErrMessage)
     // We use file_write here to not spam file_flush
     file_write_str(&f, "\x1b[1;31m");
     file_write_str(&f, "[ASSERT ERR FAILURE](ERROR: ");
-    file_write_str(&f, ErrorToString(err));
+    file_write_str(&f, ErrorToString(err.code));
+    file_write_str(&f, "; MSG: ");
+    file_write_str(&f, err.msg);
     file_write_str(&f, "): ");
     io_printerrln(isErrMessage);
 

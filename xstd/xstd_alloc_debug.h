@@ -2,214 +2,468 @@
 
 #include "xstd_core.h"
 #include "xstd_alloc.h"
-#include "xstd_io.h"
-#include "xstd_hashmap.h"
+
+#define _X_DEBUG_ALLOC_ENTRY_EMPTY 0u
+#define _X_DEBUG_ALLOC_ENTRY_FULL 1u
+#define _X_DEBUG_ALLOC_ENTRY_TOMB 2u
+
+typedef struct _debug_allocator_entry
+{
+    void *ptr;
+    u64 size;
+    u8 state;
+} DebugAllocEntry;
 
 typedef struct _debug_allocator_state
 {
     Allocator *targetAllocator;
+    DebugAllocEntry *table;
+    u32 capacity;
+    u32 count;
+    u32 mask;
+    u32 resizeThreshold;
+
+    u64 activeAllocCount;
+    u64 peakAllocCount;
+
+    u64 activeUserBytes;
+    u64 peakUserBytes;
+
+    u64 activeOverheadBytes;
+    u64 peakOverheadBytes;
+
     u64 totalMallocCalls;
     u64 totalFreeCalls;
     u64 totalAllocBytes;
     u64 totalFreedBytes;
-    u64 activeBytes;
-    u64 activeAllocs;
 
-    HashMap ptrAllocMap;
+    u64 totalMetaAllocBytes;
+    u64 totalMetaFreeBytes;
 
-    ibool verbosePrint;
+    ibool trackingOverflow;
+    u64 failedInsertions;
+    u64 untrackedFrees;
+    u64 untrackedReallocs;
 } DebugAllocatorState;
 
-void *__debug_alloc(Allocator *this, u64 size)
+static u32 __debug_allocator_hash_ptr(void *ptr)
 {
-    DebugAllocatorState *state = (DebugAllocatorState *)this->_internalState;
+#if __XSTD_ARCH_64BIT
+    u64 key = (u64)(unsigned long long)ptr;
+#else
+    u64 key = (u64)(unsigned long)ptr;
+#endif
+    key ^= key >> 17;
+    key ^= key >> 11;
+    key *= 0x9e3779b1u;
+    return (u32)key;
+}
 
-    void *ptr = state->targetAllocator->alloc((Allocator *)state->targetAllocator, size);
+static u32 __debug_allocator_next_pow2(u32 value)
+{
+    if (value < 4u)
+        return 4u;
 
-    if (!ptr)
+    value -= 1u;
+    value |= value >> 1u;
+    value |= value >> 2u;
+    value |= value >> 4u;
+    value |= value >> 8u;
+    value |= value >> 16u;
+    return value + 1u;
+}
+
+static u32 __debug_allocator_resize_threshold(u32 capacity)
+{
+    u32 threshold = (capacity * 3u) / 4u;
+    if (threshold >= capacity)
+        threshold = capacity - 1u;
+    if (threshold == 0u)
+        threshold = capacity > 1u ? capacity - 1u : 1u;
+    return threshold;
+}
+
+static DebugAllocEntry *__debug_allocator_table_alloc(DebugAllocatorState *state, u32 capacity)
+{
+    if (!state || !state->targetAllocator)
+        return NULL;
+
+    u64 bytes = (u64)capacity * (u64)sizeof(DebugAllocEntry);
+    DebugAllocEntry *entries = (DebugAllocEntry *)state->targetAllocator->alloc(state->targetAllocator, bytes);
+    if (!entries)
+        return NULL;
+
+    for (u32 i = 0; i < capacity; ++i)
     {
-        if (state->verbosePrint)
-            io_printerrln("[DEBUGALLOC]: Allocation failure.");
+        entries[i].ptr = NULL;
+        entries[i].size = 0;
+        entries[i].state = _X_DEBUG_ALLOC_ENTRY_EMPTY;
+    }
+
+    state->totalMetaAllocBytes += bytes;
+    state->activeOverheadBytes += bytes;
+    if (state->activeOverheadBytes > state->peakOverheadBytes)
+        state->peakOverheadBytes = state->activeOverheadBytes;
+
+    return entries;
+}
+
+static void __debug_allocator_table_free(DebugAllocatorState *state, DebugAllocEntry *table, u32 capacity)
+{
+    if (!state || !state->targetAllocator || !table)
+        return;
+
+    u64 bytes = (u64)capacity * (u64)sizeof(DebugAllocEntry);
+    if (state->activeOverheadBytes >= bytes)
+        state->activeOverheadBytes -= bytes;
+    else
+        state->activeOverheadBytes = 0;
+
+    state->totalMetaFreeBytes += bytes;
+    state->targetAllocator->free(state->targetAllocator, table);
+}
+
+static DebugAllocEntry *__debug_allocator_find(DebugAllocatorState *state, void *ptr, u32 *indexOut)
+{
+    if (!state || !state->table || state->capacity == 0u)
+        return NULL;
+
+    u32 mask = state->mask;
+    u32 idx = __debug_allocator_hash_ptr(ptr) & mask;
+    DebugAllocEntry *table = state->table;
+
+    while (1)
+    {
+        DebugAllocEntry *entry = &table[idx];
+        if (entry->state == _X_DEBUG_ALLOC_ENTRY_EMPTY)
+            break;
+
+        if (entry->state == _X_DEBUG_ALLOC_ENTRY_FULL && entry->ptr == ptr)
+        {
+            if (indexOut)
+                *indexOut = idx;
+            return entry;
+        }
+
+        idx = (idx + 1u) & mask;
+    }
+
+    if (indexOut)
+        *indexOut = idx;
+
+    return NULL;
+}
+
+static ibool __debug_allocator_grow(DebugAllocatorState *state);
+
+static DebugAllocEntry *__debug_allocator_insert(DebugAllocatorState *state, void *ptr, u64 size, ibool isReinsert)
+{
+    if (!state || !state->table)
+        return NULL;
+
+    if (!isReinsert && state->count + 1u > state->resizeThreshold)
+    {
+        if (!__debug_allocator_grow(state))
+            return NULL;
+    }
+
+    DebugAllocEntry *table = state->table;
+    u32 mask = state->mask;
+    u32 idx = __debug_allocator_hash_ptr(ptr) & mask;
+    u32 firstTombstone = 0xFFFFFFFFu;
+
+    while (1)
+    {
+        DebugAllocEntry *entry = &table[idx];
+        if (entry->state == _X_DEBUG_ALLOC_ENTRY_FULL)
+        {
+            if (entry->ptr == ptr)
+            {
+                if (!isReinsert)
+                {
+                    if (state->activeUserBytes >= entry->size)
+                        state->activeUserBytes -= entry->size;
+                    else
+                        state->activeUserBytes = 0;
+
+                    state->activeUserBytes += size;
+                    if (state->activeUserBytes > state->peakUserBytes)
+                        state->peakUserBytes = state->activeUserBytes;
+                }
+
+                entry->size = size;
+                entry->ptr = ptr;
+                return entry;
+            }
+        }
+        else if (entry->state == _X_DEBUG_ALLOC_ENTRY_EMPTY)
+        {
+            u32 targetIdx = (firstTombstone != 0xFFFFFFFFu) ? firstTombstone : idx;
+            DebugAllocEntry *target = &table[targetIdx];
+            target->ptr = ptr;
+            target->size = size;
+            target->state = _X_DEBUG_ALLOC_ENTRY_FULL;
+
+            state->count += 1u;
+            if (!isReinsert)
+            {
+                state->activeUserBytes += size;
+                if (state->activeUserBytes > state->peakUserBytes)
+                    state->peakUserBytes = state->activeUserBytes;
+            }
+            return target;
+        }
+        else
+        {
+            if (firstTombstone == 0xFFFFFFFFu)
+                firstTombstone = idx;
+        }
+
+        idx = (idx + 1u) & mask;
+    }
+}
+
+static void __debug_allocator_remove(DebugAllocatorState *state, u32 index)
+{
+    if (!state || !state->table || index >= state->capacity)
+        return;
+
+    DebugAllocEntry *entry = &state->table[index];
+    if (entry->state != _X_DEBUG_ALLOC_ENTRY_FULL)
+        return;
+
+    entry->state = _X_DEBUG_ALLOC_ENTRY_TOMB;
+    entry->ptr = NULL;
+    entry->size = 0;
+
+    if (state->count > 0u)
+        state->count -= 1u;
+}
+
+static ibool __debug_allocator_grow(DebugAllocatorState *state)
+{
+    if (!state || !state->table)
+        return false;
+
+    u32 oldCapacity = state->capacity;
+    if (oldCapacity >= (1u << 30))
+        return false;
+
+    u32 newCapacity = oldCapacity << 1;
+    DebugAllocEntry *newTable = __debug_allocator_table_alloc(state, newCapacity);
+    if (!newTable)
+        return false;
+
+    DebugAllocEntry *oldTable = state->table;
+
+    state->table = newTable;
+    state->capacity = newCapacity;
+    state->mask = newCapacity - 1u;
+    state->resizeThreshold = __debug_allocator_resize_threshold(newCapacity);
+
+    state->count = 0u;
+
+    for (u32 i = 0u; i < oldCapacity; ++i)
+    {
+        if (oldTable[i].state == _X_DEBUG_ALLOC_ENTRY_FULL)
+            __debug_allocator_insert(state, oldTable[i].ptr, oldTable[i].size, true);
+    }
+
+    __debug_allocator_table_free(state, oldTable, oldCapacity);
+    return true;
+}
+
+static void *__debug_alloc(Allocator *this, u64 size)
+{
+    if (!this || size == 0u)
+        return NULL;
+
+    DebugAllocatorState *state = (DebugAllocatorState *)this->_internalState;
+    if (!state || !state->targetAllocator)
+        return NULL;
+
+    void *ptr = state->targetAllocator->alloc(state->targetAllocator, size);
+    if (!ptr)
+        return NULL;
+
+    DebugAllocEntry *entry = __debug_allocator_insert(state, ptr, size, false);
+    if (!entry)
+    {
+        state->trackingOverflow = true;
+        state->failedInsertions += 1u;
+        state->targetAllocator->free(state->targetAllocator, ptr);
         return NULL;
     }
 
-    state->totalMallocCalls += 1;
+    state->activeAllocCount += 1u;
+    if (state->activeAllocCount > state->peakAllocCount)
+        state->peakAllocCount = state->activeAllocCount;
+
+    state->totalMallocCalls += 1u;
     state->totalAllocBytes += size;
-    state->activeAllocs += 1;
-    state->activeBytes += size;
-
-    // ptrAllocMap[ptr] = size
-    Buffer mapKey = (Buffer){ .bytes = (i8*)&ptr, .size = sizeof(u64) };
-    Error _ = hashmap_set(&state->ptrAllocMap, mapKey, &size);
-    (void)_;
-
-    if (state->verbosePrint)
-    {
-        File f = IoStderr;
-        io_printerr("[DEBUGALLOC]: Allocated ");
-        file_write_uint(&f, size);
-        io_printerr(" bytes @ ");
-        file_write_uint(&f, (u64)ptr);
-        io_printerrln("");
-    }
-
     return ptr;
 }
 
-void *__debug_realloc(Allocator *this, void *block, u64 newSize)
+static void __debug_free(Allocator *this, void *block)
 {
+    if (!this || !block)
+        return;
+
     DebugAllocatorState *state = (DebugAllocatorState *)this->_internalState;
+    if (!state || !state->targetAllocator)
+        return;
 
-    void *ptr = state->targetAllocator->realloc((Allocator *)state->targetAllocator, block, newSize);
+    u32 index = 0u;
+    DebugAllocEntry *entry = __debug_allocator_find(state, block, &index);
 
-    if (!ptr)
+    state->targetAllocator->free(state->targetAllocator, block);
+    state->totalFreeCalls += 1u;
+
+    if (!entry)
     {
-        if (state->verbosePrint)
-            io_printerrln("[DEBUGALLOC]: Reallocation failure.");
+        state->untrackedFrees += 1u;
+        return;
+    }
+
+    if (state->activeUserBytes >= entry->size)
+        state->activeUserBytes -= entry->size;
+    else
+        state->activeUserBytes = 0;
+
+    if (state->activeAllocCount > 0u)
+        state->activeAllocCount -= 1u;
+
+    state->totalFreedBytes += entry->size;
+    __debug_allocator_remove(state, index);
+}
+
+static void *__debug_realloc(Allocator *this, void *block, u64 newSize)
+{
+    if (!this)
+        return NULL;
+
+    DebugAllocatorState *state = (DebugAllocatorState *)this->_internalState;
+    if (!state || !state->targetAllocator)
+        return NULL;
+
+    if (!block)
+        return __debug_alloc(this, newSize);
+
+    if (newSize == 0u)
+    {
+        __debug_free(this, block);
         return NULL;
     }
 
-    state->totalMallocCalls += 1;
+    u32 oldIndex = 0u;
+    DebugAllocEntry *entry = __debug_allocator_find(state, block, &oldIndex);
+    u64 oldSize = entry ? entry->size : 0u;
+
+    void *ptr = state->targetAllocator->realloc(state->targetAllocator, block, newSize);
+    if (!ptr)
+        return NULL;
+
+    state->totalMallocCalls += 1u;
     state->totalAllocBytes += newSize;
-    state->activeAllocs += 1;
-    state->activeBytes += newSize;
 
-    // ptrAllocMap[ptr] = size
-    Buffer mapKey = (Buffer){ .bytes = (i8*)&ptr, .size = sizeof(u64) };
-    Error _ = hashmap_set(&state->ptrAllocMap, mapKey, &newSize);
-    (void)_;
-
-    if (state->verbosePrint)
+    if (ptr == block)
     {
-        File f = IoStderr;
-        io_printerr("[DEBUGALLOC]: Reallocated to ");
-        file_write_uint(&f, newSize);
-        io_printerr(" bytes @ ");
-        file_write_uint(&f, (u64)ptr);
-        io_printerrln("");
+        DebugAllocEntry *updated = __debug_allocator_insert(state, ptr, newSize, false);
+        if (!updated)
+        {
+            state->trackingOverflow = true;
+            state->failedInsertions += 1u;
+        }
+        return ptr;
     }
+
+    if (entry)
+    {
+        if (state->activeUserBytes >= oldSize)
+            state->activeUserBytes -= oldSize;
+        else
+            state->activeUserBytes = 0;
+
+        if (state->activeAllocCount > 0u)
+            state->activeAllocCount -= 1u;
+
+        state->totalFreedBytes += oldSize;
+        __debug_allocator_remove(state, oldIndex);
+    }
+    else
+    {
+        state->untrackedReallocs += 1u;
+    }
+
+    DebugAllocEntry *newEntry = __debug_allocator_insert(state, ptr, newSize, false);
+    if (!newEntry)
+    {
+        state->trackingOverflow = true;
+        state->failedInsertions += 1u;
+        state->targetAllocator->free(state->targetAllocator, ptr);
+        return NULL;
+    }
+
+    state->activeAllocCount += 1u;
+    if (state->activeAllocCount > state->peakAllocCount)
+        state->peakAllocCount = state->activeAllocCount;
 
     return ptr;
 }
 
-void __debug_free(Allocator *this, void *block)
+ResultAllocator debug_allocator(DebugAllocatorState *state, u32 requestedCapacity, Allocator *wrappedAllocator)
 {
-    DebugAllocatorState *state = (DebugAllocatorState *)this->_internalState;
-
-    if (state->verbosePrint)
-    {
-        File f = IoStderr;
-        io_printerr("[DEBUGALLOC]: Freed block @ ");
-        file_write_uint(&f, (u64)block);
-        io_printerrln("");
-    }
-
-    state->totalFreeCalls += 1;
-
-    if (state->activeAllocs > 0)
-        state->activeAllocs -= 1;
-    
-    Buffer mapKey = (Buffer){ .bytes = (i8*)&block, .size = sizeof(u64) };
-    Error _ = hashmap_remove(&state->ptrAllocMap, mapKey);
-    (void)_;
-
-    state->targetAllocator->free((Allocator *)state->targetAllocator, block);
-}
-
-/**
- * @brief Returns a debug allocator that wraps the provided `wrappedAllocator`.
- * The allocator will log all allocations/frees and track memory usage.
- *
- * You must retain access to the internalStatePtr as long as the allocator is being used.
- *
- * ```c
- * DebugAllocatorState dbgState;
- * Allocator dbgAlloc = debug_allocator(&dbgState, &c_allocator);
- * ```
- * @param internalStatePtr pointer to a persistent DebugAllocatorState
- * @param wrappedAllocator allocator to forward calls to
- * @return ResultAllocator
- */
-ResultAllocator debug_allocator(DebugAllocatorState *internalStatePtr, Allocator *wrappedAllocator)
-{
-    if (!wrappedAllocator || !internalStatePtr)
+    if (!state || !wrappedAllocator)
         return (ResultAllocator){
-            .value = {0},
-            .error = ERR_INVALID_PARAMETER,
+            .value = (Allocator){0},
+            .error = X_ERR_EXT("alloc_debug", "debug_allocator", ERR_INVALID_PARAMETER, "null arg"),
         };
 
-    *internalStatePtr = (DebugAllocatorState){
+    u32 capacity = __debug_allocator_next_pow2(requestedCapacity);
+    if (capacity < 4u)
+        capacity = 4u;
+
+    *state = (DebugAllocatorState){
         .targetAllocator = wrappedAllocator,
+        .table = NULL,
+        .capacity = capacity,
+        .count = 0,
+        .mask = capacity - 1,
+        .resizeThreshold = __debug_allocator_resize_threshold(capacity),
+        .activeAllocCount = 0,
+        .peakAllocCount = 0,
+        .activeUserBytes = 0,
+        .peakUserBytes = 0,
+        .activeOverheadBytes = 0,
+        .peakOverheadBytes = 0,
         .totalMallocCalls = 0,
         .totalFreeCalls = 0,
         .totalAllocBytes = 0,
         .totalFreedBytes = 0,
-        .activeAllocs = 0,
-        .activeBytes = 0,
+        .totalMetaAllocBytes = 0,
+        .totalMetaFreeBytes = 0,
+        .trackingOverflow = false,
+        .failedInsertions = 0,
+        .untrackedFrees = 0,
+        .untrackedReallocs = 0,
     };
 
-    ResultHashMap hmRes = HashMapInitT(u64, wrappedAllocator);
-
-    if (hmRes.error)
+    DebugAllocEntry *table = __debug_allocator_table_alloc(state, capacity);
+    if (!table)
         return (ResultAllocator){
-            .value = {0},
-            .error = hmRes.error,
+            .value = (Allocator){0},
+            .error = X_ERR_EXT("alloc_debug", "debug_allocator", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
-    
-    internalStatePtr->ptrAllocMap = hmRes.value;
+
+    state->table = table;
 
     return (ResultAllocator){
-        .value = (Allocator) {
-            ._internalState = internalStatePtr,
+        .value = (Allocator){
+            ._internalState = state,
             .alloc = __debug_alloc,
             .realloc = __debug_realloc,
             .free = __debug_free,
         },
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
-}
-
-void __debug_allocator_print_active(Buffer key, void* value, void* userArg)
-{
-    File f = IoStderr;
-
-    file_write_str(&f, "ptr=");
-    file_write_uint(&f, *(u64*)key.bytes);
-    file_write_str(&f, " size=");
-    file_write_uint(&f, *(u64*)value);
-    file_write_char(&f, '\n');
-
-    file_flush(&f);
-}
-
-/**
- * @brief Logs debug allocator statistics to stderr
- */
-void debug_allocator_logstats(DebugAllocatorState *state)
-{
-    File f = IoStderr;
-    io_printerrln("[DEBUGALLOC STATS]:");
-    io_printerr("- Total allocs: ");
-    file_write_uint(&f, state->totalMallocCalls);
-    io_printerrln("");
-
-    io_printerr("- Total frees: ");
-    file_write_uint(&f, state->totalFreeCalls);
-    io_printerrln("");
-
-    io_printerr("- Total bytes allocated: ");
-    file_write_uint(&f, state->totalAllocBytes);
-    io_printerrln("");
-
-    io_printerr("- Active allocs: ");
-    file_write_uint(&f, state->activeAllocs);
-    io_printerrln("");
-
-    io_printerr("- Active bytes:\n");
-    hashmap_for_each(&state->ptrAllocMap, __debug_allocator_print_active, NULL);
-
-    if (state->activeAllocs == 0)
-    {
-        io_printerrln("none");
-    }
 }

@@ -102,7 +102,7 @@ void _xstd_string_tests(Allocator alloc)
     // =========================================================================
     {
         ResultOwnedStr strHeapRes1 = string_alloc(&alloc, 5, ' ');
-        assert_true(strHeapRes1.error == ERR_OK, "string_alloc strHeapRes1.error != ERR_OK");
+        assert_true(strHeapRes1.error.code == ERR_OK, "string_alloc strHeapRes1.error.code != ERR_OK");
 
         HeapStr strHeap1 = strHeapRes1.value;
         assert_true(strHeap1 != NULL, "string_alloc strHeapRes1.value == NULL");
@@ -110,7 +110,7 @@ void _xstd_string_tests(Allocator alloc)
         assert_true(string_equals(strHeap1, "     "), "string_alloc strHeap1 != \"     \"");
 
         ResultOwnedStr strHeapRes2 = string_alloc(&alloc, 0, ' ');
-        assert_true(strHeapRes2.error == ERR_OK, "string_alloc strHeapRes2.error != ERR_OK");
+        assert_true(strHeapRes2.error.code == ERR_OK, "string_alloc strHeapRes2.error.code != ERR_OK");
 
         HeapStr strHeap2 = strHeapRes2.value;
         assert_true(strHeap2 != NULL, "string_alloc strHeapRes2.value == NULL");
@@ -118,7 +118,7 @@ void _xstd_string_tests(Allocator alloc)
         assert_true(string_equals(strHeap2, ""), "string_alloc strHeap2 != \"\"");
 
         ResultOwnedStr strHeapRes3 = string_alloc(&badAlloc, 5, ' ');
-        assert_true(strHeapRes3.error != ERR_OK, "string_alloc strHeapRes3.error == ERR_OK");
+        assert_true(strHeapRes3.error.code != ERR_OK, "string_alloc strHeapRes3.error.code == ERR_OK");
 
         alloc.free(&alloc, strHeap1);
         alloc.free(&alloc, strHeap2);
@@ -130,13 +130,13 @@ void _xstd_string_tests(Allocator alloc)
         ConstStr strCopyUn1 = "Copied.";
 
         ResultOwnedStr strCopyUnRes2 = string_alloc(&alloc, 7, ' ');
-        assert_true(strCopyUnRes2.error == ERR_OK, "string_copy_unsafe strCopyUnRes2.error != ERR_OK");
+        assert_true(strCopyUnRes2.error.code == ERR_OK, "string_copy_unsafe strCopyUnRes2.error.code != ERR_OK");
         HeapStr strCopyUn2 = strCopyUnRes2.value;
         string_copy_unsafe(strCopyUn1, strCopyUn2);
         assert_true(string_equals(strCopyUn1, strCopyUn2), "string_copy_unsafe strCopyUn1 != strCopyUn2");
 
         ResultOwnedStr strCopyUnRes3 = string_alloc(&alloc, 10, ' ');
-        assert_true(strCopyUnRes3.error == ERR_OK, "string_copy_unsafe strCopyUnRes3.error != ERR_OK");
+        assert_true(strCopyUnRes3.error.code == ERR_OK, "string_copy_unsafe strCopyUnRes3.error.code != ERR_OK");
         HeapStr strCopyUn3 = strCopyUnRes3.value;
         string_copy_unsafe(strCopyUn1, strCopyUn3);
         assert_true(string_equals(strCopyUn3, strCopyUn1), "string_copy_unsafe strCopyUn3 != strCopyUn1");
@@ -151,25 +151,25 @@ void _xstd_string_tests(Allocator alloc)
         ConstStr strCopyNUn1 = "Copied.";
 
         ResultOwnedStr strCopyNUnRes2 = string_alloc(&alloc, 7, ' ');
-        assert_true(strCopyNUnRes2.error == ERR_OK, "string_copy_n_unsafe strCopyNUnRes2.error != ERR_OK");
+        assert_true(strCopyNUnRes2.error.code == ERR_OK, "string_copy_n_unsafe strCopyNUnRes2.error.code != ERR_OK");
         HeapStr strCopyNUn2 = strCopyNUnRes2.value;
         string_copy_n_unsafe(strCopyNUn1, strCopyNUn2, 7, false);
         assert_true(string_equals(strCopyNUn1, strCopyNUn2), "string_copy_n_unsafe strCopyNUn1 != strCopyNUn2");
 
         ResultOwnedStr strCopyNUnRes3 = string_alloc(&alloc, 10, ' ');
-        assert_true(strCopyNUnRes3.error == ERR_OK, "string_copy_n_unsafe strCopyNUnRes3.error != ERR_OK");
+        assert_true(strCopyNUnRes3.error.code == ERR_OK, "string_copy_n_unsafe strCopyNUnRes3.error.code != ERR_OK");
         HeapStr strCopyNUn3 = strCopyNUnRes3.value;
         string_copy_n_unsafe(strCopyNUn1, strCopyNUn3, 7, false);
         assert_true(string_equals(strCopyNUn3, "Copied.   "), "string_copy_n_unsafe strCopyNUn3 != \"Copied.   \"");
 
         ResultOwnedStr strCopyNUnRes4 = string_alloc(&alloc, 10, ' ');
-        assert_true(strCopyNUnRes4.error == ERR_OK, "string_copy_n_unsafe strCopyNUnRes4.error != ERR_OK");
+        assert_true(strCopyNUnRes4.error.code == ERR_OK, "string_copy_n_unsafe strCopyNUnRes4.error.code != ERR_OK");
         HeapStr strCopyNUn4 = strCopyNUnRes4.value;
         string_copy_n_unsafe(strCopyNUn1, strCopyNUn4, 3, false);
         assert_true(string_equals(strCopyNUn4, "Cop       "), "string_copy_n_unsafe strCopyNUn4 != \"Cop       \"");
 
         ResultOwnedStr strCopyNUnRes5 = string_alloc(&alloc, 10, ' ');
-        assert_true(strCopyNUnRes5.error == ERR_OK, "string_copy_n_unsafe strCopyNUnRes5.error != ERR_OK");
+        assert_true(strCopyNUnRes5.error.code == ERR_OK, "string_copy_n_unsafe strCopyNUnRes5.error.code != ERR_OK");
         HeapStr strCopyNUn5 = strCopyNUnRes5.value;
         string_copy_n_unsafe(strCopyNUn1, strCopyNUn5, 0, false);
         assert_true(string_equals(strCopyNUn5, "          "), "string_copy_n_unsafe strCopyNUn5 != \"          \"");
@@ -188,30 +188,30 @@ void _xstd_string_tests(Allocator alloc)
         ConstStr strCopy1 = "Copied.";
 
         ResultOwnedStr strCopyRes2 = string_alloc(&alloc, 7, ' ');
-        assert_true(strCopyRes2.error == ERR_OK, "string_copy strCopyRes2.error != ERR_OK");
+        assert_true(strCopyRes2.error.code == ERR_OK, "string_copy strCopyRes2.error.code != ERR_OK");
         HeapStr strCopy2 = strCopyRes2.value;
         err = string_copy(strCopy1, strCopy2);
-        assert_true(err == ERR_OK, "string_copy strCopy2 err != ERR_OK");
+        assert_true(err.code == ERR_OK, "string_copy strCopy2 err.code != ERR_OK");
         assert_true(string_equals(strCopy1, strCopy2), "string_copy strCopy1 != strCopy2");
 
         ResultOwnedStr strCopyRes3 = string_alloc(&alloc, 10, ' ');
-        assert_true(strCopyRes3.error == ERR_OK, "string_copy strCopyRes3.error != ERR_OK");
+        assert_true(strCopyRes3.error.code == ERR_OK, "string_copy strCopyRes3.error.code != ERR_OK");
         HeapStr strCopy3 = strCopyRes3.value;
         err = string_copy(strCopy1, strCopy3);
-        assert_true(err == ERR_OK, "string_copy strCopy3 err != ERR_OK");
+        assert_true(err.code == ERR_OK, "string_copy strCopy3 err.code != ERR_OK");
         assert_true(string_equals(strCopy3, strCopy1), "string_copy strCopy3 != strCopy1");
 
         err = string_copy(strCopy1, NULL);
-        assert_true(err != ERR_OK, "string_copy NULL arg2 err == ERR_OK");
+        assert_true(err.code != ERR_OK, "string_copy NULL arg2 err.code == ERR_OK");
 
         err = string_copy(NULL, strCopy3);
-        assert_true(err != ERR_OK, "string_copy NULL arg1 err == ERR_OK");
+        assert_true(err.code != ERR_OK, "string_copy NULL arg1 err.code == ERR_OK");
 
         err = string_copy(NULL, NULL);
-        assert_true(err != ERR_OK, "string_copy NULL args err == ERR_OK");
+        assert_true(err.code != ERR_OK, "string_copy NULL args err.code == ERR_OK");
 
         err = string_copy("                              ", strCopy2);
-        assert_true(err != ERR_OK, "string_copy arg2 smaller err == ERR_OK");
+        assert_true(err.code != ERR_OK, "string_copy arg2 smaller err.code == ERR_OK");
 
         alloc.free(&alloc, strCopy2);
         alloc.free(&alloc, strCopy3);
@@ -223,53 +223,53 @@ void _xstd_string_tests(Allocator alloc)
         ConstStr strCopyN1 = "Copied.";
 
         ResultOwnedStr strCopyNRes2 = string_alloc(&alloc, 7, ' ');
-        assert_true(strCopyNRes2.error == ERR_OK, "string_copy_n strCopyNRes2.error != ERR_OK");
+        assert_true(strCopyNRes2.error.code == ERR_OK, "string_copy_n strCopyNRes2.error.code != ERR_OK");
         HeapStr strCopyN2 = strCopyNRes2.value;
         err = string_copy_n(strCopyN1, strCopyN2, 7, false);
-        assert_true(err == ERR_OK, "string_copy_n strCopyN2 err != ERR_OK");
+        assert_true(err.code == ERR_OK, "string_copy_n strCopyN2 err.code != ERR_OK");
         assert_true(string_equals(strCopyN1, strCopyN2), "string_copy_n strCopyN1 != strCopyN2");
 
         ResultOwnedStr strCopyNRes3 = string_alloc(&alloc, 10, ' ');
-        assert_true(strCopyNRes3.error == ERR_OK, "string_copy_n strCopyNRes3.error != ERR_OK");
+        assert_true(strCopyNRes3.error.code == ERR_OK, "string_copy_n strCopyNRes3.error.code != ERR_OK");
         HeapStr strCopyN3 = strCopyNRes3.value;
         err = string_copy_n(strCopyN1, strCopyN3, 7, false);
-        assert_true(err == ERR_OK, "string_copy_n strCopyN3 err != ERR_OK");
+        assert_true(err.code == ERR_OK, "string_copy_n strCopyN3 err.code != ERR_OK");
         assert_true(string_equals(strCopyN3, "Copied.   "), "string_copy_n strCopyN3 != \"Copied.   \"");
 
         ResultOwnedStr strCopyNRes4 = string_alloc(&alloc, 10, ' ');
-        assert_true(strCopyNRes4.error == ERR_OK, "string_copy_n strCopyNRes4.error != ERR_OK");
+        assert_true(strCopyNRes4.error.code == ERR_OK, "string_copy_n strCopyNRes4.error.code != ERR_OK");
         HeapStr strCopyN4 = strCopyNRes4.value;
         err = string_copy_n(strCopyN1, strCopyN4, 3, false);
-        assert_true(err == ERR_OK, "string_copy_n strCopyN4 err != ERR_OK");
+        assert_true(err.code == ERR_OK, "string_copy_n strCopyN4 err.code != ERR_OK");
         assert_true(string_equals(strCopyN4, "Cop       "), "string_copy_n strCopyN4 != \"Cop       \"");
 
         ResultOwnedStr strCopyNRes5 = string_alloc(&alloc, 10, ' ');
-        assert_true(strCopyNRes5.error == ERR_OK, "string_copy_n strCopyNRes5.error != ERR_OK");
+        assert_true(strCopyNRes5.error.code == ERR_OK, "string_copy_n strCopyNRes5.error.code != ERR_OK");
         HeapStr strCopyN5 = strCopyNRes5.value;
         err = string_copy_n(strCopyN1, strCopyN5, 0, false);
-        assert_true(err == ERR_OK, "string_copy_n strCopyN5 err != ERR_OK");
+        assert_true(err.code == ERR_OK, "string_copy_n strCopyN5 err.code != ERR_OK");
         assert_true(string_equals(strCopyN5, "          "), "string_copy_n strCopyN5 != \"          \"");
 
         err = string_copy_n(strCopyN1, NULL, 5, false);
-        assert_true(err != ERR_OK, "string_copy_n NULL arg2 err == ERR_OK");
+        assert_true(err.code != ERR_OK, "string_copy_n NULL arg2 err.code == ERR_OK");
 
         err = string_copy_n(NULL, strCopyN3, 5, false);
-        assert_true(err != ERR_OK, "string_copy_n NULL arg1 err == ERR_OK");
+        assert_true(err.code != ERR_OK, "string_copy_n NULL arg1 err.code == ERR_OK");
 
         err = string_copy_n(NULL, NULL, 5, false);
-        assert_true(err != ERR_OK, "string_copy_n NULL args err == ERR_OK");
+        assert_true(err.code != ERR_OK, "string_copy_n NULL args err.code == ERR_OK");
 
         err = string_copy_n(" ", strCopyN2, 5, false);
-        assert_true(err != ERR_OK, "string_copy_n arg1 smaller than n err == ERR_OK");
+        assert_true(err.code != ERR_OK, "string_copy_n arg1 smaller than n err.code == ERR_OK");
 
         err = string_copy_n("             ", strCopyN2, 8, false);
-        assert_true(err != ERR_OK, "string_copy_n arg2 smaller than n err == ERR_OK");
+        assert_true(err.code != ERR_OK, "string_copy_n arg2 smaller than n err.code == ERR_OK");
 
         err = string_copy_n(strCopyN1, strCopyN3, 0, false);
-        assert_true(err == ERR_OK, "string_copy_n 0 arg3 err != ERR_OK");
+        assert_true(err.code == ERR_OK, "string_copy_n 0 arg3 err.code != ERR_OK");
 
         err = string_copy_n(strCopyN1, strCopyN3, 99, false);
-        assert_true(err != ERR_OK, "string_copy_n 99 arg3 err == ERR_OK");
+        assert_true(err.code != ERR_OK, "string_copy_n 99 arg3 err.code == ERR_OK");
 
         // TODO: Add testing for terminate==true
 
@@ -286,18 +286,18 @@ void _xstd_string_tests(Allocator alloc)
         ConstStr strDupe1 = "Copied.";
 
         ResultOwnedStr strDupe2 = string_dupe(&alloc, strDupe1);
-        assert_true(strDupe2.error == ERR_OK, "string_dupe strDupe2.error != ERR_OK");
+        assert_true(strDupe2.error.code == ERR_OK, "string_dupe strDupe2.error.code != ERR_OK");
         assert_true(string_equals(strDupe1, strDupe2.value), "string_dupe strDupe1 != strDupe2");
 
         ResultOwnedStr strDupe3 = string_dupe(&alloc, strDupe0);
-        assert_true(strDupe3.error == ERR_OK, "string_dupe strDupe3.error != ERR_OK");
+        assert_true(strDupe3.error.code == ERR_OK, "string_dupe strDupe3.error.code != ERR_OK");
         assert_true(string_equals(strDupe0, strDupe3.value), "string_dupe strDupe0 != strDupe3");
 
         ResultOwnedStr strDupe4 = string_dupe(&alloc, NULL);
-        assert_true(strDupe4.error != ERR_OK, "string_dupe strDupe4.error == ERR_OK");
+        assert_true(strDupe4.error.code != ERR_OK, "string_dupe strDupe4.error.code == ERR_OK");
 
         ResultOwnedStr strDupe5 = string_dupe(&badAlloc, strDupe1);
-        assert_true(strDupe5.error != ERR_OK, "string_dupe strDupe5.error == ERR_OK");
+        assert_true(strDupe5.error.code != ERR_OK, "string_dupe strDupe5.error.code == ERR_OK");
 
         alloc.free(&alloc, strDupe2.value);
         alloc.free(&alloc, strDupe3.value);
@@ -333,22 +333,22 @@ void _xstd_string_tests(Allocator alloc)
         ConstStr strRes1 = "Resized";
 
         ResultOwnedStr strRes2 = string_resize(&alloc, strRes1, 15, '_');
-        assert_true(strRes2.error == ERR_OK, "string_resize strRes2.error != ERR_OK");
+        assert_true(strRes2.error.code == ERR_OK, "string_resize strRes2.error.code != ERR_OK");
         assert_true(string_equals(strRes2.value, "Resized________"), "string_resize strRes2 != \"Resized________\"");
 
         ResultOwnedStr strRes3 = string_resize(&alloc, strRes1, 3, '_');
-        assert_true(strRes3.error == ERR_OK, "string_resize strRes3.error != ERR_OK");
+        assert_true(strRes3.error.code == ERR_OK, "string_resize strRes3.error.code != ERR_OK");
         assert_true(string_equals(strRes3.value, "Res"), "string_resize strRes3 != \"Res\"");
 
         ResultOwnedStr strRes4 = string_resize(&alloc, NULL, 12, '_');
-        assert_true(strRes4.error != ERR_OK, "string_resize strRes4.error == ERR_OK");
+        assert_true(strRes4.error.code != ERR_OK, "string_resize strRes4.error.code == ERR_OK");
 
         ResultOwnedStr strRes5 = string_resize(&alloc, strRes1, 0, '_');
-        assert_true(strRes5.error == ERR_OK, "string_resize strRes5.error != ERR_OK");
+        assert_true(strRes5.error.code == ERR_OK, "string_resize strRes5.error.code != ERR_OK");
         assert_true(string_equals(strRes5.value, ""), "string_resize strRes5 != \"\"");
 
         ResultOwnedStr strRes6 = string_resize(&badAlloc, strRes1, 12, '_');
-        assert_true(strRes6.error != ERR_OK, "string_resize strRes6.error == ERR_OK");
+        assert_true(strRes6.error.code != ERR_OK, "string_resize strRes6.error.code == ERR_OK");
 
         alloc.free(&alloc, strRes2.value);
         alloc.free(&alloc, strRes3.value);
@@ -362,17 +362,17 @@ void _xstd_string_tests(Allocator alloc)
         ConstStr strConc2 = "Right";
 
         ResultOwnedStr strConc3 = string_concat(&alloc, strConc1, strConc2);
-        assert_true(strConc3.error == ERR_OK, "string_concat strConc3.error != ERR_OK");
+        assert_true(strConc3.error.code == ERR_OK, "string_concat strConc3.error.code != ERR_OK");
         assert_true(string_equals(strConc3.value, "Left Right"), "string_concat strConc3 != \"Left Right\"");
 
         ResultOwnedStr strConc4 = string_concat(&alloc, strConc1, NULL);
-        assert_true(strConc4.error != ERR_OK, "string_concat strConc4.error == ERR_OK");
+        assert_true(strConc4.error.code != ERR_OK, "string_concat strConc4.error.code == ERR_OK");
 
         ResultOwnedStr strConc5 = string_concat(&alloc, NULL, strConc2);
-        assert_true(strConc5.error != ERR_OK, "string_concat strConc5.error == ERR_OK");
+        assert_true(strConc5.error.code != ERR_OK, "string_concat strConc5.error.code == ERR_OK");
 
         ResultOwnedStr strConc6 = string_concat(&badAlloc, strConc1, strConc2);
-        assert_true(strConc6.error != ERR_OK, "string_concat strConc6.error == ERR_OK");
+        assert_true(strConc6.error.code != ERR_OK, "string_concat strConc6.error.code == ERR_OK");
 
         alloc.free(&alloc, strConc3.value);
         alloc.free(&alloc, strConc4.value);
@@ -385,21 +385,21 @@ void _xstd_string_tests(Allocator alloc)
 
         ResultOwnedStr strSub2 = string_substr(&alloc, strSub1, 10, 19);
 
-        assert_true(strSub2.error == ERR_OK, "string_substr strSub2.error != ERR_OK");
+        assert_true(strSub2.error.code == ERR_OK, "string_substr strSub2.error.code != ERR_OK");
         assert_true(string_equals(strSub2.value, "substring"), "string_substr strSub2 != \"substring\"");
 
         ResultOwnedStr strSub3 = string_substr(&alloc, strSub1, 0, 4);
-        assert_true(strSub3.error == ERR_OK, "string_substr strSub3.error != ERR_OK");
+        assert_true(strSub3.error.code == ERR_OK, "string_substr strSub3.error.code != ERR_OK");
         assert_true(string_equals(strSub3.value, "This"), "string_substr strSub3 != \"This\"");
 
         ResultOwnedStr strSub4 = string_substr(&alloc, strSub1, 10, 20);
-        assert_true(strSub4.error != ERR_OK, "string_substr strSub4.error == ERR_OK");
+        assert_true(strSub4.error.code != ERR_OK, "string_substr strSub4.error.code == ERR_OK");
 
         ResultOwnedStr strSub5 = string_substr(&alloc, NULL, 10, 20);
-        assert_true(strSub5.error != ERR_OK, "string_substr strSub5.error == ERR_OK");
+        assert_true(strSub5.error.code != ERR_OK, "string_substr strSub5.error.code == ERR_OK");
 
         ResultOwnedStr strSub6 = string_substr(&badAlloc, strSub1, 10, 19);
-        assert_true(strSub6.error != ERR_OK, "string_substr strSub6.error == ERR_OK");
+        assert_true(strSub6.error.code != ERR_OK, "string_substr strSub6.error.code == ERR_OK");
 
         alloc.free(&alloc, strSub2.value);
         alloc.free(&alloc, strSub3.value);
@@ -433,7 +433,7 @@ void _xstd_string_tests(Allocator alloc)
         ConstStr strSpl1 = "This is a  split string";
 
         ResultList strSpl2 = string_split_char(&alloc, strSpl1, ' ');
-        assert_ok(strSpl2.error, "string_splitc strSpl2.error != ERR_OK");
+        assert_ok(strSpl2.error, "string_splitc strSpl2.error.code != ERR_OK");
 
         List l = strSpl2.value;
 
@@ -461,10 +461,10 @@ void _xstd_string_tests(Allocator alloc)
         assert_str_eq(strSpl4, "string", "string_splitc strSpl4 != \"string\"");
 
         ResultList strSpl5 = string_split_char(&alloc, NULL, ' ');
-        assert_true(strSpl5.error != ERR_OK, "string_splitc strSpl5.error == ERR_OK");
+        assert_true(strSpl5.error.code != ERR_OK, "string_splitc strSpl5.error.code == ERR_OK");
 
         ResultList strSpl6 = string_split_char(&alloc, strSpl0, ' ');
-        assert_true(strSpl6.error == ERR_OK, "string_splitc strSpl6.error != ERR_OK");
+        assert_true(strSpl6.error.code == ERR_OK, "string_splitc strSpl6.error.code != ERR_OK");
 
         List l2 = strSpl6.value;
 
@@ -551,17 +551,17 @@ void _xstd_string_tests(Allocator alloc)
     // =========================================================================
     {
         ResultStrBuilder resBld = strbuilder_init(&alloc);
-        assert_ok(resBld.error, "StringBuilder resBld.error != ERR_OK");
+        assert_ok(resBld.error, "StringBuilder resBld.error.code != ERR_OK");
 
         ResultStrBuilder resBld2 = strbuilder_init(&badAlloc);
-        assert_true(resBld2.error != ERR_OK, "StringBuilder resBld2.error == ERR_OK");
+        assert_true(resBld2.error.code != ERR_OK, "StringBuilder resBld2.error.code == ERR_OK");
 
         StringBuilder builder = resBld.value;
 
         strbuilder_push_copy(&builder, "This");
 
         ResultOwnedStr resStr = strbuilder_get_string(&builder);
-        assert_ok(resStr.error, "StringBuilder resStr.error != ERR_OK");
+        assert_ok(resStr.error, "StringBuilder resStr.error.code != ERR_OK");
 
         HeapStr built = resStr.value;
         assert_str_eq(built, "This", "StringBuilder built != \"This\"");
@@ -570,7 +570,7 @@ void _xstd_string_tests(Allocator alloc)
 
         strbuilder_push_owned(&builder, ConstToHeapStr(" is a"));
         resStr = strbuilder_get_string(&builder);
-        assert_ok(resStr.error, "StringBuilder resStr2.error != ERR_OK");
+        assert_ok(resStr.error, "StringBuilder resStr2.error.code != ERR_OK");
         built = resStr.value;
         assert_str_eq(built, "This is a", "StringBuilder built2 != \"This is a\"");
 
@@ -578,7 +578,7 @@ void _xstd_string_tests(Allocator alloc)
 
         strbuilder_push_copy(&builder, " test.");
         resStr = strbuilder_get_string(&builder);
-        assert_ok(resStr.error, "StringBuilder resStr3.error != ERR_OK");
+        assert_ok(resStr.error, "StringBuilder resStr3.error.code != ERR_OK");
         built = resStr.value;
         assert_str_eq(built, "This is a test.", "StringBuilder built3 != \"This is a test.\"");
 
@@ -601,16 +601,16 @@ void _xstd_string_tests(Allocator alloc)
         assert_str_eq(resRep2.value, "This is a burger test", "string_replace resRep2 != \"This is a burger test\"");
 
         ResultOwnedStr resRep3 = string_replace(&alloc, strRep1, NULL, " a burger ");
-        assert_true(resRep3.error != ERR_OK, "string_replace resRep3 == ERR_OK");
+        assert_true(resRep3.error.code != ERR_OK, "string_replace resRep3 == ERR_OK");
 
         ResultOwnedStr resRep4 = string_replace(&alloc, strRep1, " ", NULL);
-        assert_true(resRep4.error != ERR_OK, "string_replace resRep4 == ERR_OK");
+        assert_true(resRep4.error.code != ERR_OK, "string_replace resRep4 == ERR_OK");
 
         ResultOwnedStr resRep5 = string_replace(&alloc, strRep1, NULL, NULL);
-        assert_true(resRep5.error != ERR_OK, "string_replace resRep5 == ERR_OK");
+        assert_true(resRep5.error.code != ERR_OK, "string_replace resRep5 == ERR_OK");
 
         ResultOwnedStr resRep6 = string_replace(&alloc, NULL, NULL, NULL);
-        assert_true(resRep6.error != ERR_OK, "string_replace resRep6 == ERR_OK");
+        assert_true(resRep6.error.code != ERR_OK, "string_replace resRep6 == ERR_OK");
 
         alloc.free(&alloc, resRep1.value);
         alloc.free(&alloc, resRep2.value);
@@ -750,7 +750,7 @@ void _xstd_string_tests(Allocator alloc)
         assert_str_eq(strTrim2.value, "This is a test.", "string_trim_whitespace strTrim2 != \"This is a test.\"");
 
         ResultOwnedStr strTrim3 = string_trim_whitespace(&alloc, NULL, true, true);
-        assert_true(strTrim3.error != ERR_OK, "string_trim_whitespace strTrim3 == OK");
+        assert_true(strTrim3.error.code != ERR_OK, "string_trim_whitespace strTrim3 == OK");
 
         alloc.free(&alloc, strTrim1.value);
         alloc.free(&alloc, strTrim2.value);
@@ -767,7 +767,7 @@ void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
-        assert_ok(res.error, "list_init res.error != ERR_OK");
+        assert_ok(res.error, "list_init res.error.code != ERR_OK");
 
         List l = res.value;
 
@@ -777,17 +777,17 @@ void _xstd_list_tests(Allocator alloc)
         list_deinit(&l);
 
         ResultList res2 = list_init(&badAlloc, sizeof(u64), 16);
-        assert_true(res2.error != ERR_OK, "list_init res2.error == ERR_OK");
+        assert_true(res2.error.code != ERR_OK, "list_init res2.error.code == ERR_OK");
 
         ResultList res3 = list_init(&alloc, 0, 16);
-        assert_true(res3.error != ERR_OK, "list_init res3.error == ERR_OK");
+        assert_true(res3.error.code != ERR_OK, "list_init res3.error.code == ERR_OK");
     }
     // =========================================================================
     // TEST list_push
     // =========================================================================
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
-        assert_ok(res.error, "list_push res.error != ERR_OK");
+        assert_ok(res.error, "list_push res.error.code != ERR_OK");
 
         List l = res.value;
 
@@ -813,7 +813,7 @@ void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
-        assert_ok(res.error, "list_pop res.error != ERR_OK");
+        assert_ok(res.error, "list_pop res.error.code != ERR_OK");
 
         List l = res.value;
 
@@ -850,7 +850,7 @@ void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
-        assert_ok(res.error, "list_get res.error != ERR_OK");
+        assert_ok(res.error, "list_get res.error.code != ERR_OK");
 
         List l = res.value;
 
@@ -859,19 +859,19 @@ void _xstd_list_tests(Allocator alloc)
 
         u64 out = 0;
         err = list_get(&l, 0, &out);
-        assert_ok(err, "list_get err != ERR_OK");
+        assert_ok(err, "list_get err.code != ERR_OK");
         assert_true(out == 5, "list_get out != 5");
 
         u64 out2 = 0;
         err = list_get(&l, 5, &out2);
-        assert_true(err != ERR_OK, "list_get err2 == ERR_OK");
+        assert_true(err.code != ERR_OK, "list_get err2 == ERR_OK");
 
         err = list_get(&l, 5, NULL);
-        assert_true(err != ERR_OK, "list_get err3 == ERR_OK");
+        assert_true(err.code != ERR_OK, "list_get err3 == ERR_OK");
 
         u64 out3;
         err = list_get(NULL, 0, &out3);
-        assert_true(err != ERR_OK, "list_get err4 == ERR_OK");
+        assert_true(err.code != ERR_OK, "list_get err4 == ERR_OK");
 
         list_deinit(&l);
     }
@@ -880,7 +880,7 @@ void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
-        assert_ok(res.error, "list_set res.error != ERR_OK");
+        assert_ok(res.error, "list_set res.error.code != ERR_OK");
 
         List l = res.value;
 
@@ -892,7 +892,7 @@ void _xstd_list_tests(Allocator alloc)
 
         u64 out = 0;
         err = list_get(&l, 0, &out);
-        assert_ok(err, "list_set err != ERR_OK");
+        assert_ok(err, "list_set err.code != ERR_OK");
         assert_true(out == 1, "list_set out != 1");
 
         list_deinit(&l);
@@ -902,7 +902,7 @@ void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
-        assert_ok(res.error, "list_getref res.error != ERR_OK");
+        assert_ok(res.error, "list_getref res.error.code != ERR_OK");
 
         List l = res.value;
 
@@ -926,7 +926,7 @@ void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
-        assert_ok(res.error, "list_get_unsafe res.error != ERR_OK");
+        assert_ok(res.error, "list_get_unsafe res.error.code != ERR_OK");
 
         List l = res.value;
 
@@ -944,7 +944,7 @@ void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
-        assert_ok(res.error, "list_set_unsafe res.error != ERR_OK");
+        assert_ok(res.error, "list_set_unsafe res.error.code != ERR_OK");
 
         List l = res.value;
 
@@ -956,7 +956,7 @@ void _xstd_list_tests(Allocator alloc)
 
         u64 out = 0;
         err = list_get(&l, 0, &out);
-        assert_ok(err, "list_set_unsafe err != ERR_OK");
+        assert_ok(err, "list_set_unsafe err.code != ERR_OK");
         assert_true(out == 1, "list_set_unsafe out != 1");
 
         list_deinit(&l);
@@ -966,7 +966,7 @@ void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
-        assert_ok(res.error, "list_getref_unsafe res.error != ERR_OK");
+        assert_ok(res.error, "list_getref_unsafe res.error.code != ERR_OK");
 
         List l = res.value;
 
@@ -984,7 +984,7 @@ void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     {
         ResultList res = ListInitT(HeapStr, &alloc);
-        assert_ok(res.error, "list_free_items res.error != ERR_OK");
+        assert_ok(res.error, "list_free_items res.error.code != ERR_OK");
 
         List l = res.value;
 
@@ -1002,7 +1002,7 @@ void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
-        assert_ok(res.error, "list_clear res.error != ERR_OK");
+        assert_ok(res.error, "list_clear res.error.code != ERR_OK");
 
         List l = res.value;
 
@@ -1020,7 +1020,7 @@ void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
-        assert_ok(res.error, "list_clear_nofree res.error != ERR_OK");
+        assert_ok(res.error, "list_clear_nofree res.error.code != ERR_OK");
 
         List l = res.value;
 
@@ -1038,7 +1038,7 @@ void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     {
         ResultList res = ListInitT(HeapStr, &alloc);
-        assert_ok(res.error, "list_for_each res.error != ERR_OK");
+        assert_ok(res.error, "list_for_each res.error.code != ERR_OK");
 
         List l = res.value;
 
@@ -1104,27 +1104,27 @@ void _xstd_math_tests(Allocator alloc)
         assert_true(addResNo1.value == 1, "math_u8_add_nooverflow addResNo1 != 1");
 
         ResultU8 addResNo2 = math_u8_add_nooverflow(U8_MAXVAL, 1);
-        assert_true(addResNo2.error != ERR_OK, "math_u8_add_nooverflow addResNo2 == OK");
+        assert_true(addResNo2.error.code != ERR_OK, "math_u8_add_nooverflow addResNo2 == OK");
 
         ResultU16 addResNo3 = math_u16_add_nooverflow(0, 1);
         assert_ok(addResNo3.error, "math_u16_add_nooverflow addResNo3 != OK");
         assert_true(addResNo3.value == 1, "math_u16_add_nooverflow addResNo3 != 1");
 
         ResultU16 addResNo4 = math_u16_add_nooverflow(U16_MAXVAL, 1);
-        assert_true(addResNo4.error != ERR_OK, "math_u16_add_nooverflow addResNo4 == OK");
+        assert_true(addResNo4.error.code != ERR_OK, "math_u16_add_nooverflow addResNo4 == OK");
 
         ResultU32 addResNo5 = math_u32_add_nooverflow(0, 1);
         assert_ok(addResNo5.error, "math_u32_add_nooverflow addResNo5 != OK");
         assert_true(addResNo5.value == 1, "math_u32_add_nooverflow addResNo5 != 1");
 
         ResultU32 addResNo6 = math_u32_add_nooverflow(U32_MAXVAL, 1);
-        assert_true(addResNo6.error != ERR_OK, "math_u32_add_nooverflow addResNo6 == OK");
+        assert_true(addResNo6.error.code != ERR_OK, "math_u32_add_nooverflow addResNo6 == OK");
 
         ResultU64 addResNo7 = math_u64_add_nooverflow(0, 1);
         assert_ok(addResNo7.error, "math_u32_add_nooverflow addResNo7 != OK");
         assert_true(addResNo7.value == 1, "math_u32_add_nooverflow addResNo7 != 1");
 
         ResultU64 addResNo8 = math_u64_add_nooverflow(U64_MAXVAL, 1);
-        assert_true(addResNo8.error != ERR_OK, "math_u32_add_nooverflow addResNo8 == OK");
+        assert_true(addResNo8.error.code != ERR_OK, "math_u32_add_nooverflow addResNo8 == OK");
     }
 }

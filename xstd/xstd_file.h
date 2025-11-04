@@ -62,7 +62,7 @@ const char *_file_openmode_to_str(const FileOpenMode mode)
  *
  * ```c
  * ResultFile res = file_open("test.txt", FileOpenModes.READ, FileOpenFormats.TEXT);
- * if (res.error) // Error!
+ * if (res.error.code) // Error!
  * File* file = res.value;
  * // Do file stuff
  * file_close(file);
@@ -77,7 +77,7 @@ ResultFile file_open(ConstStr path, const FileOpenMode mode)
     if (!path)
         return (ResultFile){
             .value = {0},
-            .error = ERR_INVALID_PARAMETER,
+            .error = X_ERR_EXT("file", "file_open", ERR_INVALID_PARAMETER, "null path"),
         };
 
     const char *openArg = _file_openmode_to_str(mode);
@@ -85,7 +85,7 @@ ResultFile file_open(ConstStr path, const FileOpenMode mode)
     if (openArg == NULL)
         return (ResultFile){
             .value = {0},
-            .error = ERR_INVALID_PARAMETER,
+            .error = X_ERR_EXT("file", "file_open", ERR_WOULD_NULL_DEREF, "open mode match failure"),
         };
 
     void *f;
@@ -94,12 +94,12 @@ ResultFile file_open(ConstStr path, const FileOpenMode mode)
 
     if (err)
     {
-        Error newErr = ERR_FILE_CANT_OPEN;
+        Error newErr = X_ERR_EXT("file", "file_open", ERR_FILE_CANT_OPEN, "open failure");
         switch (err)
         {
         // ENOENT
         case 2:
-            newErr = ERR_FILE_NOT_FOUND;
+            newErr = X_ERR_EXT("file", "file_open", ERR_FILE_NOT_FOUND, "file not found");
             break;
         default:
             break;
@@ -116,7 +116,7 @@ ResultFile file_open(ConstStr path, const FileOpenMode mode)
             ._handle = f,
             ._valid = 1,
         },
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }
 
@@ -125,7 +125,7 @@ ResultFile file_open(ConstStr path, const FileOpenMode mode)
  *
  * ```c
  * ResultFile res = file_open("test.txt", FileOpenModes.READ, FileOpenFormats.TEXT);
- * if (res.error) // Error!
+ * if (res.error.code) // Error!
  * File* file = res.value;
  * // Do file stuff
  * file_close(file);
@@ -201,7 +201,7 @@ u64 __file_read_internal(File *f, i8 *buff, const u64 nBytes, ibool terminate)
  * while(!file_is_eof(file))
  * {
  *     ResultOwnedBuff res = file_read_bytes(&allocator, file, 256);
- *     if (res.error) // Error!
+ *     if (res.error.code) // Error!
  *     HeapBuff fileChunk = res.value;
  *     // Do stuff
  *     buffer_free(&allocator, &fileChunk);
@@ -217,7 +217,7 @@ ResultOwnedBuff file_read_bytes(Allocator *alloc, File *file, const u64 nBytes)
     if (!alloc || !file || !file->_valid)
         return (ResultOwnedBuff){
             .value = (HeapBuff){.bytes = NULL, .size = 0},
-            .error = ERR_INVALID_PARAMETER,
+            .error = X_ERR_EXT("file", "file_read_bytes", ERR_INVALID_PARAMETER, "null arg"),
         };
 
     i8 *new = alloc->alloc(alloc, nBytes);
@@ -225,7 +225,7 @@ ResultOwnedBuff file_read_bytes(Allocator *alloc, File *file, const u64 nBytes)
     if (!new)
         return (ResultOwnedBuff){
             .value = (HeapBuff){.bytes = NULL, .size = 0},
-            .error = ERR_OUT_OF_MEMORY,
+            .error = X_ERR_EXT("file", "file_read_bytes", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
     u64 readSize = __file_read_internal(file, new, nBytes, false);
@@ -235,13 +235,13 @@ ResultOwnedBuff file_read_bytes(Allocator *alloc, File *file, const u64 nBytes)
         alloc->free(alloc, new);
         return (ResultOwnedBuff){
             .value = (HeapBuff){.bytes = NULL, .size = 0},
-            .error = ERR_FILE_CANT_READ,
+            .error = X_ERR_EXT("file", "file_read_bytes", ERR_FILE_CANT_READ, "read size mismatch"),
         };
     }
 
     return (ResultOwnedBuff){
         .value = (HeapBuff){.bytes = new, .size = readSize},
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }
 
@@ -255,7 +255,7 @@ ResultOwnedBuff file_read_bytes(Allocator *alloc, File *file, const u64 nBytes)
  * while(!file_is_eof(file))
  * {
  *     ResultOwnedStr res = file_read_str(&allocator, file, 256);
- *     if (res.error) // Error!
+ *     if (res.error.code) // Error!
  *     HeapStr fileChunk = res.value;
  *     // Do string stuff
  *     allocator.free(&allocator, fileChunk);
@@ -271,7 +271,7 @@ ResultOwnedStr file_read_str(Allocator *alloc, File *file, const u64 nBytes)
     if (!alloc || !file || !file->_valid)
         return (ResultOwnedStr){
             .value = NULL,
-            .error = ERR_INVALID_PARAMETER,
+            .error = X_ERR_EXT("file", "file_read_bytes", ERR_INVALID_PARAMETER, "null arg"),
         };
 
     HeapStr newStr = alloc->alloc(alloc, nBytes + 1);
@@ -279,7 +279,7 @@ ResultOwnedStr file_read_str(Allocator *alloc, File *file, const u64 nBytes)
     if (!newStr)
         return (ResultOwnedStr){
             .value = NULL,
-            .error = ERR_OUT_OF_MEMORY,
+            .error = X_ERR_EXT("file", "file_read_bytes", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
     u64 readSize = __file_read_internal(file, newStr, nBytes, true);
@@ -289,13 +289,13 @@ ResultOwnedStr file_read_str(Allocator *alloc, File *file, const u64 nBytes)
         alloc->free(alloc, newStr);
         return (ResultOwnedStr){
             .value = NULL,
-            .error = ERR_FILE_CANT_READ,
+            .error = X_ERR_EXT("file", "file_read_bytes", ERR_FILE_CANT_READ, "read size mismatch"),
         };
     }
 
     return (ResultOwnedStr){
         .value = newStr,
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }
 
@@ -381,7 +381,7 @@ HeapBuff file_read_bytes_unsafe(Allocator *alloc, File *file, u64 nBytes)
  *
  * ```c
  * ResultOwnedStr res = file_readall_str(&allocator, file);
- * if (res.error) // Error!
+ * if (res.error.code) // Error!
  * HeapStr fileContents = res.value;
  * // Do string stuff
  * allocator.free(&allocator, fileContents);
@@ -403,7 +403,7 @@ ResultOwnedStr file_readall_str(Allocator *alloc, File *file)
  *
  * ```c
  * ResultOwnedBuff res = file_readall_bytes(&allocator, file);
- * if (res.error) // Error!
+ * if (res.error.code) // Error!
  * HeapBuff fileContents = res.value;
  * // Do stuff
  * buff_free(&allocator, &fileContents);
@@ -425,7 +425,7 @@ ResultOwnedBuff file_readall_bytes(Allocator *alloc, File *file)
  *
  * ```c
  * ResultList res = file_read_lines(&allocator, file);
- * if (res.error) // Error!
+ * if (res.error.code) // Error!
  * List fileLines = res.value;
  * // Do string stuff
  * allocator.free(&allocator, fileContents);
@@ -439,14 +439,14 @@ ResultList file_read_lines(Allocator *alloc, File *file)
     // TODO: Might be wiser to read line per line
     // to prevent out of memory cases
     ResultOwnedStr res = file_readall_str(alloc, file);
-    if (res.error)
+    if (res.error.code)
         return (ResultList){
             .value = {0},
             .error = res.error,
         };
 
     ResultList split = string_split_lines(alloc, res.value);
-    if (split.error)
+    if (split.error.code)
         return (ResultList){
             .value = {0},
             .error = split.error,
@@ -456,7 +456,7 @@ ResultList file_read_lines(Allocator *alloc, File *file)
 
     return (ResultList){
         .value = split.value,
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }
 

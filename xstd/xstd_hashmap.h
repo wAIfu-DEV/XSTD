@@ -7,6 +7,7 @@
 #include "xstd_result.h"
 #include "xstd_error.h"
 
+#if __XSTD_ARCH_64BIT
 u64 __hashmap_fnv1a64(const void *key, u64 len)
 {
     const u8 *data = (const u8 *)key;
@@ -17,6 +18,18 @@ u64 __hashmap_fnv1a64(const void *key, u64 len)
     
     return hash;
 }
+#else
+u32 __hashmap_fnv1a32(const void *key, u32 len)
+{
+    const u8 *data = (const u8 *)key;
+
+    u32 hash = 0x811C9DC5U;
+    for (u32 i = 0; i < len; ++i)
+        hash = (hash ^ data[i]) * 0x01000193U;
+
+    return hash;
+}
+#endif
 
 typedef struct _hashmap_entry
 {
@@ -53,15 +66,15 @@ typedef struct _result_hashmap
  * 
  * ```c
  * ResultHashMap mapRes = hashmap_init(&c_alloc, sizeof(u64), 16);
- * if (mapRes.error) // Error!
+ * if (mapRes.error.code) // Error!
  * HashMap map = mapRes.value;
  * ConstStr key = "This is an example key";
  * u64 value = 52;
  * Error err = hashmap_set_str(&map, key, &value);
- * if (err) // Error!
+ * if (err.code) // Error!
  * u64 outVal;
  * err = hashmap_get_str(&map, key, &outVal);
- * if (err) // Error!
+ * if (err.code) // Error!
  * // outVal == 52
  * hashmap_deinit(&map);
  * ```
@@ -75,7 +88,7 @@ ResultHashMap hashmap_init(Allocator *alloc, u64 valueByteSize, u64 initialAlloc
     if (!alloc || valueByteSize == 0)
         return (ResultHashMap){
             .value = {0},
-            .error = ERR_INVALID_PARAMETER,
+            .error = X_ERR_EXT("hashmap", "hashmap_init", ERR_INVALID_PARAMETER, "null or invalid arg"),
         };
 
     if (initialAllocCount < _X_HASHMAP_INITIAL_SIZE)
@@ -87,7 +100,7 @@ ResultHashMap hashmap_init(Allocator *alloc, u64 valueByteSize, u64 initialAlloc
     if (!map._buckets)
         return (ResultHashMap){
             .value = {0},
-            .error = ERR_OUT_OF_MEMORY,
+            .error = X_ERR_EXT("hashmap", "hashmap_init", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
     for (u64 i = 0; i < initialAllocCount; ++i)
@@ -100,7 +113,7 @@ ResultHashMap hashmap_init(Allocator *alloc, u64 valueByteSize, u64 initialAlloc
 
     return (ResultHashMap){
         .value = map,
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }
 
@@ -109,15 +122,15 @@ ResultHashMap hashmap_init(Allocator *alloc, u64 valueByteSize, u64 initialAlloc
  * 
  * ```c
  * ResultHashMap mapRes = HashMapInitT(u64, &c_alloc);
- * if (mapRes.error) // Error!
+ * if (mapRes.error.code) // Error!
  * HashMap map = mapRes.value;
  * ConstStr key = "This is an example key";
  * u64 value = 52;
  * Error err = hashmap_set_str(&map, key, &value);
- * if (err) // Error!
+ * if (err.code) // Error!
  * u64 outVal;
  * err = hashmap_get_str(&map, key, &outVal);
- * if (err) // Error!
+ * if (err.code) // Error!
  * // outVal == 52
  * hashmap_deinit(&map);
  * ```
@@ -159,6 +172,17 @@ void hashmap_deinit(HashMap *map)
     *map = (HashMap){0};
 }
 
+void __hashmap_memcpy(HashMap *h, const void *srcPtr, void *dstPtr)
+{
+    u64 rest = h->_valueSize;
+
+    i8 *d = (i8 *)dstPtr;
+    const i8 *s = (i8 *)srcPtr;
+
+    while (rest--)
+        *d++ = *s++;
+}
+
 ibool __hashmap_key_equals(Buffer a, Buffer b)
 {
     if (a.size != b.size)
@@ -197,7 +221,7 @@ Error __hashmap_set(HashMap *map, Buffer key, const void *value, u64 hash)
     u64 idx = __hashmap_bucket_idx(map, hash);
     if (__hashmap_is_invalid_idx(map, idx))
     {
-        return ERR_RANGE_ERROR;
+        return X_ERR_EXT("hashmap", "__hashmap_set", ERR_RANGE_ERROR, "inexistant entry");
     }
 
     _HashMapEntry *entry = map->_buckets[idx];
@@ -210,13 +234,11 @@ Error __hashmap_set(HashMap *map, Buffer key, const void *value, u64 hash)
             {
                 entry->_value = alloc->alloc(alloc, map->_valueSize);
                 if (!entry->_value)
-                    return ERR_OUT_OF_MEMORY;
+                    return X_ERR_EXT("hashmap", "__hashmap_set", ERR_OUT_OF_MEMORY, "alloc failure");
             }
 
-            for (u64 i = 0; i < map->_valueSize; ++i)
-                ((u8 *)entry->_value)[i] = ((const u8 *)value)[i];
-            
-            return ERR_OK;
+            __hashmap_memcpy(map, value, entry->_value);
+            return X_ERR_OK;
         }
         entry = entry->_next;
     }
@@ -224,7 +246,7 @@ Error __hashmap_set(HashMap *map, Buffer key, const void *value, u64 hash)
     _HashMapEntry *newEntry = (_HashMapEntry *)alloc->alloc(alloc, sizeof(_HashMapEntry));
 
     if (!newEntry)
-        return ERR_OUT_OF_MEMORY;
+        return X_ERR_EXT("hashmap", "__hashmap_set", ERR_OUT_OF_MEMORY, "alloc failure");
     
     newEntry->_hash = hash;
     newEntry->_key = (Buffer){
@@ -235,7 +257,7 @@ Error __hashmap_set(HashMap *map, Buffer key, const void *value, u64 hash)
     if (!newEntry->_key.bytes)
     {
         alloc->free(alloc, newEntry);
-        return ERR_OUT_OF_MEMORY;
+        return X_ERR_EXT("hashmap", "__hashmap_set", ERR_OUT_OF_MEMORY, "alloc failure");
     }
 
     for (u64 i = 0; i < key.size; ++i)
@@ -246,7 +268,7 @@ Error __hashmap_set(HashMap *map, Buffer key, const void *value, u64 hash)
     {
         alloc->free(alloc, newEntry->_key.bytes);
         alloc->free(alloc, newEntry);
-        return ERR_OUT_OF_MEMORY;
+        return X_ERR_EXT("hashmap", "__hashmap_set", ERR_OUT_OF_MEMORY, "alloc failure");
     }
 
     for (u64 i = 0; i < map->_valueSize; ++i)
@@ -255,19 +277,19 @@ Error __hashmap_set(HashMap *map, Buffer key, const void *value, u64 hash)
     newEntry->_next = map->_buckets[idx];
     map->_buckets[idx] = newEntry;
     map->_size += 1;
-    return ERR_OK;
+    return X_ERR_OK;
 }
 
 Error __hashmap_rehash(HashMap *map, u64 newBucketCount)
 {
     if (newBucketCount == 0)
-        return ERR_INVALID_PARAMETER;
+        return X_ERR_EXT("hashmap", "__hashmap_rehash", ERR_INVALID_PARAMETER, "new bucket count is 0");
 
     Allocator *alloc = &map->_allocator;
     _HashMapEntry **newBuckets = (_HashMapEntry **)alloc->alloc(alloc, sizeof(_HashMapEntry *) * newBucketCount);
 
     if (!newBuckets)
-        return ERR_OUT_OF_MEMORY;
+        return X_ERR_EXT("hashmap", "__hashmap_rehash", ERR_OUT_OF_MEMORY, "alloc failure");
     
     for (u64 i = 0; i < newBucketCount; ++i)
         newBuckets[i] = 0;
@@ -288,7 +310,7 @@ Error __hashmap_rehash(HashMap *map, u64 newBucketCount)
     alloc->free(alloc, map->_buckets);
     map->_buckets = newBuckets;
     map->_bucketCount = newBucketCount;
-    return ERR_OK;
+    return X_ERR_OK;
 }
 
 /**
@@ -302,22 +324,28 @@ Error __hashmap_rehash(HashMap *map, u64 newBucketCount)
 Error hashmap_set(HashMap *map, Buffer key, const void *value)
 {
     if (!map || !map->_buckets || !key.bytes)
-        return ERR_INVALID_PARAMETER;
+        return X_ERR_EXT("hashmap", "hashmap_set", ERR_INVALID_PARAMETER, "null or invalid arg");
     
     if ((map->_size + 1) * _X_HASHMAP_LOAD_FACTOR_DEN > map->_bucketCount * _X_HASHMAP_LOAD_FACTOR_NUM)
     {
         Error err = __hashmap_rehash(map, map->_bucketCount * 2);
-        if (err != ERR_OK)
+        if (err.code != ERR_OK)
             return err;
     }
-    return __hashmap_set(map, key, value, __hashmap_fnv1a64(key.bytes, key.size));
+    return __hashmap_set(map, key, value,
+        #if __XSTD_ARCH_64BIT
+        __hashmap_fnv1a64(key.bytes, key.size)
+        #else
+        __hashmap_fnv1a32(key.bytes, key.size)
+        #endif
+    );
 }
 
 #define HashMapSetBuffT(T, mapPtr, keyBuff, valPtr) \
     { \
         T *mapItemTypeCheck = (valPtr); \
         (void)mapItemTypeCheck; \
-        hashmap_set((mapPtr), (keyBuff), (valPtr)) \
+        hashmap_set((mapPtr), (keyBuff), (valPtr)); \
     }
 
 /**
@@ -331,7 +359,7 @@ Error hashmap_set(HashMap *map, Buffer key, const void *value)
 Error hashmap_set_str(HashMap *map, ConstStr key, const void *value)
 {
     if (!key)
-        return ERR_INVALID_PARAMETER;
+        return X_ERR_EXT("hashmap", "hashmap_set_str", ERR_INVALID_PARAMETER, "null key");
     
     Buffer keyBuff = {.bytes = (i8 *)key, .size = string_size(key)};
     return hashmap_set(map, keyBuff, value);
@@ -341,7 +369,7 @@ Error hashmap_set_str(HashMap *map, ConstStr key, const void *value)
     { \
         T *mapItemTypeCheck = (valPtr); \
         (void)mapItemTypeCheck; \
-        hashmap_set_str((mapPtr), (keyStr), (valPtr)) \
+        hashmap_set_str((mapPtr), (keyStr), (valPtr)); \
     }
 
 /**
@@ -357,14 +385,19 @@ Error hashmap_set_str(HashMap *map, ConstStr key, const void *value)
 Error hashmap_get(HashMap *map, Buffer key, void *outValue)
 {
     if (!map || !map->_buckets || !key.bytes)
-        return ERR_INVALID_PARAMETER;
+        return X_ERR_EXT("hashmap", "hashmap_get", ERR_INVALID_PARAMETER, "null or invalid arg");
     
+    #if __XSTD_ARCH_64BIT
     u64 hash = __hashmap_fnv1a64(key.bytes, key.size);
+    #else
+    u64 hash = __hashmap_fnv1a32(key.bytes, key.size);
+    #endif
+
     u64 idx = __hashmap_bucket_idx(map, hash);
 
     if (__hashmap_is_invalid_idx(map, idx))
     {
-        return ERR_RANGE_ERROR;
+        return X_ERR_EXT("hashmap", "hashmap_get", ERR_RANGE_ERROR, "inexistent key");
     }
 
     _HashMapEntry *entry = map->_buckets[idx];
@@ -373,20 +406,21 @@ Error hashmap_get(HashMap *map, Buffer key, void *outValue)
         if (entry->_hash == hash && __hashmap_key_equals(entry->_key, key))
         {
             if (outValue && entry->_value)
-                for (u64 i = 0; i < map->_valueSize; ++i)
-                    ((u8 *)outValue)[i] = ((u8 *)entry->_value)[i];
-            return ERR_OK;
+            {
+                __hashmap_memcpy(map, entry->_value, outValue);
+            }
+            return X_ERR_OK;
         }
         entry = entry->_next;
     }
-    return ERR_FAILED;
+    return X_ERR_EXT("hashmap", "hashmap_get", ERR_RANGE_ERROR, "inexistent key");
 }
 
 #define HashMapGetBuffT(T, mapPtr, keyBuff, outPtr) \
     { \
         T *mapItemTypeCheck = (outPtr); \
         (void)mapItemTypeCheck; \
-        hashmap_get((mapPtr), (keyBuff), (outPtr)) \
+        hashmap_get((mapPtr), (keyBuff), (outPtr)); \
     }
 
 /**
@@ -423,7 +457,7 @@ Error hashmap_get_str(HashMap *map, ConstStr key, void *outValue)
     { \
         T *mapItemTypeCheck = (outPtr); \
         (void)mapItemTypeCheck; \
-        hashmap_get_str((mapPtr), (keyStr), (outPtr)) \
+        hashmap_get_str((mapPtr), (keyStr), (outPtr)); \
     }
 
 /**
@@ -436,14 +470,19 @@ Error hashmap_get_str(HashMap *map, ConstStr key, void *outValue)
 Error hashmap_remove(HashMap *map, Buffer key)
 {
     if (!map || !map->_buckets || !key.bytes)
-        return ERR_INVALID_PARAMETER;
+        return X_ERR_EXT("hashmap", "hashmap_remove", ERR_INVALID_PARAMETER, "null or invalid arg");
     
+    #if __XSTD_ARCH_64BIT
     u64 hash = __hashmap_fnv1a64(key.bytes, key.size);
+    #else
+    u64 hash = __hashmap_fnv1a32(key.bytes, key.size);
+    #endif
+
     u64 idx = __hashmap_bucket_idx(map, hash);
 
     if (__hashmap_is_invalid_idx(map, idx))
     {
-        return ERR_RANGE_ERROR;
+        return X_ERR_EXT("hashmap", "hashmap_remove", ERR_RANGE_ERROR, "inexistent key");
     }
 
     _HashMapEntry **prev = &map->_buckets[idx];
@@ -464,12 +503,12 @@ Error hashmap_remove(HashMap *map, Buffer key)
             
             alloc->free(alloc, entry);
             map->_size -= 1;
-            return ERR_OK;
+            return X_ERR_OK;
         }
         prev = &entry->_next;
         entry = entry->_next;
     }
-    return ERR_FAILED;
+    return X_ERR_EXT("hashmap", "hashmap_remove", ERR_RANGE_ERROR, "inexistent key");
 }
 
 /**

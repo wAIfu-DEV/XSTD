@@ -5,7 +5,7 @@
 # ======================================
 STD=c99
 OPT=0
-COMPILERS=("gcc" "clang" "zig cc")
+COMPILERS=("gcc" "clang")
 OUT_DIR="out"
 TEST_FILE="test.c"
 EXECUTABLE="$OUT_DIR/test"

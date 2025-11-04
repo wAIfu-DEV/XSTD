@@ -1,243 +1,282 @@
-# XSTD - A modern C standard library
+# XSTD – A C Standard Library for the 21st Century 🚀
 
-# xstd – Foundation Library for C
-
-`xstd` is a lightweight, modular, and extensible standard library implementation for the C language, designed to be used as a drop-in replacement for portions of glibc (aiming for full replacement) and a robust foundation for modern C software development. It aims to provide simpler, safer, and more consistent APIs for everything anyone would want to do using C.
+📦 A modern, modular, and powerful C standard library replacement — inspired by modern languages but built for C.
 
 ---
 
-## 🥔 In development
+## 🛠 What's this?
 
-xstd is still in development, meaning it doesn't yet cover 100% of stdlib's features.
+**xstd** is a lightweight, flexible, and expressive C standard library focused on developer productivity, safety, and ergonomics. It reimagines the C runtime and standard tooling for 2024 and beyond, introducing idioms and patterns inspired by languages like Rust, Go, and Zig — while remaining fully C-compatible and zero-dependency.
+
+✳️ **Highlights**:
+- Result types (`ResultOwnedStr`, `ResultOwnedBuff`, `Result<T>`) — no more `NULL` checks or magic number errors.
+- Modular allocators: arena allocators, buffer allocators, tracking/debug allocators, and fallbacks to `malloc`.
+- Modern tooling: string builders, hashmaps, IO abstractions, file APIs, and more.
+- Safer APIs: bounds-checked string functions, typed list operations, and precise error propagation.
+- Full introspection support: allocation metrics, file metadata, and crash diagnostics.
+- Cross-platform compatibility: completely minimal interface built on top of stdlib.
+
+---
+
+## 🤯 Why something other than C standard library?
+
+The C standard library (stdlib) has served faithfully for decades, but:
+
+❌ Memory management is unsafe and invisible — `malloc()` is opaque, leaks happen silently.
+❌ Error handling is often ignored — `fopen()` returns NULL and you’re already segfaulting.
+❌ Working with strings is error-prone — `strcat`, `strlen`, global buffers...
+❌ Arrays are unsafe — you never know their size.
+❌ No modern constructs — no optional types, no results, no built-in containers, no writer APIs.
+
+We think: **C deserves better tooling**, and we've built **xstd** to fill that void — a modern, fully C99-compatible library with minimal dependencies and huge ergonomics improvements.
 
 ---
 
 ## ✨ Features
 
-- 🔐 Safer APIs with built-in result types and error checking
-- 🧹 Explicit memory management with pluggable allocators
-- 📜 Better string and buffer manipulation primitives
-- 📦 Dynamic arrays (lists) with type-safe macros
-- 📁 File IO utilities with helpful abstractions
-- 📐 Type definitions for fixed-width integers, strings, and buffers
-- 👀 More to come...
+✅ Error-Driven Design
+• `Result<T>` for allocation, file IO, string manipulation, parsing, hashing, etc.
+• Clearly defined `ErrorCode` enum with human-readable messages.
+
+✅ Modern Allocator System
+• Arena allocator — blazing fast, rolling block allocator
+• Buffer allocator — stack-like allocator with free support
+• Debug allocator — tracks leaks, counts allocations, checks double frees
+• Default fallback stdlib allocator (`c_allocator`)
+• Clean, pluggable design with full introspection
+
+✅ Strings & Buffers Made Safe
+• Heap strings (owned), const strings, stack strings
+• Builders for appending strings without unsafe strcat
+• Fully bounds-checked copies, resizes, and concatenation
+• File-safe string/bytes APIs
+• UTF-8 compatible (ASCII-safe) character operations
+
+✅ Containers (with Types!)
+• `List<T>` — realloc-style resizable vector with type checked push/pop
+• `HashMap<Str, T>` — safe, dynamic key:value store with string key support
+• Safe access macros: `ListPushT`, `HashMapSetStrT`, etc.
+
+✅ File IO You've Always Wanted
+• `file_readall_str()` — read the whole file as a string
+• `file_read_bytes(n)` — read n bytes safely
+• `file_write_uint(file, 1234)`
+• Line iterators, flushers, position readers, error checks, etc.
+
+✅ Writers = No More snprintf()
+• Writers to buffered memory, dynamically growing buffers, strings
+• `Writer w; writer_write_uint(&w, 1234);`
+
+✅ Crash Handling
+• Setup crash handler with `process_setup_crash_handler()`
+• Intercepts SIGSEGV, SIGABRT, SIGFPE, etc.
+
+✅ Math & String Parsing
+• Overflow-checked math operations
+• Safe `string_parse_int`, `string_from_float`, etc.
+• Standard math ops: power, abs, mul, div, add with overflow detection
+
+✅ Fully Modular
+• Include only what you need: `xstd_io.h`, `xstd_file.h`, `xstd_list.h`, etc.
+• No global state, allocation decoupled from modules
+• Platform compatibility via small, replaceable interfaces (`xstd_os_int.h`)
 
 ---
 
-## 🔧 Getting Started
+## 📐 Project Philosophy
 
-Include only what you need.
+🔒 Safety:
+All operations favor **bounds-checked**, **well-defined behavior**. Unsafe operations are explicitly marked.
+
+🧠 Predictability:
+Every function either returns a `Result<T>` or sets up predictable invariants. No silent NULLs.
+
+💡 Composability:
+Allocators plug into lists, writers use buffers, hash maps use allocators — everything connects seamlessly.
+
+💨 Performance:
+Header-only, inlined functions. Arena allocators for batch allocations. Avoids unnecessary syscalls.
+
+💥 Simplicity:
+Simple, portable, and transparent. Absolutely no macros unless for type safety. No hacks. Always readable.
+
+---
+
+## 🔨 Example: Using Lists and Strings
 
 ```c
 #include "xstd_core.h"
 #include "xstd_string.h"
+
+i32 main() {
+    Allocator *a = &c_allocator;
+
+    ResultList builderRes = strbuilder_init(a);
+    
+    // Check for errors by comparing error code against 0
+    // Error code of 0 means success and a defined value,
+    // But error code != 0 means failure, and a likely undefined value.
+    if (r.error.code != ERR_OK) {
+        io_printerrln(ErrorToString(r.error.code)) // All standard error codes have string representations
+        io_printerrln(r.error.msg); // All xstd library errors will also have a descriptive error message!
+        return 1;
+    }
+
+    StringBuilder builder = r.value;
+
+    // Push strings to the builder
+    strbuilder_push_copy(&builder, "Yes! ");
+    strbuilder_push_copy(&builder, "We ");
+    strbuilder_push_copy(&builder, "Can!");
+
+    // Strings the user need to free will be returned through HeapStr or ResultOwnedStr
+    // This way, the intent is clear.
+    ResultOwnedStr builtRes = strbuilder_get_string(&builder);
+
+    // You do not have to compare the code to ERR_OK for it to achieve the same thing
+    if (builtRes.error.code) {
+        io_printerrln(r.error.msg);
+        return 1;
+    }
+
+    HeapStr built = builtRes.value;
+    io_println(built);
+
+    // We free the result string, as we own it.
+    a->free(a, built);
+
+    // Any call to x_init() should be followed by a call to x_deinit()
+    // in order to free the memory.
+    strbuilder_deinit(&builder);
+}
 ```
-
-Or everything.
-
-```c
-#include "xstd.h"
-```
-
-No external dependencies are required, just copy the files to your project and you are good to go.
 
 ---
 
-## 🚀 Example Usage
+## 🧩 Something for everyone
 
-### Strings
+- 🔍 Want to track leaks? Use the `DebugAllocator` to get peak memory stats and track unfreed blocks.
+- 🥷 Building a DSL? Use `Writer` to generate source-like text output.
+- 🚥 Parsing input? Use `string_split_lines`, `string_parse_float`, `string_trim_whitespace`.
+- 💾 Need simple caching? Use `HashMapSetStrT` and free memory easily with `hashmap_deinit`.
+
+---
+
+## 🚫 What xstd isn't
+
+- A bloated runtime
+- A garbage collector
+- A pthread-heavy concurrency abstraction
+- A C++ STL polyfill
+
+It’s **just** modern utilities — nothing intrusive.
+
+---
+
+## 🧪 Want to get started?
 
 ```c
+#include "xstd_io.h"
 #include "xstd_string.h"
 
-ConstStr a = "Hello";
-ConstStr b = ", World!";
-
-ResultOwnedStr result = string_concat(&c_allocator, a, b);
-
-if (result.error != ERR_OK)
+int main(void)
 {
-    io_printerrln("Failed to concat strings.");
-    return;
+    io_println("Hello from xstd!");
+
+    ResultOwnedStr intStr = string_from_int(&c_allocator, -42);
+    if (intStr.error.code) {
+        io_printerrln(intStr.error.msg);
+        return 1;
+    }
+    
+    io_println(intStr.value);
+    c_allocator.free(&c_allocator, intStr.value);
+    return 0;
 }
-
-io_println(result.value);
-c_allocator.free(&c_allocator, result.value);
-
-```
-
-### Dynamic Lists
-
-```c
-#include "xstd_list.h"
-
-// Create list
-ResultList res = ListInitT(HeapStr, &c_allocator);
-
-if (res.error != ERR_OK)
-{
-    io_printerrln("Failed to initialize list.");
-    return;
-}
-
-List list = res.value;
-
-ResultOwnedStr dupeRes = string_dupe(&c_allocator, "Hello");
-
-if (dupeRes.error != ERR_OK)
-{
-    io_printerrln("Failed to duplicate string.");
-    return;
-}
-
-ListPushT(String, &list, &dupeRes.value);
-
-list_free_items(&c_allocator, &list); // If items are heap pointers, frees them.
-list_deinit(&list);
-}
-```
-
-### File IO
-
-```c
-#include "xstd_file.h"
-
-ResultFile fileRes = file_open("hello.txt", FileOpenModes.READ);
-
-if (fileRes.error != ERR_OK)
-{
-    io_printerrln("Failed to open file.");
-    return;
-}
-
-ResultOwnedStr contentRes = file_readall_str(&c_allocator, &fileRes.value);
-
-if (contentRes.error != ERR_OK)
-{
-    io_printerrln("Failed to read file.");
-    return;
-}
-
-HeapStr fileContents = contentRes.value;
-
-io_println(fileContents);
-
-c_allocator.free(&c_allocator, fileContents);
-file_close(&fileRes.value);
 ```
 
 ---
 
-## 📦 Current Modules
+## 🧬 File Structure
 
-| Module | Description |
-|--------|-------------|
-| `xstd_core.h` | Foundational types: `u8`, `i32`, `String`, `Buffer`, etc. |
-| `xstd_alloc.h` | Allocation abstraction (`Allocator` interface) |
-| `xstd_debugalloc.h` | Debug allocator wrapper (tracks allocs, logs usage) |
-| `xstd_error.h` | Typed error codes with descriptions |
-| `xstd_result.h` | `Result<T>` wrappers for error-safe operations |
-| `xstd_string.h` | Safer and simple string manipulation |
-| `xstd_buffer.h` | Generic binary buffer manipulation |
-| `xstd_list.h` | Relatively type-safe dynamic lists (vectors) |
-| `xstd_io.h` | IO abstraction and assertion/log helpers |
-| `xstd_file.h` | File manipulation with `File` abstraction |
-
----
-
-## 📚 Philosophy and Goals
-
-- Replace ad-hoc usage of all stdlib features with extensible and safer APIs.
-- Verbose but explicit error handling.
-- Clear and explicit allocations and memory ownership.
-- Avoid undefined behavior in favor of robust error codes.
-- Modular and embeddable (no runtime, no external deps)
-- Portable C99 up to current-year C.
-- Extensible by user: plug in your own allocators, types, and error handling.
+| File | Description |
+|------|-------------|
+| `xstd_core.h` | Core types like `u8`, `i64`, `ibool`, `Buffer`, etc. |
+| `xstd_alloc.h` | Allocator interface (`Allocator`, `alloc`) |
+| `xstd_alloc_arena.h` | Arena (stack-like) allocator |
+| `xstd_alloc_buffer.h` | Free-able buffer allocator |
+| `xstd_alloc_debug.h` | Allocation-tracking wrapper |
+| `xstd_io.h` | Terminal IO / assertions / prints |
+| `xstd_file.h` | Cross-platform file reading & writing |
+| `xstd_error.h` | Rich error handling |
+| `xstd_string.h` | Safe strings & builders |
+| `xstd_list.h` | Type-safe dynamic arrays |
+| `xstd_hashmap.h` | Type-safe string-keyed hash maps |
+| `xstd_writer.h` | Writers to buffer & string APIs |
+| `xstd_math.h` | Overflow-safe math utilities |
+| `xstd_result.h` | `Result<T>` structs |
+| `xstd_vectors.h` | Vec2<T>, Vec3<T> structs |
+| `xstd_process.h` | Crash signal handlers |
 
 ---
 
-## 👀 Inspirations
+## 👷 Coming Soon
 
-| From | What |
-|--------|--------|
-| Zig | Allocators, explicit allocations |
-| Go, Rust | Explicit error handling |
-| GDScript | General purpose Error type |
-| JavaScript | For emotional support |
-
----
-
-## 🔮 Roadmap
-
-| Feature | Status |
-|--------|--------|
-| Memory allocator abstraction | ✅ |
-| Dynamic strings and buffers | ✅ |
-| Debug allocator with tracking | ✅ |
-| Custom error enums with messages | ✅ |
-| Full list/vector API | ✅ |
-| File abstraction wrapper | ✅ |
-| String builder | ✅ |
-| String searching | ✅ |
-| Hashmaps / Dictionaries | 🔜 |
-| Filesystem API | 🔜 |
-| Stringification | 🔜 |
-| utf-8 support | 🔜 |
-| JSON/CSV parsing | 🔜 |
+- JSON & text parsing
+- Cross-platform filesystem APIs
+- More allocator types (slab, fixed-pool)
+- Tighter `xstd_string` codegen/writer integration
+- Unit tests via `xstd_test.h`
 
 ---
 
-## 🔩 Integration Tips
+## ❤️ Contributing
 
-- Compile only modules you use.
-- Replace `malloc`/`free`/`realloc` with `c_allocator` or your own custom `Allocator`.
-- Include `xstd_error.h` and `xstd_result.h` for strong error handling.
-- Use `buffer_*` and `string_*` instead of raw array manipulation.
-- Use `x_assert` during development/debug builds to catch errors early.
+Want to help improve C ergonomics? Fork this project and improve one of the modules!
 
----
+We love:
+- Better documentation
+- New allocator types
+- Performance improvements
+- Bug fixes
+- Language bindings
 
-## 🔗 License
-
-MIT License
-
----
-
-## 💬 Contribution
-
-This is a work-in-progress foundation. Suggestions or pull requests are welcome. Help us build a modern, safe standard library for C.
+Open an issue or PR and join us!
 
 ---
 
-## Compiler Compatibility
+## 🧑‍💻 Who’s it for?
 
-(Tested with std=c99 and std=c17 w. optimizations -O0, 1, 2, 3, fast, s)
-
-| Compiler | Status |
-|--------|--------|
-| GCC | ✅ |
-| CLANG | ✅ |
-| ZIG CC | ✅ |
-| MSVC | 🔜 |
-| Others | 🔜 |
+- C developers who love modern patterns
+- Embedded engineers who need safety without runtime
+- Compiler authors needing tooling
+- Systems programmers who want better ergonomics without C++
+- You. If you're reading this.
 
 ---
 
-## OS Compatibility
+## 🔚 TL;DR
 
-| OS | Status |
-|----|--------|
-| Windows | ✅ |
-| Linux | Untested |
-| Mac | Untested |
+✅ Safer
+✅ Faster
+✅ Type-safe
+✅ Debuggable
+✅ Ergonomic
+✅ Just C
+
+> Goodbye `malloc()`, `fgets()`, `strcat()`.
+> Hello `arena_allocator()`, `ResultOwnedStr`, `string_split_lines()` and `Writer`.
+
+🧠 It's time to bring C to the modern age.
+Try **xstd**.
 
 ---
-
-## 📢 Author
-
-Made with ❤️ and C by a dev who believe stdlib can be better (respectfully, no ill intent meant)
+👉 MIT licensed | 100% portable | C99+
+Contributions welcome.
 
 ---
+Projects making use of xstd:
+- [Wade32 OS](https://github.com/wAIfu-DEV/Wade32)
 
-Special thanks for ChatGPT for making part of this README
+---
+🛠 Built with love for C ❤️

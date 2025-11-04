@@ -144,14 +144,14 @@ ResultAllocator arena_allocator(Buffer buffer, ibool isHeap)
     if (!buffer.bytes || buffer.size == 0)
         return (ResultAllocator){
             .value = {0},
-            .error = ERR_INVALID_PARAMETER,
+            .error = X_ERR_EXT("alloc_arena", "arena_allocator", ERR_INVALID_PARAMETER, "null or empty buff"),
         };
 
     ArenaAllocatorState *state = __arena_alloc_header(buffer, isHeap);
     if (!state)
         return (ResultAllocator){
             .value = {0},
-            .error = ERR_OUT_OF_MEMORY,
+            .error = X_ERR_EXT("alloc_arena", "arena_allocator", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
     return (ResultAllocator){
@@ -161,6 +161,6 @@ ResultAllocator arena_allocator(Buffer buffer, ibool isHeap)
             .realloc = __arena_realloc,
             .free = __arena_free,
         },
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }

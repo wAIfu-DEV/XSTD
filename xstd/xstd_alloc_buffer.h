@@ -8,8 +8,8 @@
 typedef struct _buffalloc_block
 {
     u64 size;              // Total size including header
-    ibool isFree;          // If this block is free
     struct _buffalloc_block *next; // Next block in the list
+    ibool isFree;          // If this block is free
 } _BufferBlockHeader;
 
 typedef struct _buffalloc_state
@@ -25,7 +25,7 @@ typedef struct _buffalloc_state
 
 u64 __buffalloc_offset_to_aligned(u64 offset)
 {
-    return (offset + _X_BUFFALLOC_DEFAULT_ALIGN - 1) & ~(_X_BUFFALLOC_DEFAULT_ALIGN - 1);
+    return (offset + (u64)_X_BUFFALLOC_DEFAULT_ALIGN - 1) & ~((u64)_X_BUFFALLOC_DEFAULT_ALIGN - 1);
 }
 
 ibool __buffalloc_offset_invalid(u64 totalCapacity, u64 alignedOffset, u64 allocSize)
@@ -146,7 +146,7 @@ ResultAllocator buffer_allocator(Buffer buffer)
     if (!buffer.bytes || buffer.size < _X_BUFFALLOC_HEADER_SIZE + _X_BUFFALLOC_BLOCK_HEADER_SIZE)
         return (ResultAllocator){
             .value = {0},
-            .error = ERR_INVALID_PARAMETER,
+            .error = X_ERR_EXT("alloc_buffer", "buffer_allocator", ERR_INVALID_PARAMETER, "null or empty buff"),
         };
 
     u64 alignedOffset = __buffalloc_offset_to_aligned((u64)buffer.bytes);
@@ -156,7 +156,7 @@ ResultAllocator buffer_allocator(Buffer buffer)
     if (__buffalloc_offset_invalid(buffer.size, alignDiff, headerSize))
         return (ResultAllocator){
             .value = {0},
-            .error = ERR_INVALID_PARAMETER,
+            .error = X_ERR_EXT("alloc_buffer", "buffer_allocator", ERR_INVALID_PARAMETER, "buffer too small for proper alignement"),
         };
 
     BufferAllocatorState *state = (BufferAllocatorState *)(buffer.bytes + alignDiff);
@@ -185,6 +185,6 @@ ResultAllocator buffer_allocator(Buffer buffer)
             .realloc = __buffalloc_realloc,
             .free = __buffalloc_free,
         },
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }

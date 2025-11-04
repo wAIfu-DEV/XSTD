@@ -1,5 +1,7 @@
 #pragma once
 
+// Implementation of _FileOsInterface using Cstd
+
 #include "xstd_file_os_int.h"
 
 #include "stdio.h"

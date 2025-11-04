@@ -1,5 +1,7 @@
 #pragma once
 
+// Implementation of Allocator using Cstd malloc, realloc and free
+
 #include "xstd_alloc.h"
 
 #include "stdlib.h"

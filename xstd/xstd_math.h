@@ -51,21 +51,21 @@ typedef struct _result_f32
         return a + b;          \
     }
 
-#define __addNoOfwT(T, ResT, LT)             \
-    ResT math_##T##_add_nooverflow(T a, T b) \
-    {                                        \
-        LT res = (LT)a + (LT)b;              \
-                                             \
-        if (res != (T)res)                   \
-            return (ResT){                   \
-                .value = 0,                  \
-                .error = ERR_WOULD_OVERFLOW, \
-            };                               \
-                                             \
-        return (ResT){                       \
-            .value = (T)res,                 \
-            .error = ERR_OK,                 \
-        };                                   \
+#define __addNoOfwT(T, ResT, LT)                                                                                  \
+    ResT math_##T##_add_nooverflow(T a, T b)                                                                      \
+    {                                                                                                             \
+        LT res = (LT)a + (LT)b;                                                                                   \
+                                                                                                                  \
+        if (res != (T)res)                                                                                        \
+            return (ResT){                                                                                        \
+                .value = 0,                                                                                       \
+                .error = X_ERR_EXT("math", "math_T_add_nooverflow", ERR_WOULD_OVERFLOW, "integer overflow"), \
+            };                                                                                                    \
+                                                                                                                  \
+        return (ResT){                                                                                            \
+            .value = (T)res,                                                                                      \
+            .error = X_ERR_OK,                                                                                    \
+        };                                                                                                        \
     }
 
 #define __substractT(T)              \
@@ -74,21 +74,21 @@ typedef struct _result_f32
         return a - b;                \
     }
 
-#define __substractNoOfwT(T, ResT, LT)             \
-    ResT math_##T##_substract_nooverflow(T a, T b) \
-    {                                              \
-        LT res = (LT)a - (LT)b;                    \
-                                                   \
-        if (res != (T)res)                         \
-            return (ResT){                         \
-                .value = 0,                        \
-                .error = ERR_WOULD_OVERFLOW,       \
-            };                                     \
-                                                   \
-        return (ResT){                             \
-            .value = (T)res,                       \
-            .error = ERR_OK,                       \
-        };                                         \
+#define __substractNoOfwT(T, ResT, LT)                                                                                  \
+    ResT math_##T##_substract_nooverflow(T a, T b)                                                                      \
+    {                                                                                                                   \
+        LT res = (LT)a - (LT)b;                                                                                         \
+                                                                                                                        \
+        if (res != (T)res)                                                                                              \
+            return (ResT){                                                                                              \
+                .value = 0,                                                                                             \
+                .error = X_ERR_EXT("math", "math_T_substract_nooverflow", ERR_WOULD_OVERFLOW, "integer overflow"), \
+            };                                                                                                          \
+                                                                                                                        \
+        return (ResT){                                                                                                  \
+            .value = (T)res,                                                                                            \
+            .error = X_ERR_OK,                                                                                          \
+        };                                                                                                              \
     }
 
 #define __multiplyT(T)                  \
@@ -97,65 +97,65 @@ typedef struct _result_f32
         return x * mulBy;               \
     }
 
-#define __multiplyNoOfwT(T, ResT, LT)             \
-    ResT math_##T##_multiply_nooverflow(T a, T b) \
-    {                                             \
-        LT res = (LT)a * (LT)b;                   \
-                                                  \
-        if (res != (T)res)                        \
-            return (ResT){                        \
-                .value = 0,                       \
-                .error = ERR_WOULD_OVERFLOW,      \
-            };                                    \
-                                                  \
-        return (ResT){                            \
-            .value = (T)res,                      \
-            .error = ERR_OK,                      \
-        };                                        \
+#define __multiplyNoOfwT(T, ResT, LT)                                                                                  \
+    ResT math_##T##_multiply_nooverflow(T a, T b)                                                                      \
+    {                                                                                                                  \
+        LT res = (LT)a * (LT)b;                                                                                        \
+                                                                                                                       \
+        if (res != (T)res)                                                                                             \
+            return (ResT){                                                                                             \
+                .value = 0,                                                                                            \
+                .error = X_ERR_EXT("math", "math_T_multiply_nooverflow", ERR_WOULD_OVERFLOW, "integer overflow"), \
+            };                                                                                                         \
+                                                                                                                       \
+        return (ResT){                                                                                                 \
+            .value = (T)res,                                                                                           \
+            .error = X_ERR_OK,                                                                                         \
+        };                                                                                                             \
     }
 
-#define __divideT(T, ResT)                      \
-    ResT math_##T##_divide(T x, T divBy)        \
-    {                                           \
-        if (divBy == 0)                         \
-            return (ResT){                      \
-                .value = 0,                     \
-                .error = ERR_INVALID_PARAMETER, \
-            };                                  \
-                                                \
-        return (ResT){                          \
-            .value = x / divBy,                 \
-            .error = ERR_OK,                    \
-        };                                      \
+#define __divideT(T, ResT)                                                                                \
+    ResT math_##T##_divide(T x, T divBy)                                                                  \
+    {                                                                                                     \
+        if (divBy == 0)                                                                                   \
+            return (ResT){                                                                                \
+                .value = 0,                                                                               \
+                .error = X_ERR_EXT("math", "math_T_divide", ERR_INVALID_PARAMETER, "division by 0"), \
+            };                                                                                            \
+                                                                                                          \
+        return (ResT){                                                                                    \
+            .value = x / divBy,                                                                           \
+            .error = X_ERR_OK,                                                                            \
+        };                                                                                                \
     }
 
-#define __divideNoOfwT(T, ResT, LT)                 \
-    ResT math_##T##_divide_nooverflow(T x, T divBy) \
-    {                                               \
-        if (divBy == 0)                             \
-            return (ResT){                          \
-                .value = 0,                         \
-                .error = ERR_INVALID_PARAMETER,     \
-            };                                      \
-                                                    \
-        LT res = (LT)x / (LT)divBy;                 \
-                                                    \
-        if (res != (T)res)                          \
-            return (ResT){                          \
-                .value = 0,                         \
-                .error = ERR_WOULD_OVERFLOW,        \
-            };                                      \
-                                                    \
-        return (ResT){                              \
-            .value = (T)res,                        \
-            .error = ERR_OK,                        \
-        };                                          \
+#define __divideNoOfwT(T, ResT, LT)                                                                                  \
+    ResT math_##T##_divide_nooverflow(T x, T divBy)                                                                  \
+    {                                                                                                                \
+        if (divBy == 0)                                                                                              \
+            return (ResT){                                                                                           \
+                .value = 0,                                                                                          \
+                .error = X_ERR_EXT("math", "math_T_divide_nooverflow", ERR_INVALID_PARAMETER, "division by 0"), \
+            };                                                                                                       \
+                                                                                                                     \
+        LT res = (LT)x / (LT)divBy;                                                                                  \
+                                                                                                                     \
+        if (res != (T)res)                                                                                           \
+            return (ResT){                                                                                           \
+                .value = 0,                                                                                          \
+                .error = X_ERR_EXT("math", "math_T_divide_nooverflow", ERR_WOULD_OVERFLOW, "integer overflow"), \
+            };                                                                                                       \
+                                                                                                                     \
+        return (ResT){                                                                                               \
+            .value = (T)res,                                                                                         \
+            .error = X_ERR_OK,                                                                                       \
+        };                                                                                                           \
     }
 
-#define __IabsT(T)              \
-    T math_##T##_abs(T x)       \
-    {                           \
-        return x >= 0 ? x : -x; \
+#define __IabsT(T)                        \
+    T math_##T##_abs(T x)                 \
+    {                                     \
+        return (T)((x >= (T)0) ? x : -x); \
     }
 
 #define __UpowT(T)                      \
@@ -170,60 +170,60 @@ typedef struct _result_f32
         return r;                       \
     }
 
-#define __UpowNoOfwT(T, ResT, LT)                     \
-    ResT math_##T##_power_nooverflow(T x, T exponent) \
-    {                                                 \
-        LT r = 1;                                     \
-        LT b = (exponent);                            \
-        for (LT i = 0; i < b; ++i)                    \
-        {                                             \
-            r *= (x);                                 \
-            if (r != (T)r)                            \
-                return (ResT){                        \
-                    .value = 0,                       \
-                    .error = ERR_WOULD_OVERFLOW,      \
-                };                                    \
-        }                                             \
-        return (ResT){                                \
-            .value = (T)r,                            \
-            .error = ERR_OK,                          \
-        };                                            \
+#define __UpowNoOfwT(T, ResT, LT)                                                                                       \
+    ResT math_##T##_power_nooverflow(T x, T exponent)                                                                   \
+    {                                                                                                                   \
+        LT r = 1;                                                                                                       \
+        LT b = (exponent);                                                                                              \
+        for (LT i = 0; i < b; ++i)                                                                                      \
+        {                                                                                                               \
+            r *= (x);                                                                                                   \
+            if (r != (T)r)                                                                                              \
+                return (ResT){                                                                                          \
+                    .value = 0,                                                                                         \
+                    .error = X_ERR_EXT("math", "math_T_power_nooverflow", ERR_WOULD_OVERFLOW, "integer overflow"), \
+                };                                                                                                      \
+        }                                                                                                               \
+        return (ResT){                                                                                                  \
+            .value = (T)r,                                                                                              \
+            .error = X_ERR_OK,                                                                                          \
+        };                                                                                                              \
     }
 
-#define __IpowT(T)                      \
-    T math_##T##_power(T x, T exponent) \
-    {                                   \
-        T r = 1;                        \
-        T b = math_##T##_abs(exponent); \
-        for (u64 i = 0; i < b; ++i)     \
-        {                               \
-            r *= x;                     \
-        }                               \
-        if (exponent < 0)               \
-            r = 1 / r;                  \
-        return r;                       \
+#define __IpowT(T)                             \
+    T math_##T##_power(T x, T exponent)        \
+    {                                          \
+        T r = 1;                               \
+        u64 b = (u64)math_##T##_abs(exponent); \
+        for (u64 i = 0; i < b; ++i)            \
+        {                                      \
+            r *= x;                            \
+        }                                      \
+        if (exponent < 0)                      \
+            r = 1 / r;                         \
+        return r;                              \
     }
 
-#define __IpowNoOfwT(T, ResT, LT)                     \
-    ResT math_##T##_power_nooverflow(T x, T exponent) \
-    {                                                 \
-        LT r = 1;                                     \
-        LT b = math_##T##_abs(exponent);              \
-        for (u64 i = 0; i < b; ++i)                   \
-        {                                             \
-            r *= (x);                                 \
-            if (r != (T)r)                            \
-                return (ResT){                        \
-                    .value = 0,                       \
-                    .error = ERR_WOULD_OVERFLOW,      \
-                };                                    \
-        }                                             \
-        if (exponent < 0)                             \
-            r = 1 / r;                                \
-        return (ResT){                                \
-            .value = (T)r,                            \
-            .error = ERR_OK,                          \
-        };                                            \
+#define __IpowNoOfwT(T, ResT, LT)                                                                                       \
+    ResT math_##T##_power_nooverflow(T x, T exponent)                                                                   \
+    {                                                                                                                   \
+        LT r = 1;                                                                                                       \
+        u64 b = (u64)math_##T##_abs(exponent);                                                                          \
+        for (u64 i = 0; i < b; ++i)                                                                                     \
+        {                                                                                                               \
+            r *= (x);                                                                                                   \
+            if (r != (T)r)                                                                                              \
+                return (ResT){                                                                                          \
+                    .value = 0,                                                                                         \
+                    .error = X_ERR_EXT("math", "math_T_power_nooverflow", ERR_WOULD_OVERFLOW, "integer overflow"), \
+                };                                                                                                      \
+        }                                                                                                               \
+        if (exponent < 0)                                                                                               \
+            r = 1 / r;                                                                                                  \
+        return (ResT){                                                                                                  \
+            .value = (T)r,                                                                                              \
+            .error = X_ERR_OK,                                                                                          \
+        };                                                                                                              \
     }
 
 // U8 ==========================================================================
@@ -335,12 +335,12 @@ ResultU64 math_u64_add_nooverflow(u64 a, u64 b)
     if (res < a || res < b)
         return (ResultU64){
             .value = 0,
-            .error = ERR_WOULD_OVERFLOW,
+            .error = X_ERR_EXT("math", "math_u64_add_nooverflow", ERR_WOULD_OVERFLOW, "integer overflow"),
         };
 
     return (ResultU64){
         .value = res,
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }
 
@@ -351,12 +351,12 @@ ResultU64 math_u64_substract_nooverflow(u64 a, u64 b)
     if (b > a)
         return (ResultU64){
             .value = 0,
-            .error = ERR_WOULD_OVERFLOW,
+            .error = X_ERR_EXT("math", "math_u64_substract_nooverflow", ERR_WOULD_OVERFLOW, "integer overflow"),
         };
 
     return (ResultU64){
         .value = a - b,
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }
 
@@ -368,7 +368,7 @@ ResultU64 math_u64_multiply_nooverflow(u64 a, u64 b)
     {
         return (ResultU64){
             .value = 0,
-            .error = ERR_OK,
+            .error = X_ERR_OK,
         };
     }
 
@@ -376,13 +376,13 @@ ResultU64 math_u64_multiply_nooverflow(u64 a, u64 b)
     {
         return (ResultU64){
             .value = 0,
-            .error = ERR_WOULD_OVERFLOW,
+            .error = X_ERR_EXT("math", "math_u64_multiply_nooverflow", ERR_WOULD_OVERFLOW, "integer overflow"),
         };
     }
 
     return (ResultU64){
         .value = a * b,
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }
 
@@ -394,13 +394,13 @@ ResultU64 math_u64_divide_nooverflow(u64 a, u64 b)
     {
         return (ResultU64){
             .value = 0,
-            .error = ERR_INVALID_PARAMETER,
+            .error = X_ERR_EXT("math", "math_u64_divide_nooverflow", ERR_INVALID_PARAMETER, "division by 0"),
         };
     }
 
     return (ResultU64){
         .value = a / b,
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }
 
@@ -414,14 +414,14 @@ ResultU64 math_u64_power_nooverflow(u64 x, u64 exponent)
         if (x != 0 && r > U64_MAXVAL / x)
             return (ResultU64){
                 .value = 0,
-                .error = ERR_WOULD_OVERFLOW,
+                .error = X_ERR_EXT("math", "math_u64_power_nooverflow", ERR_WOULD_OVERFLOW, "integer overflow"),
             };
         r *= x;
     }
 
     return (ResultU64){
         .value = r,
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }
 
@@ -435,13 +435,13 @@ ResultI64 math_i64_add_nooverflow(i64 a, i64 b)
     {
         return (ResultI64){
             .value = 0,
-            .error = ERR_WOULD_OVERFLOW,
+            .error = X_ERR_EXT("math", "math_i64_add_nooverflow", ERR_WOULD_OVERFLOW, "integer overflow"),
         };
     }
 
     return (ResultI64){
         .value = a + b,
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }
 
@@ -454,13 +454,13 @@ ResultI64 math_i64_substract_nooverflow(i64 a, i64 b)
     {
         return (ResultI64){
             .value = 0,
-            .error = ERR_WOULD_OVERFLOW,
+            .error = X_ERR_EXT("math", "math_i64_substract_nooverflow", ERR_WOULD_OVERFLOW, "integer overflow"),
         };
     }
 
     return (ResultI64){
         .value = a - b,
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }
 
@@ -472,20 +472,20 @@ ResultI64 math_i64_multiply_nooverflow(i64 a, i64 b)
     {
         return (ResultI64){
             .value = 0,
-            .error = ERR_OK,
+            .error = X_ERR_OK,
         };
     }
 
     if (a == -1 && b == I64_MINVAL)
         return (ResultI64){
             .value = 0,
-            .error = ERR_WOULD_OVERFLOW,
+            .error = X_ERR_EXT("math", "math_i64_multiply_nooverflow", ERR_WOULD_OVERFLOW, "integer overflow"),
         };
 
     if (b == -1 && a == I64_MINVAL)
         return (ResultI64){
             .value = 0,
-            .error = ERR_WOULD_OVERFLOW,
+            .error = X_ERR_EXT("math", "math_i64_multiply_nooverflow", ERR_WOULD_OVERFLOW, "integer overflow"),
         };
 
     i64 res = a * b;
@@ -493,12 +493,12 @@ ResultI64 math_i64_multiply_nooverflow(i64 a, i64 b)
     if (res / b != a)
         return (ResultI64){
             .value = 0,
-            .error = ERR_WOULD_OVERFLOW,
+            .error = X_ERR_EXT("math", "math_i64_multiply_nooverflow", ERR_WOULD_OVERFLOW, "integer overflow"),
         };
 
     return (ResultI64){
         .value = res,
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }
 
@@ -509,18 +509,18 @@ ResultI64 math_i64_divide_nooverflow(i64 a, i64 b)
     if (b == 0)
         return (ResultI64){
             .value = 0,
-            .error = ERR_INVALID_PARAMETER,
+            .error = X_ERR_EXT("math", "math_i64_divide_nooverflow", ERR_INVALID_PARAMETER, "division by 0"),
         };
 
     if (a == I64_MINVAL && b == -1)
         return (ResultI64){
             .value = 0,
-            .error = ERR_WOULD_OVERFLOW,
+            .error = X_ERR_EXT("math", "math_i64_divide_nooverflow", ERR_WOULD_OVERFLOW, "integer overflow"),
         };
 
     return (ResultI64){
         .value = a / b,
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }
 
@@ -529,31 +529,36 @@ __IpowT(i64)
 
 ResultI64 math_i64_power_nooverflow(i64 x, i64 exponent)
 {
-    i64 r = 1;
-    i64 absExp = math_i64_abs(exponent);
-
-    for (i64 i = 0; i < absExp; ++i)
-    {
-        if (x != 0 && (r > I64_MAXVAL / x || r < I64_MINVAL / x))
-            return (ResultI64){
-                .value = 0,
-                .error = ERR_WOULD_OVERFLOW,
-            };
-
-        r *= x;
-    }
-
     if (exponent < 0)
         return (ResultI64){
-            .value = 0, // Integer types can't represent fractions
-            .error = ERR_INVALID_PARAMETER,
+            .value = 0,
+            .error = X_ERR_EXT("math", "math_i64_power_nooverflow", ERR_INVALID_PARAMETER, "negative exponent"),
         };
+
+    if (x == 0 && exponent == 0)
+        return (ResultI64){
+            .value = 1,
+            .error = X_ERR_OK,
+        };
+
+    i64 r = 1;
+
+    for (i64 i = 0; i < exponent; ++i)
+    {
+        if ((x > 0 && (r > I64_MAXVAL / x || r < I64_MINVAL / x)) ||
+            (x < 0 && (r < I64_MINVAL / x || r > I64_MAXVAL / x)))
+            return (ResultI64){
+                .value = 0,
+                .error = X_ERR_EXT("math", "math_i64_power_nooverflow", ERR_WOULD_OVERFLOW, "integer overflow"),
+            };
+    }
 
     return (ResultI64){
         .value = r,
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }
+
 
 // F32 =========================================================================
 __addT(f32)

@@ -26,7 +26,7 @@ typedef struct _result_list
  *
  * ```c
  * ResultList res = list_init(&c_allocator, sizeof(String), 16);
- * if (res.error) // Error!
+ * if (res.error.code) // Error!
  * List l = res.value;
  * ```
  * @param alloc
@@ -39,7 +39,7 @@ ResultList list_init(Allocator *alloc, u64 itemByteSize, u64 initialAllocSize)
     if (!alloc)
         return (ResultList){
             .value = {0},
-            .error = ERR_INVALID_PARAMETER,
+            .error = X_ERR_EXT("list", "list_init", ERR_INVALID_PARAMETER, "null allocator"),
         };
 
     if (initialAllocSize < _X_LIST_INIT_SIZE)
@@ -48,7 +48,7 @@ ResultList list_init(Allocator *alloc, u64 itemByteSize, u64 initialAllocSize)
     if (itemByteSize == 0)
         return (ResultList){
             .value = {0},
-            .error = ERR_INVALID_PARAMETER,
+            .error = X_ERR_EXT("list", "list_init", ERR_INVALID_PARAMETER, "itemByteSize is zero"),
         };
 
     List l = {
@@ -64,12 +64,12 @@ ResultList list_init(Allocator *alloc, u64 itemByteSize, u64 initialAllocSize)
     if (l._data == NULL)
         return (ResultList){
             .value = {0},
-            .error = ERR_OUT_OF_MEMORY,
+            .error = X_ERR_EXT("list", "list_init", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
     return (ResultList){
         .value = l,
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }
 
@@ -78,7 +78,7 @@ ResultList list_init(Allocator *alloc, u64 itemByteSize, u64 initialAllocSize)
  *
  * ```c
  * ResultList res = ListInitT(String, &c_allocator);
- * if (res.error) // Error!
+ * if (res.error.code) // Error!
  * List l = res.value;
  * ```
  * @param T type of the items
@@ -92,7 +92,7 @@ ResultList list_init(Allocator *alloc, u64 itemByteSize, u64 initialAllocSize)
  *
  * ```c
  * ResultList res = ListInitT(String, alloc);
- * if (res.error) // Error!
+ * if (res.error.code) // Error!
  * List l = res.value;
  * list_deinit(&l);
  * // List is now invalid, do not use it again.
@@ -199,7 +199,7 @@ void *_list_i_to_ptr(List *l, u64 i)
  * list_push(&list, &s);
  * String resultStr;
  * Error err = list_get(&list, 0, &resultStr);
- * if (err) // Error!
+ * if (err.code) // Error!
  * // resultStr == &"Test string"
  * ```
  * @param list
@@ -210,14 +210,14 @@ void *_list_i_to_ptr(List *l, u64 i)
 Error list_get(List *list, u64 i, void *out)
 {
     if (!list)
-        return ERR_INVALID_PARAMETER;
+        return X_ERR_EXT("list", "list_init", ERR_INVALID_PARAMETER, "null list");
 
     if (i >= list->_itemCnt)
-        return ERR_RANGE_ERROR;
+        return X_ERR_EXT("list", "list_init", ERR_RANGE_ERROR, "i out of range");
 
     void *ptr = _list_i_to_ptr(list, i);
     _list_memcpy(list, ptr, out);
-    return ERR_OK;
+    return X_ERR_OK;
 }
 
 /**
@@ -229,7 +229,7 @@ Error list_get(List *list, u64 i, void *out)
  * list_push(&list, &s);
  * String resultStr;
  * Error err = list_get(&list, 0, &resultStr);
- * if (err) // Error!
+ * if (err.code) // Error!
  * // resultStr == &"Test string"
  * ```
  * @param list
@@ -437,7 +437,7 @@ void list_set_unsafe(List *list, u64 i, const void *item)
  *
  * ```c
  * ResultList res = string_splitc(&alloc, "test string", ' ', false);
- * if (res.error) // Error!
+ * if (res.error.code) // Error!
  * List l = res.value;
  * // Do list stuff
  * list_free_items(&alloc, &l); // Frees all strings
@@ -525,7 +525,7 @@ void list_push(List *list, const void *item)
  * list_push(&list, &myStr);
  * String resultStr;
  * Error err = list_pop(&list, &resultStr);
- * if (err) // Error!
+ * if (err.code) // Error!
  * // resultStr == &"Test string"
  * ```
  * @param list
@@ -535,10 +535,10 @@ void list_push(List *list, const void *item)
 Error list_pop(List *list, void *out)
 {
     if (!list)
-        return ERR_INVALID_PARAMETER;
+        return X_ERR_EXT("list", "list_pop", ERR_INVALID_PARAMETER, "null list");
 
     if (list->_itemCnt == 0)
-        return ERR_RANGE_ERROR;
+        return X_ERR_EXT("list", "list_pop", ERR_RANGE_ERROR, "empty list");
 
     u64 i = --list->_itemCnt;
 
@@ -549,7 +549,7 @@ Error list_pop(List *list, void *out)
     {
         _list_shrink(list);
     }
-    return ERR_OK;
+    return X_ERR_OK;
 }
 
 /**
@@ -562,7 +562,7 @@ Error list_pop(List *list, void *out)
  * list_push(&list, &myStr);
  * String resultStr;
  * Error err = list_pop(&list, &resultStr);
- * if (err) // Error!
+ * if (err.code) // Error!
  * // resultStr == &"Test string"
  * ```
  * @param list

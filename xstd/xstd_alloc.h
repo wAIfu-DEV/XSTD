@@ -1,6 +1,7 @@
 #pragma once
 
 #include "xstd_core.h"
+#include "xstd_error.h"
 
 // Struct with methods to manipulate heap memory, implementations can be created
 // by overwriting those methods. Get the default allocator using `c_allocator`

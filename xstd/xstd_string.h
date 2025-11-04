@@ -82,7 +82,7 @@ ibool string_equals(ConstStr a, ConstStr b)
  *
  * ```c
  * ResultOwnedStr myString = string_alloc(&c_allocator, 3, 'w');
- * if (myString.error) // Error!
+ * if (myString.error.code) // Error!
  * // myString.value == ['w', 'w', 'w', 0(end sentinel)]
  * ```
  * @param alloc
@@ -97,7 +97,7 @@ ResultOwnedStr string_alloc(Allocator *alloc, u64 sizeNonTerminated, i8 fill)
     if (!str)
         return (ResultOwnedStr){
             .value = NULL,
-            .error = ERR_OUT_OF_MEMORY,
+            .error = X_ERR_EXT("string", "string_alloc", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
     u64 i = sizeNonTerminated + 1;
@@ -110,7 +110,7 @@ ResultOwnedStr string_alloc(Allocator *alloc, u64 sizeNonTerminated, i8 fill)
 
     return (ResultOwnedStr){
         .value = str,
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }
 
@@ -126,7 +126,7 @@ ResultOwnedStr string_alloc(Allocator *alloc, u64 sizeNonTerminated, i8 fill)
  * ConstStr source =     "Example string";
  * String dest = ConstToStr("____________________");
  * Error err = string_copy(source, dest);
- * if (err) // Error!
+ * if (err.code) // Error!
  * // dest == "Example string"
  * ```
  * @param source Terminated string
@@ -136,13 +136,13 @@ ResultOwnedStr string_alloc(Allocator *alloc, u64 sizeNonTerminated, i8 fill)
 Error string_copy(ConstStr source, String destination)
 {
     if (!source || !destination)
-        return ERR_INVALID_PARAMETER;
+        return X_ERR_EXT("string", "string_copy", ERR_INVALID_PARAMETER, "null arg");
 
     u64 srcLen = string_size(source);
     u64 destLen = string_size(destination);
 
     if (destLen < srcLen)
-        return ERR_WOULD_OVERFLOW;
+        return X_ERR_EXT("string", "string_copy", ERR_WOULD_OVERFLOW, "dest smaller than src");
 
     u64 i = 0;
     while (source[i])
@@ -152,7 +152,7 @@ Error string_copy(ConstStr source, String destination)
     }
     destination[i] = (i8)0;
 
-    return ERR_OK;
+    return X_ERR_OK;
 }
 
 /**
@@ -163,7 +163,7 @@ Error string_copy(ConstStr source, String destination)
  * ConstStr source = "Example string";
  * String dest = ConstToStr("______________");
  * Error err = string_copy_n(source, dest, 5, false);
- * if (err) // Error!
+ * if (err.code) // Error!
  * // dest == "Examp_________"
  * ```
  * @warning DOES NOT TERMINATE `destination` STRING
@@ -175,16 +175,16 @@ Error string_copy(ConstStr source, String destination)
 Error string_copy_n(ConstStr source, String destination, u64 n, ibool terminate)
 {
     if (!source || !destination)
-        return ERR_INVALID_PARAMETER;
+        return X_ERR_EXT("string", "string_copy_n", ERR_INVALID_PARAMETER, "null arg");
 
     u64 srcLen = string_size(source);
     u64 destLen = string_size(destination);
 
     if (srcLen < n)
-        return ERR_WOULD_OVERFLOW;
+        return X_ERR_EXT("string", "string_copy_n", ERR_WOULD_OVERFLOW, "src smaller than n");
 
     if (destLen < n)
-        return ERR_WOULD_OVERFLOW;
+        return X_ERR_EXT("string", "string_copy_n", ERR_WOULD_OVERFLOW, "dest smaller than n");
 
     u64 i = 0;
     while (i < n)
@@ -196,7 +196,7 @@ Error string_copy_n(ConstStr source, String destination, u64 n, ibool terminate)
     if (terminate)
         destination[i] = (i8)0;
 
-    return ERR_OK;
+    return X_ERR_OK;
 }
 
 /**
@@ -265,7 +265,7 @@ void string_copy_n_unsafe(ConstStr source, String destination, u64 n, ibool term
  * ```c
  * ConstStr source = "Example string";
  * ResultOwnedStr newString = string_dupe(&c_allocator, source);
- * if (newString.error) // Error!
+ * if (newString.error.code) // Error!
  * // newString.value == "Example string"
  * ```
  * @param alloc
@@ -277,7 +277,7 @@ ResultOwnedStr string_dupe(Allocator *alloc, ConstStr source)
     if (!source)
         return (ResultOwnedStr){
             .value = NULL,
-            .error = ERR_INVALID_PARAMETER,
+            .error = X_ERR_EXT("string", "string_dupe", ERR_WOULD_OVERFLOW, "null src"),
         };
 
     u64 srcLen = string_size(source);
@@ -286,14 +286,14 @@ ResultOwnedStr string_dupe(Allocator *alloc, ConstStr source)
     if (!newStr)
         return (ResultOwnedStr){
             .value = NULL,
-            .error = ERR_OUT_OF_MEMORY,
+            .error = X_ERR_EXT("string", "string_dupe", ERR_WOULD_OVERFLOW, "alloc failure"),
         };
 
     string_copy_unsafe(source, newStr);
 
     return (ResultOwnedStr){
         .value = newStr,
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }
 
@@ -342,10 +342,10 @@ HeapStr string_dupe_noresult(Allocator *alloc, ConstStr source)
  * ```c
  * ConstStr myString = "str";
  * ResultOwnedStr newStr = string_resize(&c_allocator, myString, 7, 'w');
- * if (newStr.error) // Error!
+ * if (newStr.error.code) // Error!
  * // newStr.value == ['s','t','r','w','w','w','w',0(end sentinel)]
  * ResultOwnedStr newStr2 = string_resize(&c_allocator, myString, 2, 'w');
- * if (newStr2.error) // Error!
+ * if (newStr2.error.code) // Error!
  * // newStr2.value == ['s','t',0(end sentinel)]
  * ```
  * @param alloc
@@ -358,7 +358,7 @@ ResultOwnedStr string_resize(Allocator *alloc, ConstStr source, u64 newSizeNonTe
     if (!source)
         return (ResultOwnedStr){
             .value = NULL,
-            .error = ERR_INVALID_PARAMETER,
+            .error = X_ERR_EXT("string", "string_resize", ERR_INVALID_PARAMETER, "null source"),
         };
 
     u64 prevSize = string_size(source);
@@ -369,7 +369,7 @@ ResultOwnedStr string_resize(Allocator *alloc, ConstStr source, u64 newSizeNonTe
     if (!newStr)
         return (ResultOwnedStr){
             .value = NULL,
-            .error = ERR_OUT_OF_MEMORY,
+            .error = X_ERR_EXT("string", "string_resize", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
     string_copy_n_unsafe(source, newStr, cpySize, false);
@@ -382,7 +382,7 @@ ResultOwnedStr string_resize(Allocator *alloc, ConstStr source, u64 newSizeNonTe
 
     return (ResultOwnedStr){
         .value = newStr,
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }
 
@@ -396,7 +396,7 @@ ResultOwnedStr string_resize(Allocator *alloc, ConstStr source, u64 newSizeNonTe
  * ConstStr a = "Hello, ";
  * ConstStr b = "World!"
  * ResultOwnedStr newStr = string_concat(&c_allocator, a, b);
- * if (newStr.error) // Error!
+ * if (newStr.error.code) // Error!
  * // newStr.value == "Hello, World!"
  * ```
  * @param alloc
@@ -406,10 +406,10 @@ ResultOwnedStr string_resize(Allocator *alloc, ConstStr source, u64 newSizeNonTe
  */
 ResultOwnedStr string_concat(Allocator *alloc, ConstStr a, ConstStr b)
 {
-    if (!a || !b)
+    if (!alloc || !a || !b)
         return (ResultOwnedStr){
             .value = NULL,
-            .error = ERR_INVALID_PARAMETER,
+            .error = X_ERR_EXT("string", "string_concat", ERR_INVALID_PARAMETER, "null arg"),
         };
 
     u64 aLen = string_size(a);
@@ -419,7 +419,7 @@ ResultOwnedStr string_concat(Allocator *alloc, ConstStr a, ConstStr b)
     if (!newStr)
         return (ResultOwnedStr){
             .value = NULL,
-            .error = ERR_OUT_OF_MEMORY,
+            .error = X_ERR_EXT("string", "string_concat", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
     string_copy_unsafe(a, newStr);
@@ -427,7 +427,7 @@ ResultOwnedStr string_concat(Allocator *alloc, ConstStr a, ConstStr b)
 
     return (ResultOwnedStr){
         .value = newStr,
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }
 
@@ -440,7 +440,7 @@ ResultOwnedStr string_concat(Allocator *alloc, ConstStr a, ConstStr b)
  * ```c
  * ConstStr myStr = "Hello, World!";
  * ResultOwnedStr subStr = string_substr(&c_allocator, myStr, 7, 12);
- * if (subStr.error) // Error!
+ * if (subStr.error.code) // Error!
  * // subStr.value == "World"
  * ```
  * @param alloc
@@ -451,16 +451,22 @@ ResultOwnedStr string_concat(Allocator *alloc, ConstStr a, ConstStr b)
  */
 ResultOwnedStr string_substr(Allocator *alloc, ConstStr s, u64 start, u64 end)
 {
-    if (!s || end < start)
+    if (!alloc || !s)
         return (ResultOwnedStr){
-            .error = ERR_INVALID_PARAMETER,
+            .error = X_ERR_EXT("string", "string_substr", ERR_INVALID_PARAMETER, "null arg"),
+            .value = NULL,
+        };
+    
+    if (end < start)
+        return (ResultOwnedStr){
+            .error = X_ERR_EXT("string", "string_substr", ERR_INVALID_PARAMETER, "end smaller than start"),
             .value = NULL,
         };
 
     u64 strSize = string_size(s);
     if (start > strSize || end > strSize)
         return (ResultOwnedStr){
-            .error = ERR_INVALID_PARAMETER,
+            .error = X_ERR_EXT("string", "string_substr", ERR_INVALID_PARAMETER, "start/end out of string bounds"),
             .value = NULL,
         };
 
@@ -470,7 +476,7 @@ ResultOwnedStr string_substr(Allocator *alloc, ConstStr s, u64 start, u64 end)
     if (!newStr)
         return (ResultOwnedStr){
             .value = NULL,
-            .error = ERR_OUT_OF_MEMORY,
+            .error = X_ERR_EXT("string", "string_substr", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
     string_copy_n_unsafe(s + start, newStr, subSize, false);
@@ -478,7 +484,7 @@ ResultOwnedStr string_substr(Allocator *alloc, ConstStr s, u64 start, u64 end)
 
     return (ResultOwnedStr){
         .value = newStr,
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }
 
@@ -522,7 +528,7 @@ HeapStr string_substr_unsafe(Allocator *alloc, ConstStr s, u64 start, u64 end)
  * ```c
  * ConstStr myStr = "Hello, World!";
  * ResultList split = string_split_char(&c_allocator, myStr, ' ');
- * if (split.error) // Error!
+ * if (split.error.code) // Error!
  * // split.value == List["Hello,", "World!"]
  * List l = res.value;
  * // Do list stuff
@@ -538,15 +544,15 @@ ResultList string_split_char(Allocator *alloc, ConstStr s, i8 delimiter)
 {
     // What a mess...
 
-    if (!s)
+    if (!alloc || !s)
         return (ResultList){
             .value = {0},
-            .error = ERR_INVALID_PARAMETER,
+            .error = X_ERR_EXT("string", "string_split_char", ERR_INVALID_PARAMETER, "null arg"),
         };
 
     ResultList resList = ListInitT(HeapStr, alloc);
 
-    if (resList.error)
+    if (resList.error.code != ERR_OK)
         return resList;
 
     List l = resList.value;
@@ -564,7 +570,7 @@ ResultList string_split_char(Allocator *alloc, ConstStr s, i8 delimiter)
             if (!subStr)
                 return (ResultList){
                     .value = {0},
-                    .error = ERR_OUT_OF_MEMORY,
+                    .error = X_ERR_EXT("string", "string_split_char", ERR_OUT_OF_MEMORY, "alloc failure"),
                 };
 
             list_push(&l, &subStr);
@@ -582,14 +588,14 @@ ResultList string_split_char(Allocator *alloc, ConstStr s, i8 delimiter)
     if (!subStr)
         return (ResultList){
             .value = {0},
-            .error = ERR_OUT_OF_MEMORY,
+            .error = X_ERR_EXT("string", "string_split_char", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
     list_push(&l, &subStr);
 
     return (ResultList){
         .value = l,
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }
 
@@ -601,7 +607,7 @@ ResultList string_split_char(Allocator *alloc, ConstStr s, i8 delimiter)
  * ```c
  * ConstStr myStr = "Hello,\nWorld!";
  * ResultList split = string_split_lines(&c_allocator, myStr);
- * if (split.error) // Error!
+ * if (split.error.code) // Error!
  * // split.value == List["Hello,", "World!"]
  * List l = res.value;
  * // Do list stuff
@@ -616,15 +622,15 @@ ResultList string_split_lines(Allocator *alloc, ConstStr s)
 {
     // What a mess...
 
-    if (!s)
+    if (!alloc || !s)
         return (ResultList){
             .value = {0},
-            .error = ERR_INVALID_PARAMETER,
+            .error = X_ERR_EXT("string", "string_split_lines", ERR_INVALID_PARAMETER, "null arg"),
         };
 
     ResultList resList = ListInitT(HeapStr, alloc);
 
-    if (resList.error)
+    if (resList.error.code != ERR_OK)
         return resList;
 
     List l = resList.value;
@@ -635,19 +641,20 @@ ResultList string_split_lines(Allocator *alloc, ConstStr s)
 
     while (s[i])
     {
-        if (s[i] == '\n' || (s[i] == '\r' && s[i+1] == '\n'))
+        if (s[i] == '\n' || (s[i] == '\r' && s[i + 1] == '\n'))
         {
             HeapStr subStr = string_substr_unsafe(alloc, s, segStart, i);
 
             if (!subStr)
                 return (ResultList){
                     .value = {0},
-                    .error = ERR_OUT_OF_MEMORY,
+                    .error = X_ERR_EXT("string", "string_split_lines", ERR_OUT_OF_MEMORY, "alloc failure"),
                 };
 
             list_push(&l, &subStr);
 
-            if (s[i] == '\r') ++i;
+            if (s[i] == '\r')
+                ++i;
 
             ++i;
             segStart = i;
@@ -662,14 +669,14 @@ ResultList string_split_lines(Allocator *alloc, ConstStr s)
     if (!subStr)
         return (ResultList){
             .value = {0},
-            .error = ERR_OUT_OF_MEMORY,
+            .error = X_ERR_EXT("string", "string_split_lines", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
     list_push(&l, &subStr);
 
     return (ResultList){
         .value = l,
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }
 
@@ -690,7 +697,7 @@ i64 string_find_char(ConstStr haystack, i8 needle)
     while (haystack[i])
     {
         if (haystack[i] == needle)
-            return i;
+            return (i64)i;
 
         ++i;
     }
@@ -720,7 +727,7 @@ i64 string_find(ConstStr haystack, ConstStr needle)
         }
 
         if (!needle[j])
-            return i;
+            return (i64)i;
 
         ++i;
     }
@@ -734,12 +741,12 @@ i64 string_find(ConstStr haystack, ConstStr needle)
  *
  * ```c
  * ResultStrBuilder resBuilder = strbuilder_init(&alloc);
- * if (resBuilder.error) // Error!
+ * if (resBuilder.error.code) // Error!
  * StringBuilder builder = resBuilder.value;
  * strbuilder_push_copy(&builder, "Hello,");
  * strbuilder_push_owned(&builder, ConstToHeapStr(" World!"));
  * ResultOwnedStr resBuiltStr = strbuilder_get_string(&builder);
- * if (resBuiltStr.error) // Error!
+ * if (resBuiltStr.error.code) // Error!
  * HeapStr builtStr = resBuiltStr.value;
  * strbuilder_deinit(&builder);
  * ```
@@ -750,7 +757,7 @@ ResultStrBuilder strbuilder_init(Allocator *alloc)
 {
     ResultList res = list_init(alloc, sizeof(HeapStr), 16);
 
-    if (res.error)
+    if (res.error.code)
         return (ResultStrBuilder){
             .value = {
                 ._valid = false,
@@ -763,7 +770,7 @@ ResultStrBuilder strbuilder_init(Allocator *alloc)
             ._strings = res.value,
             ._valid = true,
         },
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }
 
@@ -852,12 +859,12 @@ void strbuilder_push_copy(StringBuilder *builder, ConstStr s)
  *
  * ```c
  * ResultStrBuilder res = strbuilder_init(&c_allocator);
- * if (res.error) // Error!
+ * if (res.error.code) // Error!
  * StringBuilder builder = res.value;
  * strbuilder_push_copy(&builder, "Hello,");
  * strbuilder_push_owned(&builder, ConstToHeapStr("World!"));
  * ResultOwnedStr built = strbuilder_get_string(&builder);
- * if (built.error) // Error!
+ * if (built.error.code) // Error!
  * HeapStr resultStr = built.value;
  * strbuilder_deinit(&builder);
  * ```
@@ -869,7 +876,7 @@ ResultOwnedStr strbuilder_get_string(StringBuilder *builder)
     if (!builder || !builder->_valid)
         return (ResultOwnedStr){
             .value = NULL,
-            .error = ERR_INVALID_PARAMETER,
+            .error = X_ERR_EXT("string", "strbuilder_get_string", ERR_INVALID_PARAMETER, "null or invalid builder"),
         };
 
     u64 totalSize = 0;
@@ -887,7 +894,7 @@ ResultOwnedStr strbuilder_get_string(StringBuilder *builder)
     if (!newStr)
         return (ResultOwnedStr){
             .value = NULL,
-            .error = ERR_OUT_OF_MEMORY,
+            .error = X_ERR_EXT("string", "strbuilder_get_string", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
     u64 offset = 0;
@@ -908,7 +915,7 @@ ResultOwnedStr strbuilder_get_string(StringBuilder *builder)
     newStr[totalSize] = (i8)0;
     return (ResultOwnedStr){
         .value = newStr,
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }
 
@@ -919,7 +926,7 @@ ResultOwnedStr strbuilder_get_string(StringBuilder *builder)
  *
  * ```c
  * ResultOwnedStr res = string_replace(&alloc, "This is a test, or is it?", "is", "is not");
- * if (res.error) // Error!
+ * if (res.error.code) // Error!
  * HeapStr replaced = res.value;
  * // replaced == "This is not a test, or is not it?"
  * ```
@@ -934,12 +941,12 @@ ResultOwnedStr string_replace(Allocator *alloc, ConstStr s, ConstStr what, Const
     if (!alloc || !s || !what || !with)
         return (ResultOwnedStr){
             .value = NULL,
-            .error = ERR_INVALID_PARAMETER,
+            .error = X_ERR_EXT("string", "string_replace", ERR_INVALID_PARAMETER, "null arg"),
         };
 
     ResultStrBuilder strBldRes = strbuilder_init(alloc);
 
-    if (strBldRes.error)
+    if (strBldRes.error.code != ERR_OK)
         return (ResultOwnedStr){
             .value = NULL,
             .error = strBldRes.error,
@@ -956,11 +963,11 @@ ResultOwnedStr string_replace(Allocator *alloc, ConstStr s, ConstStr what, Const
     {
         while ((next = string_find(s + offset, what)) != -1)
         {
-            HeapStr chunk = string_substr_unsafe(alloc, s + offset, 0, next);
+            HeapStr chunk = string_substr_unsafe(alloc, s + offset, 0, (u64)next);
             if (!chunk)
                 return (ResultOwnedStr){
                     .value = NULL,
-                    .error = ERR_OUT_OF_MEMORY,
+                    .error = X_ERR_EXT("string", "string_replace", ERR_OUT_OF_MEMORY, "alloc failure"),
                 };
 
             strbuilder_push_owned(&strBld, chunk);
@@ -968,7 +975,7 @@ ResultOwnedStr string_replace(Allocator *alloc, ConstStr s, ConstStr what, Const
             HeapStr replaced = string_dupe_noresult(alloc, with);
             strbuilder_push_owned(&strBld, replaced);
 
-            offset += next + whatSize;
+            offset += (u64)next + whatSize;
         }
     }
 
@@ -976,14 +983,14 @@ ResultOwnedStr string_replace(Allocator *alloc, ConstStr s, ConstStr what, Const
     if (!tailChunk)
         return (ResultOwnedStr){
             .value = NULL,
-            .error = ERR_OUT_OF_MEMORY,
+            .error = X_ERR_EXT("string", "string_replace", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
     strbuilder_push_owned(&strBld, tailChunk);
 
     ResultOwnedStr strRes = strbuilder_get_string(&strBld);
 
-    if (strRes.error)
+    if (strRes.error.code)
         return (ResultOwnedStr){
             .value = NULL,
             .error = strRes.error,
@@ -995,7 +1002,7 @@ ResultOwnedStr string_replace(Allocator *alloc, ConstStr s, ConstStr what, Const
 
     return (ResultOwnedStr){
         .value = result,
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }
 
@@ -1063,24 +1070,180 @@ ibool string_ends_with(ConstStr s, ConstStr what)
     return 1;
 }
 
+/**
+ * @brief Checks if character is alphabetic (in range a-z A-Z)
+ * 
+ * @param c character
+ * @return ibool 
+ */
 ibool char_is_alpha(const i8 c)
 {
     return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
 }
 
+/**
+ * @brief Checks if character is numerical (in range 0-9)
+ * 
+ * @param c character
+ * @return ibool 
+ */
 ibool char_is_digit(const i8 c)
 {
     return (c >= '0' && c <= '9');
 }
 
+/**
+ * @brief Checks if character is alphanumerical (in range a-z A-Z 0-9)
+ * 
+ * @param c 
+ * @return ibool 
+ */
 ibool char_is_alphanum(const i8 c)
 {
     return (char_is_alpha(c) || char_is_digit(c));
 }
 
+/**
+ * @brief Checks if character is whitespace (space, tab, newline, carriage return)
+ * 
+ * @param c 
+ * @return ibool 
+ */
 ibool char_is_whitespace(const i8 c)
 {
     return (c == ' ' || c == '\t' || c == '\n' || c == '\r');
+}
+
+/**
+ * @brief Returns a lowercase version of a uppercase character,
+ * returns provided character if not lowercase. 
+ * 
+ * @param c 
+ * @return i8 
+ */
+i8 char_to_lower(const i8 c)
+{
+    if (c >= 'A' && c <= 'Z')
+        return (i8)(c + ('a' - 'A'));
+    return c;
+}
+
+/**
+ * @brief Returns a uppercase version of a lowercase character,
+ * returns provided character if not lowercase. 
+ * 
+ * @param c 
+ * @return i8 
+ */
+i8 char_to_upper(const i8 c)
+{
+    if (c >= 'a' && c <= 'z')
+        return (i8)(c - ('a' - 'A'));
+    return c;
+}
+
+/**
+ * @brief Performs a in-place replacement of uppercase characters with lowercase ones.
+ * Provided string MUST be modifiable and non const.
+ * 
+ * @param s
+ */
+void string_to_lower_inplace(HeapStr s)
+{
+    if (!s)
+        return;
+
+    u64 i = 0;
+    while (s[i])
+    {
+        s[i] = char_to_lower(s[i]);
+        ++i;
+    }
+}
+
+/**
+ * @brief Performs a in-place replacement of lowercase characters with uppercase ones.
+ * Provided string MUST be modifiable and non const.
+ * 
+ * @param s
+ */
+void string_to_upper_inplace(HeapStr s)
+{
+    if (!s)
+        return;
+
+    u64 i = 0;
+    while (s[i])
+    {
+        s[i] = char_to_upper(s[i]);
+        ++i;
+    }
+}
+
+/**
+ * @brief Returns a copy of `s` with all uppercase characters replaced with lowercase ones.
+ * 
+ * @param alloc
+ * @param s
+ * @return ResultOwnedStr 
+ */
+ResultOwnedStr string_lower(Allocator *alloc, ConstStr s)
+{
+    if (!alloc || !s)
+        return (ResultOwnedStr){
+            .value = NULL,
+            .error = X_ERR_EXT("string", "string_lower", ERR_INVALID_PARAMETER, "null arg"),
+        };
+
+    const u64 len = string_size(s);
+    HeapStr copy = alloc->alloc(alloc, len + 1);
+    if (!copy)
+        return (ResultOwnedStr){
+            .value = NULL,
+            .error = X_ERR_EXT("string", "string_lower", ERR_OUT_OF_MEMORY, "alloc failure"),
+        };
+
+    for (u64 i = 0; i < len; ++i)
+        copy[i] = char_to_lower(s[i]);
+    copy[len] = 0;
+
+    return (ResultOwnedStr){
+        .value = copy,
+        .error = X_ERR_OK,
+    };
+}
+
+/**
+ * @brief Returns a copy of `s` with all lowercase characters replaced with uppercase ones.
+ * 
+ * @param alloc
+ * @param s
+ * @return ResultOwnedStr 
+ */
+ResultOwnedStr string_upper(Allocator *alloc, ConstStr s)
+{
+    if (!alloc || !s)
+        return (ResultOwnedStr){
+            .value = NULL,
+            .error = X_ERR_EXT("string", "string_upper", ERR_INVALID_PARAMETER, "null arg"),
+        };
+
+    const u64 len = string_size(s);
+    HeapStr copy = alloc->alloc(alloc, len + 1);
+    if (!copy)
+        return (ResultOwnedStr){
+            .value = NULL,
+            .error = X_ERR_EXT("string", "string_upper", ERR_OUT_OF_MEMORY, "alloc failure"),
+        };
+
+    for (u64 i = 0; i < len; ++i)
+        copy[i] = char_to_upper(s[i]);
+    copy[len] = 0;
+
+    return (ResultOwnedStr){
+        .value = copy,
+        .error = X_ERR_OK,
+    };
 }
 
 /**
@@ -1092,12 +1255,12 @@ ibool char_is_whitespace(const i8 c)
  * ```c
  * ConstStr myStr = "  Hello, World!  ";
  * ResultOwnedStr trimmed = string_trim_whitespace(&c_allocator, myStr, true, true);
- * if (trimmed.error) // Error!
+ * if (trimmed.error.code) // Error!
  * // trimmed.value == "Hello, World!"
  *
  * ConstStr myStr2 = "  Hello, World!  ";
  * ResultOwnedStr trimStart = string_trim_whitespace(&c_allocator, myStr2, true, false);
- * if (trimStart.error) // Error!
+ * if (trimStart.error.code) // Error!
  * // trimStart.value == "Hello, World!  "
  * ```
  *
@@ -1112,7 +1275,7 @@ ResultOwnedStr string_trim_whitespace(Allocator *alloc, ConstStr s, ibool start,
     if (!alloc || !s)
         return (ResultOwnedStr){
             .value = NULL,
-            .error = ERR_INVALID_PARAMETER,
+            .error = X_ERR_EXT("string", "string_trim_whitespace", ERR_INVALID_PARAMETER, "null arg"),
         };
 
     u64 len = string_size(s);
@@ -1142,12 +1305,12 @@ ResultOwnedStr string_trim_whitespace(Allocator *alloc, ConstStr s, ibool start,
         if (!newStr)
             return (ResultOwnedStr){
                 .value = NULL,
-                .error = ERR_OUT_OF_MEMORY,
+                .error = X_ERR_EXT("string", "string_trim_whitespace", ERR_OUT_OF_MEMORY, "alloc failure"),
             };
 
         return (ResultOwnedStr){
             .value = newStr,
-            .error = ERR_OK,
+            .error = X_ERR_OK,
         };
     }
 
@@ -1157,7 +1320,7 @@ ResultOwnedStr string_trim_whitespace(Allocator *alloc, ConstStr s, ibool start,
     if (!newStr)
         return (ResultOwnedStr){
             .value = NULL,
-            .error = ERR_OUT_OF_MEMORY,
+            .error = X_ERR_EXT("string", "string_trim_whitespace", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
     string_copy_n_unsafe(s + startIdx, newStr, newLen, false);
@@ -1165,10 +1328,17 @@ ResultOwnedStr string_trim_whitespace(Allocator *alloc, ConstStr s, ibool start,
 
     return (ResultOwnedStr){
         .value = newStr,
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }
 
+/**
+ * @brief Rerturns a character version of an integer within the range 0-9
+ * For example: (i16)0 returns '0'
+ * 
+ * @param i 
+ * @return i8 
+ */
 i8 digit_to_char(const i16 i)
 {
     if (i > 9)
@@ -1177,83 +1347,138 @@ i8 digit_to_char(const i16 i)
     return "0123456789"[i];
 }
 
+/**
+ * @brief Stringifies an integer.
+ * 
+ * @param alloc 
+ * @param i 
+ * @return ResultOwnedStr 
+ */
 ResultOwnedStr string_from_int(Allocator *alloc, const i64 i)
 {
     char buf[20];
     i64 n = i;
-    i16 idx = 0;
+    i16 idx = 18;
 
     if (n == 0)
     {
         HeapStr intStr = alloc->alloc(alloc, 2);
+
+        if (!intStr)
+            return (ResultOwnedStr){
+                .value = NULL,
+                .error = X_ERR_EXT("string", "string_from_int", ERR_OUT_OF_MEMORY, "alloc failure"),
+            };
+
         intStr[0] = '0';
         intStr[1] = '\0';
         return (ResultOwnedStr){
             .value = intStr,
-            .error = ERR_OK,
+            .error = X_ERR_OK,
         };
     }
 
-    if (n < 0)
+    if (i < 0)
     {
-        buf[0] = '-';
-        ++idx;
         n = -n;
     }
 
     while (n != 0)
     {
-        i16 d = n % 10;
-        buf[idx++] = digit_to_char(d);
+        i16 d = (i16)(n % 10);
+        buf[idx] = digit_to_char(d);
+        --idx;
         n /= 10;
     }
 
-    buf[idx] = '\0';
+    if (i < 0)
+    {
+        buf[idx] = '-';
+        --idx;
+    }
 
-    HeapStr intStr = alloc->alloc(alloc, idx + 1);
-    string_copy_unsafe(buf, intStr);
+    buf[19] = '\0';
+
+    HeapStr intStr = alloc->alloc(alloc, (19 - (u64)idx) + 1);
+    if (!intStr)
+        return (ResultOwnedStr){
+            .value = NULL,
+            .error = X_ERR_EXT("string", "string_from_int", ERR_OUT_OF_MEMORY, "alloc failure"),
+        };
+
+    string_copy_unsafe(buf + idx + 1, intStr);
 
     return (ResultOwnedStr){
         .value = intStr,
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }
 
+/**
+ * @brief Stringifies a unsigned integer.
+ * 
+ * @param alloc 
+ * @param i 
+ * @return ResultOwnedStr 
+ */
 ResultOwnedStr string_from_uint(Allocator *alloc, const u64 i)
 {
     char buf[20];
     u64 n = i;
-    i16 idx = 0;
+    i16 idx = 18;
 
     if (n == 0)
     {
         HeapStr intStr = alloc->alloc(alloc, 2);
+
+        if (!intStr)
+            return (ResultOwnedStr){
+                .value = NULL,
+                .error = X_ERR_EXT("string", "string_from_uint", ERR_OUT_OF_MEMORY, "alloc failure"),
+            };
+
         intStr[0] = '0';
         intStr[1] = '\0';
         return (ResultOwnedStr){
             .value = intStr,
-            .error = ERR_OK,
+            .error = X_ERR_OK,
         };
     }
 
     while (n != 0)
     {
-        i16 d = n % 10;
-        buf[idx++] = digit_to_char(d);
+        i16 d = (i16)(n % 10);
+        buf[idx] = digit_to_char(d);
+        --idx;
         n /= 10;
     }
 
-    buf[idx] = '\0';
+    buf[19] = '\0';
 
-    HeapStr intStr = alloc->alloc(alloc, idx + 1);
-    string_copy_unsafe(buf, intStr);
+    HeapStr intStr = alloc->alloc(alloc, (19 - (u64)idx) + 1);
+
+    if (!intStr)
+        return (ResultOwnedStr){
+            .value = NULL,
+            .error = X_ERR_EXT("string", "string_from_uint", ERR_OUT_OF_MEMORY, "alloc failure"),
+        };
+
+    string_copy_unsafe(buf + idx + 1, intStr);
 
     return (ResultOwnedStr){
         .value = intStr,
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }
 
+/**
+ * @brief Strigifies a float.
+ * 
+ * @param alloc 
+ * @param flt 
+ * @param precision 
+ * @return ResultOwnedStr 
+ */
 ResultOwnedStr string_from_float(Allocator *alloc, const f64 flt, const u64 precision)
 {
     f64 d = flt;
@@ -1263,21 +1488,21 @@ ResultOwnedStr string_from_float(Allocator *alloc, const f64 flt, const u64 prec
 
     ResultOwnedStr strIntPart = string_from_int(alloc, intPart);
 
-    if (precision <= 0 || strIntPart.error != ERR_OK)
+    if (precision <= 0 || strIntPart.error.code != ERR_OK)
     {
         return strIntPart;
     }
 
     f64 scale = 1.0;
     for (u64 i = 0; i < precision; ++i)
-        scale *= 10.0;
+        scale *= (f64)10.0;
 
     fracPart *= scale;
     u64 fracInt = (u64)(fracPart + 0.5); // rounding
 
     // Ensure leading zeros in fractional part
-    i64 div = 1;
-    for (int i = 1; i < precision; ++i)
+    u64 div = 1;
+    for (u64 i = 1; i < precision; ++i)
         div *= 10;
 
     u64 zeroes = 0;
@@ -1289,19 +1514,13 @@ ResultOwnedStr string_from_float(Allocator *alloc, const f64 flt, const u64 prec
 
     ResultOwnedStr zeroesStr = string_alloc(alloc, zeroes, '0');
 
-    if (zeroesStr.error != ERR_OK)
-        return (ResultOwnedStr){
-            .value = NULL,
-            .error = ERR_OUT_OF_MEMORY,
-        };
+    if (zeroesStr.error.code != ERR_OK)
+        return zeroesStr;
 
     ResultOwnedStr strDecPart = string_from_uint(alloc, fracInt);
 
-    if (strDecPart.error != ERR_OK)
-        return (ResultOwnedStr){
-            .value = NULL,
-            .error = ERR_OUT_OF_MEMORY,
-        };
+    if (strDecPart.error.code != ERR_OK)
+        return strDecPart;
 
     u64 intPartSize = string_size(strIntPart.value);
     u64 decPartSize = string_size(strDecPart.value);
@@ -1312,7 +1531,7 @@ ResultOwnedStr string_from_float(Allocator *alloc, const f64 flt, const u64 prec
     if (finalStr == NULL)
         return (ResultOwnedStr){
             .value = NULL,
-            .error = ERR_OUT_OF_MEMORY,
+            .error = X_ERR_EXT("string", "string_from_float", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
     string_copy_n_unsafe(strIntPart.value, finalStr, intPartSize, false);
@@ -1321,16 +1540,22 @@ ResultOwnedStr string_from_float(Allocator *alloc, const f64 flt, const u64 prec
 
     return (ResultOwnedStr){
         .value = finalStr,
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }
 
+/**
+ * @brief Parses a positive or negative integer from a provided string.
+ * 
+ * @param s 
+ * @return ResultI64 
+ */
 ResultI64 string_parse_int(ConstStr s)
 {
     if (!s || *s == '\0')
         return (ResultI64){
             .value = 0,
-            .error = ERR_INVALID_PARAMETER,
+            .error = X_ERR_EXT("string", "string_parse_int", ERR_INVALID_PARAMETER, "null or empty str"),
         };
 
     const i8 *ptr = s;
@@ -1350,7 +1575,7 @@ ResultI64 string_parse_int(ConstStr s)
     if (!char_is_digit(*ptr))
         return (ResultI64){
             .value = 0,
-            .error = ERR_UNEXPECTED_BYTE,
+            .error = X_ERR_EXT("string", "string_parse_int", ERR_UNEXPECTED_BYTE, "byte not digit"),
         };
 
     while (char_is_digit(*ptr))
@@ -1360,7 +1585,7 @@ ResultI64 string_parse_int(ConstStr s)
         if (newVal < result)
             return (ResultI64){
                 .value = 0,
-                .error = ERR_WOULD_OVERFLOW,
+                .error = X_ERR_EXT("string", "string_parse_int", ERR_WOULD_OVERFLOW, "integer overfow"),
             };
 
         result = newVal;
@@ -1370,21 +1595,27 @@ ResultI64 string_parse_int(ConstStr s)
     if (*ptr != '\0' && !char_is_whitespace(*ptr))
         return (ResultI64){
             .value = 0,
-            .error = ERR_UNEXPECTED_BYTE,
+            .error = X_ERR_EXT("string", "string_parse_int", ERR_UNEXPECTED_BYTE, "byte not digit"),
         };
 
     return (ResultI64){
         .value = result * sign,
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }
 
+/**
+ * @brief Parses a unsigned integer from a provided string.
+ * 
+ * @param s 
+ * @return ResultI64 
+ */
 ResultU64 string_parse_uint(ConstStr s)
 {
     if (!s || *s == '\0')
         return (ResultU64){
             .value = 0,
-            .error = ERR_INVALID_PARAMETER,
+            .error = X_ERR_EXT("string", "string_parse_uint", ERR_INVALID_PARAMETER, "null or empty str"),
         };
 
     const i8 *ptr = s;
@@ -1396,17 +1627,17 @@ ResultU64 string_parse_uint(ConstStr s)
     if (!char_is_digit(*ptr))
         return (ResultU64){
             .value = 0,
-            .error = ERR_UNEXPECTED_BYTE,
+            .error = X_ERR_EXT("string", "string_parse_uint", ERR_UNEXPECTED_BYTE, "byte not digit"),
         };
 
     while (char_is_digit(*ptr))
     {
-        u64 newVal = result * 10 + (*ptr - '0');
+        u64 newVal = result * 10 + (u64)(*ptr - '0');
 
         if (newVal < result)
             return (ResultU64){
                 .value = 0,
-                .error = ERR_WOULD_OVERFLOW,
+                .error = X_ERR_EXT("string", "string_parse_uint", ERR_WOULD_OVERFLOW, "integer overflow"),
             };
 
         result = newVal;
@@ -1416,21 +1647,27 @@ ResultU64 string_parse_uint(ConstStr s)
     if (*ptr != '\0' && !char_is_whitespace(*ptr))
         return (ResultU64){
             .value = 0,
-            .error = ERR_UNEXPECTED_BYTE,
+            .error = X_ERR_EXT("string", "string_parse_uint", ERR_UNEXPECTED_BYTE, "byte not digit"),
         };
 
     return (ResultU64){
         .value = result,
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }
 
+/**
+ * @brief Parses a float from a provided string.
+ * 
+ * @param s 
+ * @return ResultF64 
+ */
 ResultF64 string_parse_float(ConstStr s)
 {
     if (!s || *s == '\0')
         return (ResultF64){
             .value = 0.0,
-            .error = ERR_INVALID_PARAMETER,
+            .error = X_ERR_EXT("string", "string_parse_float", ERR_INVALID_PARAMETER, "null or empty str"),
         };
 
     const i8 *ptr = s;
@@ -1450,17 +1687,17 @@ ResultF64 string_parse_float(ConstStr s)
     if (!char_is_digit(*ptr) && *ptr != '.')
         return (ResultF64){
             .value = 0.0,
-            .error = ERR_UNEXPECTED_BYTE,
+            .error = X_ERR_EXT("string", "string_parse_float", ERR_UNEXPECTED_BYTE, "byte not digit"),
         };
 
     while (char_is_digit(*ptr))
     {
-        f64 newVal = result * 10.0 + (*ptr - '0');
+        f64 newVal = result * (f64)10.0 + (f64)(*ptr - '0');
 
         if (newVal < result)
             return (ResultF64){
                 .value = 0.0,
-                .error = ERR_WOULD_OVERFLOW,
+                .error = X_ERR_EXT("string", "string_parse_float", ERR_WOULD_OVERFLOW, "integer overflow"),
             };
 
         result = newVal;
@@ -1476,7 +1713,7 @@ ResultF64 string_parse_float(ConstStr s)
         if (!char_is_digit(*ptr))
             return (ResultF64){
                 .value = 0.0,
-                .error = ERR_UNEXPECTED_BYTE,
+                .error = X_ERR_EXT("string", "string_parse_uint", ERR_UNEXPECTED_BYTE, "byte not digit"),
             };
 
         while (char_is_digit(*ptr))
@@ -1486,11 +1723,11 @@ ResultF64 string_parse_float(ConstStr s)
             if (newFrac < fraction)
                 return (ResultF64){
                     .value = 0.0,
-                    .error = ERR_WOULD_OVERFLOW,
+                    .error = X_ERR_EXT("string", "string_parse_float", ERR_WOULD_OVERFLOW, "integer overflow"),
                 };
 
             fraction = newFrac;
-            divisor *= 10.0;
+            divisor *= (f64)10.0;
             ++ptr;
         }
         result += fraction;
@@ -1499,11 +1736,11 @@ ResultF64 string_parse_float(ConstStr s)
     if (*ptr != '\0' && !char_is_whitespace(*ptr))
         return (ResultF64){
             .value = 0.0,
-            .error = ERR_UNEXPECTED_BYTE,
+            .error = X_ERR_EXT("string", "string_parse_uint", ERR_UNEXPECTED_BYTE, "byte not digit"),
         };
 
     return (ResultF64){
         .value = result * sign,
-        .error = ERR_OK,
+        .error = X_ERR_OK,
     };
 }

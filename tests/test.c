@@ -6,7 +6,7 @@ int main(void)
     process_setup_default_crash_handler();
 
     DebugAllocatorState dbgState;
-    ResultAllocator dbgAllocRes = debug_allocator(&dbgState, &c_allocator);
+    ResultAllocator dbgAllocRes = debug_allocator(&dbgState, 128, &c_allocator);
     assert_ok(dbgAllocRes.error, "Failed to create debug allocator.");
 
     Allocator dbgAlloc = dbgAllocRes.value;
@@ -24,6 +24,12 @@ int main(void)
 
     io_println(" - Passed.");
 
-    debug_allocator_logstats(&dbgState);
+    io_print("Active allocations after test: ");
+    io_print_uint(dbgState.activeAllocCount);
+    io_print("\n");
+
+    io_print("Active allocated bytes after test: ");
+    io_print_uint(dbgState.activeUserBytes);
+    io_print("\n");
     return 0;
 }
