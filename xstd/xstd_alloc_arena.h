@@ -138,6 +138,7 @@ ArenaAllocatorState *__arena_alloc_header(Buffer buff, ibool isHeap)
  * @param buffer buffer pointing to allocated memory
  * @param isHeap true if is heap allocated, false if not
  * @return Allocator
+ * @exception ERR_INVALID_PARAMETER, ERR_OUT_OF_MEMORY
  */
 ResultAllocator arena_allocator(Buffer buffer, ibool isHeap)
 {

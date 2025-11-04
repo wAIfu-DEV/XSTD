@@ -210,6 +210,7 @@ Error buffer_copy(ConstBuff source, Buffer destination)
  * @param source
  * @param destination buffer of size >= n
  * @return Error
+ * @exception ERR_INVALID_PARAMETER, ERR_WOULD_OVERFLOW
  */
 Error buffer_copy_n(ConstBuff source, Buffer destination, u64 n)
 {
@@ -245,7 +246,7 @@ Error buffer_copy_n(ConstBuff source, Buffer destination, u64 n)
  *
  * ```c
  * ConstStr source =     "Example string";
- * String dest = ConstToStr("__________________");
+ * String dest = ConstToHeapStr("__________________");
  *
  * ConstBuff srcBuff = (ConstBuff){ .bytes = source, .size = string_size(source) + 1 };
  * HeapBuff destBuff = (HeapBuff){ .bytes = dest, .size = string_size(dest) + 1 };
@@ -279,7 +280,7 @@ void buffer_copy_unsafe(ConstBuff source, Buffer destination)
  *
  * ```c
  * ConstStr source = "Example string";
- * String dest = ConstToStr("______________");
+ * String dest = ConstToHeapStr("______________");
  *
  * ConstBuff srcBuff = (ConstBuff){ .bytes = source, .size = string_size(source) + 1 };
  * HeapBuff destBuff = (HeapBuff){ .bytes = dest, .size = string_size(dest) + 1 };

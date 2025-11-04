@@ -32,9 +32,11 @@ typedef unsigned int u32;       // 32bit value representing an unsigned integer 
 #if __XSTD_ARCH_64BIT
 typedef long long i64; // 64bit value representing an integer number.
 typedef unsigned long long u64; // 64bit value representing an unsigned integer number.
+typedef unsigned long long uPtr; // 64bit value representing a memory address of a pointer.
 #else
-typedef i32 i64; // 64bit value representing an integer number.
-typedef u32 u64; // 64bit value representing an unsigned integer number.
+typedef i32 i64; // 32bit value representing an integer number.
+typedef u32 u64; // 32bit value representing an unsigned integer number.
+typedef u32 uPtr; // 32bit value representing a memory address of a pointer.
 #endif
 
 typedef float f32;  // 32bit value representing a decimal number.

@@ -124,7 +124,7 @@ ResultOwnedStr string_alloc(Allocator *alloc, u64 sizeNonTerminated, i8 fill)
  *
  * ```c
  * ConstStr source =     "Example string";
- * String dest = ConstToStr("____________________");
+ * String dest = ConstToHeapStr("____________________");
  * Error err = string_copy(source, dest);
  * if (err.code) // Error!
  * // dest == "Example string"
@@ -161,7 +161,7 @@ Error string_copy(ConstStr source, String destination)
  *
  * ```c
  * ConstStr source = "Example string";
- * String dest = ConstToStr("______________");
+ * String dest = ConstToHeapStr("______________");
  * Error err = string_copy_n(source, dest, 5, false);
  * if (err.code) // Error!
  * // dest == "Examp_________"
@@ -210,7 +210,7 @@ Error string_copy_n(ConstStr source, String destination, u64 n, ibool terminate)
  *
  * ```c
  * ConstStr source =     "Example string";
- * String dest = ConstToStr("__________________");
+ * String dest = ConstToHeapStr("__________________");
  * string_copy_unsafe(source, dest);
  * // dest == "Example string"
  * ```
@@ -237,7 +237,7 @@ void string_copy_unsafe(ConstStr source, String destination)
  *
  * ```c
  * ConstStr source = "Example string";
- * String dest = ConstToStr("______________");
+ * String dest = ConstToHeapStr("______________");
  * string_copy_n_unsafe(source, dest, 5, false);
  * // dest == "Examp_________"
  * ```

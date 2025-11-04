@@ -10,6 +10,7 @@
 
 ✳️ **Highlights**:
 - Result types (`ResultOwnedStr`, `ResultOwnedBuff`, `Result<T>`) — no more `NULL` checks or magic number errors.
+- Explicit memory ownership though typedefs (`OwnedStr`, `ConstStr`, `String`, `OwnedBuff`, `ConstBuff`) — ownership is never implicit.
 - Modular allocators: arena allocators, buffer allocators, tracking/debug allocators, and fallbacks to `malloc`.
 - Modern tooling: string builders, hashmaps, IO abstractions, file APIs, and more.
 - Safer APIs: bounds-checked string functions, typed list operations, and precise error propagation.

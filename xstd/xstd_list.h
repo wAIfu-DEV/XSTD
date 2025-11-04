@@ -454,7 +454,7 @@ void list_free_items(Allocator *alloc, List *list)
     if (!list->_data)
         return;
 
-    if (list->_typeSize != sizeof(u64))
+    if (list->_typeSize != sizeof(uPtr))
         return;
 
     void *nullPtr = NULL;

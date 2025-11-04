@@ -140,6 +140,7 @@ static void *__buffalloc_realloc(Allocator *this, void *ptr, u64 newSize)
  *
  * @param buffer Allocated buffer
  * @return ResultAllocator
+ * @exception ERR_INVALID_PARAMETER
  */
 ResultAllocator buffer_allocator(Buffer buffer)
 {

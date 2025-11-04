@@ -411,6 +411,32 @@ static void *__debug_realloc(Allocator *this, void *block, u64 newSize)
     return ptr;
 }
 
+/**
+ * @brief Creates a debug allocator wrapping another allocator that tracks allocations.
+ * 
+ * ```c
+ * DebugAllocatorState state;
+ * ResultAllocator dbgAllocRes = debug_allocator(&state, 128, &c_allocator);
+ * if (dbgAllocRes.error.code) // Error!
+ * // Do stuff with allocator
+ * 
+ * // Print debug allocation stats
+ * if (state.activeAllocCount > 0) {
+ *  io_print("Leaky allocations: ");
+ *  io_print_uint(state.activeAllocCount);
+ *  io_print("\n");
+ *  io_print("Leaked bytes: ");
+ *  io_print_uint(state.activeUserBytes);
+ *  io_print("\n");
+ * }
+ * ```
+ * 
+ * @param state 
+ * @param requestedCapacity 
+ * @param wrappedAllocator 
+ * @return ResultAllocator 
+ * @exception ERR_INVALID_PARAMETER, ERR_OUT_OF_MEMORY
+ */
 ResultAllocator debug_allocator(DebugAllocatorState *state, u32 requestedCapacity, Allocator *wrappedAllocator)
 {
     if (!state || !wrappedAllocator)

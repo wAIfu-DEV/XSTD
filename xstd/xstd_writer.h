@@ -68,7 +68,7 @@ Error buffwriter_write_byte(BuffWriter* bw, i8 byte)
     bw->buff.bytes[bw->writeHead] = byte;
     ++bw->writeHead;
     return X_ERR_OK;
-} 
+}
 
 Error growbuffwriter_write_byte(GrowBuffWriter* gbw, i8 byte)
 {
