@@ -261,12 +261,12 @@ Open an issue or PR and join us!
 
 ## 🔚 TL;DR
 
-✅ Safer
-✅ Faster
-✅ Type-safe
-✅ Debuggable
-✅ Ergonomic
-✅ Just C
+✅ Safer  
+✅ Faster  
+✅ Type-safe  
+✅ Debuggable  
+✅ Ergonomic  
+✅ Just C  
 
 ---
 👉 MIT licensed | 100% portable | C99+
