@@ -268,12 +268,6 @@ Open an issue or PR and join us!
 ✅ Ergonomic
 ✅ Just C
 
-> Goodbye `malloc()`, `fgets()`, `strcat()`.
-> Hello `arena_allocator()`, `ResultOwnedStr`, `string_split_lines()` and `Writer`.
-
-🧠 It's time to bring C to the modern age.
-Try **xstd**.
-
 ---
 👉 MIT licensed | 100% portable | C99+
 Contributions welcome.
