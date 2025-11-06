@@ -36,51 +36,51 @@ We think: **C deserves better tooling**, and we've built **xstd** to fill that v
 ## ✨ Features
 
 ✅ Error-Driven Design
-• `Result<T>` for allocation, file IO, string manipulation, parsing, hashing, etc.
-• Clearly defined `ErrorCode` enum with human-readable messages.
+• `Result<T>` for allocation, file IO, string manipulation, parsing, hashing, etc.  
+• Clearly defined `ErrorCode` enum with human-readable messages.  
 
 ✅ Modern Allocator System
-• Arena allocator — blazing fast, rolling block allocator
-• Buffer allocator — stack-like allocator with free support
-• Debug allocator — tracks leaks, counts allocations, checks double frees
-• Default fallback stdlib allocator (`c_allocator`)
-• Clean, pluggable design with full introspection
+• Arena allocator — blazing fast, rolling block allocator  
+• Buffer allocator — stack-like allocator with free support  
+• Debug allocator — tracks leaks, counts allocations, checks double frees  
+• Default fallback stdlib allocator (`c_allocator`)  
+• Clean, pluggable design with full introspection  
 
 ✅ Strings & Buffers Made Safe
-• Heap strings (owned), const strings, stack strings
-• Builders for appending strings without unsafe strcat
-• Fully bounds-checked copies, resizes, and concatenation
-• File-safe string/bytes APIs
-• UTF-8 compatible (ASCII-safe) character operations
+• Heap strings (owned), const strings, stack strings  
+• Builders for appending strings without unsafe strcat  
+• Fully bounds-checked copies, resizes, and concatenation  
+• File-safe string/bytes APIs  
+• UTF-8 compatible (ASCII-safe) character operations  
 
 ✅ Containers (with Types!)
-• `List<T>` — realloc-style resizable vector with type checked push/pop
-• `HashMap<Str, T>` — safe, dynamic key:value store with string key support
-• Safe access macros: `ListPushT`, `HashMapSetStrT`, etc.
+• `List<T>` — realloc-style resizable vector with type checked push/pop  
+• `HashMap<Str, T>` — safe, dynamic key:value store with string key support  
+• Safe access macros: `ListPushT`, `HashMapSetStrT`, etc.  
 
 ✅ File IO You've Always Wanted
-• `file_readall_str()` — read the whole file as a string
-• `file_read_bytes(n)` — read n bytes safely
-• `file_write_uint(file, 1234)`
-• Line iterators, flushers, position readers, error checks, etc.
+• `file_readall_str()` — read the whole file as a string  
+• `file_read_bytes(n)` — read n bytes safely  
+• `file_write_uint(file, 1234)`  
+• Line iterators, flushers, position readers, error checks, etc.  
 
 ✅ Writers = No More snprintf()
-• Writers to buffered memory, dynamically growing buffers, strings
-• `Writer w; writer_write_uint(&w, 1234);`
+• Writers to buffered memory, dynamically growing buffers, strings  
+• `Writer w; writer_write_uint(&w, 1234);`  
 
 ✅ Crash Handling
-• Setup crash handler with `process_setup_crash_handler()`
-• Intercepts SIGSEGV, SIGABRT, SIGFPE, etc.
+• Setup crash handler with `process_setup_crash_handler()`  
+• Intercepts SIGSEGV, SIGABRT, SIGFPE, etc.  
 
 ✅ Math & String Parsing
-• Overflow-checked math operations
-• Safe `string_parse_int`, `string_from_float`, etc.
-• Standard math ops: power, abs, mul, div, add with overflow detection
+• Overflow-checked math operations  
+• Safe `string_parse_int`, `string_from_float`, etc.  
+• Standard math ops: power, abs, mul, div, add with overflow detection  
 
 ✅ Fully Modular
-• Include only what you need: `xstd_io.h`, `xstd_file.h`, `xstd_list.h`, etc.
-• No global state, allocation decoupled from modules
-• Platform compatibility via small, replaceable interfaces (`xstd_os_int.h`)
+• Include only what you need: `xstd_io.h`, `xstd_file.h`, `xstd_list.h`, etc.  
+• No global state, allocation decoupled from modules  
+• Platform compatibility via small, replaceable interfaces (`xstd_os_int.h`)  
 
 ---
 
