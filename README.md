@@ -113,7 +113,7 @@ i32 main() {
     Allocator *a = &c_allocator;
 
     // Most XSTD functions will either return void, Error, or ResultT
-    ResultStrBuilder builderRes = strbuilder_init(a);
+    ResultStrBuilder builderRes = strbuilder_init(a); // Any function allocating memory will take a Allocator*
     
     // Check for errors by comparing error code against 0
     // Error code of 0 (ERR_OK) means success and a defined value,
@@ -124,10 +124,10 @@ i32 main() {
         return 1;
     }
 
-    StringBuilder builder = r.value;
+    StringBuilder builder = r.value; // Extract valid value out of result after error handling
 
     // Push strings to the builder
-    strbuilder_push_copy(&builder, "Yes! ");
+    strbuilder_push_copy(&builder, "Yes! "); // `strbuilder_push_owned` can be used for owned strings you want to push without copy.
     strbuilder_push_copy(&builder, "We ");
     strbuilder_push_copy(&builder, "Can!");
 
@@ -183,18 +183,20 @@ It’s **just** modern utilities — nothing intrusive.
 #include "xstd_io.h"
 #include "xstd_string.h"
 
-int main(void)
+i32 main(void)
 {
+    Allocator *a = &c_allocator;
     io_println("Hello from xstd!");
 
-    ResultOwnedStr intStr = string_from_int(&c_allocator, -42);
+    ResultOwnedStr intStr = string_from_int(a, -42);
     if (intStr.error.code) {
         io_printerrln(intStr.error.msg);
         return 1;
     }
     
     io_println(intStr.value);
-    c_allocator.free(&c_allocator, intStr.value);
+    a->free(a, intStr.value);
+    
     return 0;
 }
 ```
