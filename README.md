@@ -8,7 +8,7 @@
 
 **xstd** is a lightweight, flexible, and expressive C standard library focused on developer productivity, safety, and ergonomics. It reimagines the C runtime and standard tooling for 2024 and beyond, introducing idioms and patterns inspired by languages like Rust, Go, and Zig — while remaining fully C-compatible and zero-dependency.
 
-✳️ **Highlights**:
+✳️ **Highlights**:  
 - Result types (`ResultOwnedStr`, `ResultOwnedBuff`, `Result<T>`) — no more `NULL` checks or magic number errors.
 - Explicit memory ownership though typedefs (`OwnedStr`, `ConstStr`, `String`, `OwnedBuff`, `ConstBuff`) — ownership is never implicit.
 - Modular allocators: arena allocators, buffer allocators, tracking/debug allocators, and fallbacks to `malloc`.
@@ -35,49 +35,49 @@ We think: **C deserves better tooling**, and we've built **xstd** to fill that v
 
 ## ✨ Features
 
-✅ Error-Driven Design
+✅ Error-Driven Design  
 • `Result<T>` for allocation, file IO, string manipulation, parsing, hashing, etc.  
 • Clearly defined `ErrorCode` enum with human-readable messages.  
 
-✅ Modern Allocator System
+✅ Modern Allocator System  
 • Arena allocator — blazing fast, rolling block allocator  
 • Buffer allocator — stack-like allocator with free support  
 • Debug allocator — tracks leaks, counts allocations, checks double frees  
 • Default fallback stdlib allocator (`c_allocator`)  
 • Clean, pluggable design with full introspection  
 
-✅ Strings & Buffers Made Safe
+✅ Strings & Buffers Made Safe  
 • Heap strings (owned), const strings, stack strings  
 • Builders for appending strings without unsafe strcat  
 • Fully bounds-checked copies, resizes, and concatenation  
 • File-safe string/bytes APIs  
 • UTF-8 compatible (ASCII-safe) character operations  
 
-✅ Containers (with Types!)
+✅ Containers (with Types!)  
 • `List<T>` — realloc-style resizable vector with type checked push/pop  
 • `HashMap<Str, T>` — safe, dynamic key:value store with string key support  
 • Safe access macros: `ListPushT`, `HashMapSetStrT`, etc.  
 
-✅ File IO You've Always Wanted
+✅ File IO You've Always Wanted  
 • `file_readall_str()` — read the whole file as a string  
 • `file_read_bytes(n)` — read n bytes safely  
 • `file_write_uint(file, 1234)`  
 • Line iterators, flushers, position readers, error checks, etc.  
 
-✅ Writers = No More snprintf()
+✅ Writers = No More snprintf()  
 • Writers to buffered memory, dynamically growing buffers, strings  
 • `Writer w; writer_write_uint(&w, 1234);`  
 
-✅ Crash Handling
+✅ Crash Handling  
 • Setup crash handler with `process_setup_crash_handler()`  
 • Intercepts SIGSEGV, SIGABRT, SIGFPE, etc.  
 
-✅ Math & String Parsing
+✅ Math & String Parsing  
 • Overflow-checked math operations  
 • Safe `string_parse_int`, `string_from_float`, etc.  
 • Standard math ops: power, abs, mul, div, add with overflow detection  
 
-✅ Fully Modular
+✅ Fully Modular  
 • Include only what you need: `xstd_io.h`, `xstd_file.h`, `xstd_list.h`, etc.  
 • No global state, allocation decoupled from modules  
 • Platform compatibility via small, replaceable interfaces (`xstd_os_int.h`)  
