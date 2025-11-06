@@ -23,11 +23,11 @@
 
 The C standard library (stdlib) has served faithfully for decades, but:
 
-❌ Memory management is unsafe and sometimes invisible — allocations are opaque, leaks happen silently.
-❌ Error handling is often unintuitive — `fopen()` returns NULL and you’re already segfaulting.
-❌ Working with strings is error-prone — `strcat`, `strlen`, global buffers...
-❌ Arrays are unsafe — you never know their size.
-❌ Unsafe and deprecated functions are still widely usable.
+❌ Memory management is unsafe and sometimes invisible — allocations are opaque, leaks happen silently.  
+❌ Error handling is often unintuitive — `fopen()` returns NULL and you’re already segfaulting.  
+❌ Working with strings is error-prone — `strcat`, `strlen`, global buffers...  
+❌ Arrays are unsafe — you never know their size.  
+❌ Unsafe and deprecated functions are still widely usable.  
 
 We think: **C deserves better tooling**, and we've built **xstd** to fill that void — a modern, fully C99-compatible library with minimal dependencies and huge ergonomics improvements.
 
