@@ -8,10 +8,10 @@
 
 **xstd** is a lightweight, flexible, and expressive C standard library focused on developer productivity, safety, and ergonomics. It reimagines the C runtime and standard tooling for 2024 and beyond, introducing idioms and patterns inspired by languages like Rust, Go, and Zig — while remaining fully C-compatible and zero-dependency.
 
-✳️ **Highlights**:
+✳️ **Highlights**:  
 - Result types (`ResultOwnedStr`, `ResultOwnedBuff`, `Result<T>`) — no more `NULL` checks or magic number errors.
 - Explicit memory ownership though typedefs (`OwnedStr`, `ConstStr`, `String`, `OwnedBuff`, `ConstBuff`) — ownership is never implicit.
-- Modular allocators: arena allocators, buffer allocators, tracking/debug allocators, and fallbacks to `malloc`.
+- Modular allocators: arena allocators, buffer allocators, tracking/debug allocators, and `c_allocator` a thin wrapper around cstd's malloc/free.
 - Modern tooling: string builders, hashmaps, IO abstractions, file APIs, and more.
 - Safer APIs: bounds-checked string functions, typed list operations, and precise error propagation.
 - Full introspection support: allocation metrics, file metadata, and crash diagnostics.
@@ -23,11 +23,11 @@
 
 The C standard library (stdlib) has served faithfully for decades, but:
 
-❌ Memory management is unsafe and sometimes invisible — allocations are opaque, leaks happen silently.
-❌ Error handling is often unintuitive — `fopen()` returns NULL and you’re already segfaulting.
-❌ Working with strings is error-prone — `strcat`, `strlen`, global buffers...
-❌ Arrays are unsafe — you never know their size.
-❌ Unsafe and deprecated functions are still widely usable.
+❌ Memory management is unsafe and sometimes invisible — allocations are opaque, leaks happen silently.  
+❌ Error handling is often unintuitive — `fopen()` returns NULL and you’re already segfaulting.  
+❌ Working with strings is error-prone — `strcat`, `strlen`, global buffers...  
+❌ Arrays are unsafe — you never know their size.  
+❌ Unsafe and deprecated functions are still widely usable.  
 
 We think: **C deserves better tooling**, and we've built **xstd** to fill that void — a modern, fully C99-compatible library with minimal dependencies and huge ergonomics improvements.
 
@@ -35,52 +35,52 @@ We think: **C deserves better tooling**, and we've built **xstd** to fill that v
 
 ## ✨ Features
 
-✅ Error-Driven Design
-• `Result<T>` for allocation, file IO, string manipulation, parsing, hashing, etc.
-• Clearly defined `ErrorCode` enum with human-readable messages.
+✅ Error-Driven Design  
+• `Result<T>` for allocation, file IO, string manipulation, parsing, hashing, etc.  
+• Clearly defined `ErrorCode` enum with human-readable messages.  
 
-✅ Modern Allocator System
-• Arena allocator — blazing fast, rolling block allocator
-• Buffer allocator — stack-like allocator with free support
-• Debug allocator — tracks leaks, counts allocations, checks double frees
-• Default fallback stdlib allocator (`c_allocator`)
-• Clean, pluggable design with full introspection
+✅ Modern Allocator System  
+• Arena allocator — blazing fast, rolling block allocator  
+• Buffer allocator — stack-like allocator with free support  
+• Debug allocator — tracks leaks, counts allocations, checks double frees  
+• Default fallback stdlib allocator (`c_allocator`)  
+• Clean, pluggable design with full introspection  
 
-✅ Strings & Buffers Made Safe
-• Heap strings (owned), const strings, stack strings
-• Builders for appending strings without unsafe strcat
-• Fully bounds-checked copies, resizes, and concatenation
-• File-safe string/bytes APIs
-• UTF-8 compatible (ASCII-safe) character operations
+✅ Strings & Buffers Made Safe  
+• Heap strings (owned), const strings, stack strings  
+• Builders for appending strings without unsafe strcat  
+• Fully bounds-checked copies, resizes, and concatenation  
+• File-safe string/bytes APIs  
+• UTF-8 compatible (ASCII-safe) character operations  
 
-✅ Containers (with Types!)
-• `List<T>` — realloc-style resizable vector with type checked push/pop
-• `HashMap<Str, T>` — safe, dynamic key:value store with string key support
-• Safe access macros: `ListPushT`, `HashMapSetStrT`, etc.
+✅ Containers (with Types!)  
+• `List<T>` — realloc-style resizable vector with type checked push/pop  
+• `HashMap<Str, T>` — safe, dynamic key:value store with string key support  
+• Safe access macros: `ListPushT`, `HashMapSetStrT`, etc.  
 
-✅ File IO You've Always Wanted
-• `file_readall_str()` — read the whole file as a string
-• `file_read_bytes(n)` — read n bytes safely
-• `file_write_uint(file, 1234)`
-• Line iterators, flushers, position readers, error checks, etc.
+✅ File IO You've Always Wanted  
+• `file_readall_str()` — read the whole file as a string  
+• `file_read_bytes(n)` — read n bytes safely  
+• `file_write_uint(file, 1234)`  
+• Line iterators, flushers, position readers, error checks, etc.  
 
-✅ Writers = No More snprintf()
-• Writers to buffered memory, dynamically growing buffers, strings
-• `Writer w; writer_write_uint(&w, 1234);`
+✅ Writers = No More snprintf()  
+• Writers to buffered memory, dynamically growing buffers, strings  
+• `Writer w; writer_write_uint(&w, 1234);`  
 
-✅ Crash Handling
-• Setup crash handler with `process_setup_crash_handler()`
-• Intercepts SIGSEGV, SIGABRT, SIGFPE, etc.
+✅ Crash Handling  
+• Setup crash handler with `process_setup_crash_handler()`  
+• Intercepts SIGSEGV, SIGABRT, SIGFPE, etc.  
 
-✅ Math & String Parsing
-• Overflow-checked math operations
-• Safe `string_parse_int`, `string_from_float`, etc.
-• Standard math ops: power, abs, mul, div, add with overflow detection
+✅ Math & String Parsing  
+• Overflow-checked math operations  
+• Safe `string_parse_int`, `string_from_float`, etc.  
+• Standard math ops: power, abs, mul, div, add with overflow detection  
 
-✅ Fully Modular
-• Include only what you need: `xstd_io.h`, `xstd_file.h`, `xstd_list.h`, etc.
-• No global state, allocation decoupled from modules
-• Platform compatibility via small, replaceable interfaces (`xstd_os_int.h`)
+✅ Fully Modular  
+• Include only what you need: `xstd_io.h`, `xstd_file.h`, `xstd_list.h`, etc.  
+• No global state, allocation decoupled from modules  
+• Platform compatibility via small, replaceable interfaces (`xstd_os_int.h`)  
 
 ---
 
@@ -113,8 +113,8 @@ i32 main() {
     Allocator *a = default_allocator();
 
     // Most XSTD functions will either return void, Error, or ResultT
-    ResultStrBuilder builderRes = strbuilder_init(a);
-
+    ResultStrBuilder builderRes = strbuilder_init(a); // Any function allocating memory will take a Allocator*
+    
     // Check for errors by comparing error code against 0
     // Error code of 0 (ERR_OK) means success and a defined value,
     // But error code != 0 means failure, and a very likely undefined value.
@@ -124,10 +124,10 @@ i32 main() {
         return 1;
     }
 
-    StringBuilder builder = r.value;
+    StringBuilder builder = r.value; // Extract valid value out of result after error handling
 
     // Push strings to the builder
-    strbuilder_push_copy(&builder, "Yes! ");
+    strbuilder_push_copy(&builder, "Yes! "); // `strbuilder_push_owned` can be used for owned strings you want to push without copy.
     strbuilder_push_copy(&builder, "We ");
     strbuilder_push_copy(&builder, "Can!");
 
@@ -183,7 +183,7 @@ It’s **just** modern utilities — nothing intrusive.
 #include "xstd_io.h"
 #include "xstd_string.h"
 
-int main(void)
+i32 main(void)
 {
     Allocator *a = default_allocator();
     io_println("Hello from xstd!");
@@ -262,18 +262,12 @@ Open an issue or PR and join us!
 
 ## 🔚 TL;DR
 
-✅ Safer
-✅ Faster
-✅ Type-safe
-✅ Debuggable
-✅ Ergonomic
-✅ Just C
-
-> Goodbye `malloc()`, `fgets()`, `strcat()`.
-> Hello `arena_allocator()`, `ResultOwnedStr`, `string_split_lines()` and `Writer`.
-
-🧠 It's time to bring C to the modern age.
-Try **xstd**.
+✅ Safer  
+✅ Faster  
+✅ Type-safe  
+✅ Debuggable  
+✅ Ergonomic  
+✅ Just C  
 
 ---
 👉 MIT licensed | 100% portable | C99+
