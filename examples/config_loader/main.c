@@ -189,6 +189,5 @@ int main(void)
     hashmap_for_each(&config, config_release, storeAlloc);
     hashmap_deinit(&config);
     file_close(&cfgFile);
-
     return 0;
 }
