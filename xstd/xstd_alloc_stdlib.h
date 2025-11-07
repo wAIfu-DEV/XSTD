@@ -6,35 +6,27 @@
 
 #include "stdlib.h"
 
-void *__c_alloc_malloc(Allocator *this, u64 size)
+static void *_c_alloc_malloc(Allocator *a, u64 size)
 {
-    (void)this;
+    (void)a;
     return malloc(size);
 }
 
-void *__c_alloc_realloc(Allocator *this, void *block, u64 size)
+static void *_c_alloc_realloc(Allocator *a, void *block, u64 size)
 {
-    (void)this;
+    (void)a;
     return realloc(block, size);
 }
 
-void __c_alloc_free(Allocator *this, void *block)
+static void _c_alloc_free(Allocator *a, void *block)
 {
-    (void)this;
+    (void)a;
     free(block);
 }
 
-/**
- * @brief Default allocator making use of stdlib's malloc, realloc and free.
- *
- * ```c
- * OwnedStr newStr = c_allocator.alloc(&c_allocator, sizeof(i8) * 64);
- * ```
- * @return Allocator
- */
-Allocator c_allocator = {
+static Allocator _c_allocator = {
     ._internalState = NULL,
-    .alloc = &__c_alloc_malloc,
-    .free = &__c_alloc_free,
-    .realloc = &__c_alloc_realloc,
+    .alloc = &_c_alloc_malloc,
+    .realloc = &_c_alloc_realloc,
+    .free = &_c_alloc_free,
 };

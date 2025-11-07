@@ -4,15 +4,16 @@
 #include "../xstd/xstd_alloc.h"
 #include "../xstd/xstd_io.h"
 #include "../xstd/xstd_string.h"
+#include "../xstd/xstd_math.h"
 
-void *_xstd_bad_alloc_alloc(Allocator *a, u64 s)
+static void *_xstd_bad_alloc_alloc(Allocator *a, u64 s)
 {
     (void)a;
     (void)s;
     return NULL;
 }
 
-void *_xstd_bad_alloc_realloc(Allocator *a, void *b, u64 s)
+static void *_xstd_bad_alloc_realloc(Allocator *a, void *b, u64 s)
 {
     (void)a;
     (void)b;
@@ -20,13 +21,13 @@ void *_xstd_bad_alloc_realloc(Allocator *a, void *b, u64 s)
     return NULL;
 }
 
-void _xstd_bad_alloc_free(Allocator *a, void *b)
+static void _xstd_bad_alloc_free(Allocator *a, void *b)
 {
     (void)a;
     (void)b;
 }
 
-Allocator _xstd_bad_alloc(void)
+static Allocator _xstd_bad_alloc(void)
 {
     return (Allocator){
         ._internalState = NULL,
@@ -36,21 +37,21 @@ Allocator _xstd_bad_alloc(void)
     };
 }
 
-void _xstd_print_strlist(void *itemPtr, u64 index)
+static void _xstd_print_strlist(void *itemPtr, u64 index)
 {
     io_print_uint(index);
     io_print(": ");
     io_println(*(HeapStr *)itemPtr);
 }
 
-void _xstd_foreach_test(void *itemPtr, u64 index, void* userArg)
+static void _xstd_foreach_test(void *itemPtr, u64 index, void* userArg)
 {
     (void)userArg;
     HeapStr itemStr = *(HeapStr *)itemPtr;
     itemStr[0] = ' ';
 }
 
-void _xstd_string_tests(Allocator alloc)
+static void _xstd_string_tests(Allocator alloc)
 {
     Error err;
     Allocator badAlloc = _xstd_bad_alloc();
@@ -568,7 +569,7 @@ void _xstd_string_tests(Allocator alloc)
 
         alloc.free(&alloc, built);
 
-        strbuilder_push_owned(&builder, ConstToHeapStr(" is a"));
+        strbuilder_push_owned(&builder, ConstToHeapStr(&alloc, " is a"));
         resStr = strbuilder_get_string(&builder);
         assert_ok(resStr.error, "StringBuilder resStr2.error.code != ERR_OK");
         built = resStr.value;
@@ -675,7 +676,7 @@ void _xstd_string_tests(Allocator alloc)
         assert_true(!char_is_alpha('z' + 1), "char_is_alpha invalid range >z");
 
         assert_true(!char_is_alpha('A' - 1), "char_is_alpha invalid range <A");
-        
+
         c = 'A';
         while (c <= 'Z')
         {
@@ -716,7 +717,7 @@ void _xstd_string_tests(Allocator alloc)
         assert_true(!char_is_alphanum('z' + 1), "char_is_alphanum invalid range >z");
 
         assert_true(!char_is_alphanum('A' - 1), "char_is_alphanum invalid range <A");
-        
+
         c = 'A';
         while (c <= 'Z')
         {
@@ -757,7 +758,7 @@ void _xstd_string_tests(Allocator alloc)
     }
 }
 
-void _xstd_list_tests(Allocator alloc)
+static void _xstd_list_tests(Allocator alloc)
 {
     Error err;
     Allocator badAlloc = _xstd_bad_alloc();
@@ -909,14 +910,14 @@ void _xstd_list_tests(Allocator alloc)
         u64 item = 5;
         list_push(&l, &item);
 
-        u64 *ref = list_getref(&l, 0);
+        u64 *ref = (u64*)list_getref(&l, 0);
         assert_true(ref != NULL, "list_getref ref == NULL");
         assert_true(*ref == 5, "list_getref *ref != 5");
 
-        u64 *ref2 = list_getref(&l, 5);
+        u64 *ref2 = (u64*)list_getref(&l, 5);
         assert_true(ref2 == NULL, "list_getref ref2 != NULL");
 
-        u64 *ref3 = list_getref(NULL, 0);
+        u64 *ref3 = (u64*)list_getref(NULL, 0);
         assert_true(ref3 == NULL, "list_getref ref3 != NULL");
 
         list_deinit(&l);
@@ -973,7 +974,7 @@ void _xstd_list_tests(Allocator alloc)
         u64 item = 5;
         list_push(&l, &item);
 
-        u64 *ref = list_getref_unsafe(&l, 0);
+        u64 *ref = (u64*)list_getref_unsafe(&l, 0);
         assert_true(ref != NULL, "list_getref_unsafe ref == NULL");
         assert_true(*ref == 5, "list_getref_unsafe *ref != 5");
 
@@ -988,8 +989,8 @@ void _xstd_list_tests(Allocator alloc)
 
         List l = res.value;
 
-        HeapStr str1 = ConstToHeapStr("Test string 1");
-        HeapStr str2 = ConstToHeapStr("Test string 2");
+        HeapStr str1 = ConstToHeapStr(&alloc, "Test string 1");
+        HeapStr str2 = ConstToHeapStr(&alloc, "Test string 2");
 
         ListPushT(HeapStr, &l, &str1);
         ListPushT(HeapStr, &l, &str2);
@@ -1042,18 +1043,18 @@ void _xstd_list_tests(Allocator alloc)
 
         List l = res.value;
 
-        HeapStr str1 = ConstToHeapStr("Test string 1");
-        HeapStr str2 = ConstToHeapStr("Test string 2");
+        HeapStr str1 = ConstToHeapStr(&alloc, "Test string 1");
+        HeapStr str2 = ConstToHeapStr(&alloc, "Test string 2");
 
         ListPushT(HeapStr, &l, &str1);
         ListPushT(HeapStr, &l, &str2);
 
         list_for_each(&l, _xstd_foreach_test, NULL);
 
-        String *strRef1 = list_getref(&l, 0);
+        String *strRef1 = (String*)list_getref(&l, 0);
         assert_str_eq(*strRef1, " est string 1", "list_for_each *strRef1 != \" est string 1\"");
 
-        String *strRef2 = list_getref(&l, 1);
+        String *strRef2 = (String*)list_getref(&l, 1);
         assert_str_eq(*strRef2, " est string 2", "list_for_each *strRef2 != \" est string 2\"");
 
         list_free_items(&alloc, &l);
@@ -1061,7 +1062,7 @@ void _xstd_list_tests(Allocator alloc)
     }
 }
 
-void _xstd_math_tests(Allocator alloc)
+static void _xstd_math_tests(Allocator alloc)
 {
     (void)alloc;
     // =========================================================================

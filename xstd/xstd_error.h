@@ -15,11 +15,11 @@ typedef struct _xstd_err_owned
     ErrorCode code;
 } ErrorOwnedStr;
 
-#define X_ERR_OK (Error){ .code = ERR_OK, .msg = NULL }
+#define X_ERR_OK (Error){ .msg = NULL, .code = ERR_OK }
 
-#define X_ERR_FROM(codeLiteral, messageLiteral) (Error){ .code = (codeLiteral), .msg = (messageLiteral) }
+#define X_ERR_FROM(codeLiteral, messageLiteral) (Error){ .msg = (messageLiteral), .code = (codeLiteral) }
 
-#define __X_ERR_MSG(moduleName, nameSpace, messageLiteral) "[" moduleName ":" nameSpace "]: " messageLiteral
+#define _X_ERR_MSG(moduleName, nameSpace, messageLiteral) "[" moduleName ":" nameSpace "]: " messageLiteral
 
 #define X_ERR_EXT(moduleName, nameSpace, codeLiteral, messageLiteral) \
-    (Error){ .code = (codeLiteral), .msg = __X_ERR_MSG(moduleName, nameSpace, messageLiteral) }
+    (Error){ .msg = _X_ERR_MSG(moduleName, nameSpace, messageLiteral), .code = (codeLiteral) }

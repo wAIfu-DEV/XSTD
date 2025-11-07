@@ -31,7 +31,7 @@ typedef struct _result_strbuilder
  * @param s Terminated string
  * @return u64
  */
-u64 string_size(ConstStr s)
+static inline u64 string_size(ConstStr s)
 {
     if (!s)
         return 0;
@@ -58,7 +58,7 @@ u64 string_size(ConstStr s)
  * @param b Terminated string
  * @return ibool
  */
-ibool string_equals(ConstStr a, ConstStr b)
+static inline ibool string_equals(ConstStr a, ConstStr b)
 {
     if (a == b)
         return 1;
@@ -81,7 +81,7 @@ ibool string_equals(ConstStr a, ConstStr b)
  * Memory is owned by the caller and should be freed using the same allocator.
  *
  * ```c
- * ResultOwnedStr myString = string_alloc(&c_allocator, 3, 'w');
+ * ResultOwnedStr myString = string_alloc(default_allocator(), 3, 'w');
  * if (myString.error.code) // Error!
  * // myString.value == ['w', 'w', 'w', 0(end sentinel)]
  * ```
@@ -90,9 +90,9 @@ ibool string_equals(ConstStr a, ConstStr b)
  * @param fill
  * @return ResultOwnedStr
  */
-ResultOwnedStr string_alloc(Allocator *alloc, u64 sizeNonTerminated, i8 fill)
+static inline ResultOwnedStr string_alloc(Allocator *a, u64 sizeNonTerminated, i8 fill)
 {
-    HeapStr str = alloc->alloc(alloc, sizeNonTerminated + 1);
+    HeapStr str = (HeapStr)a->alloc(a, sizeNonTerminated + 1);
 
     if (!str)
         return (ResultOwnedStr){
@@ -124,7 +124,7 @@ ResultOwnedStr string_alloc(Allocator *alloc, u64 sizeNonTerminated, i8 fill)
  *
  * ```c
  * ConstStr source =     "Example string";
- * String dest = ConstToHeapStr("____________________");
+ * String dest = ConstToHeapStr(&alloc, "___________________");
  * Error err = string_copy(source, dest);
  * if (err.code) // Error!
  * // dest == "Example string"
@@ -133,7 +133,7 @@ ResultOwnedStr string_alloc(Allocator *alloc, u64 sizeNonTerminated, i8 fill)
  * @param destination String of size >= source size
  * @return Error
  */
-Error string_copy(ConstStr source, String destination)
+static inline Error string_copy(ConstStr source, String destination)
 {
     if (!source || !destination)
         return X_ERR_EXT("string", "string_copy", ERR_INVALID_PARAMETER, "null arg");
@@ -161,7 +161,7 @@ Error string_copy(ConstStr source, String destination)
  *
  * ```c
  * ConstStr source = "Example string";
- * String dest = ConstToHeapStr("______________");
+ * String dest = ConstToHeapStr(&alloc, "_____________");
  * Error err = string_copy_n(source, dest, 5, false);
  * if (err.code) // Error!
  * // dest == "Examp_________"
@@ -172,7 +172,7 @@ Error string_copy(ConstStr source, String destination)
  * @param terminate if the destination buffer should be NULL terminated after the copied characters.
  * @return Error
  */
-Error string_copy_n(ConstStr source, String destination, u64 n, ibool terminate)
+static inline Error string_copy_n(ConstStr source, String destination, u64 n, ibool terminate)
 {
     if (!source || !destination)
         return X_ERR_EXT("string", "string_copy_n", ERR_INVALID_PARAMETER, "null arg");
@@ -210,14 +210,14 @@ Error string_copy_n(ConstStr source, String destination, u64 n, ibool terminate)
  *
  * ```c
  * ConstStr source =     "Example string";
- * String dest = ConstToHeapStr("__________________");
+ * String dest = ConstToHeapStr(&alloc, "_________________");
  * string_copy_unsafe(source, dest);
  * // dest == "Example string"
  * ```
  * @param source Terminated string of size >= n
  * @param destination Terminated string of size >= n
  */
-void string_copy_unsafe(ConstStr source, String destination)
+static inline void string_copy_unsafe(ConstStr source, String destination)
 {
     u64 i = 0;
     while (source[i])
@@ -237,7 +237,7 @@ void string_copy_unsafe(ConstStr source, String destination)
  *
  * ```c
  * ConstStr source = "Example string";
- * String dest = ConstToHeapStr("______________");
+ * String dest = ConstToHeapStr(&alloc, "_____________");
  * string_copy_n_unsafe(source, dest, 5, false);
  * // dest == "Examp_________"
  * ```
@@ -245,7 +245,7 @@ void string_copy_unsafe(ConstStr source, String destination)
  * @param destination Terminated string of size >= n
  * @param terminate if the destination buffer should be NULL terminated after the copied characters.
  */
-void string_copy_n_unsafe(ConstStr source, String destination, u64 n, ibool terminate)
+static inline void string_copy_n_unsafe(ConstStr source, String destination, u64 n, ibool terminate)
 {
     u64 i = 0;
     while (i < n)
@@ -264,7 +264,7 @@ void string_copy_n_unsafe(ConstStr source, String destination, u64 n, ibool term
  *
  * ```c
  * ConstStr source = "Example string";
- * ResultOwnedStr newString = string_dupe(&c_allocator, source);
+ * ResultOwnedStr newString = string_dupe(default_allocator(), source);
  * if (newString.error.code) // Error!
  * // newString.value == "Example string"
  * ```
@@ -272,7 +272,7 @@ void string_copy_n_unsafe(ConstStr source, String destination, u64 n, ibool term
  * @param source Terminated string
  * @return String
  */
-ResultOwnedStr string_dupe(Allocator *alloc, ConstStr source)
+static inline ResultOwnedStr string_dupe(Allocator *a, ConstStr source)
 {
     if (!source)
         return (ResultOwnedStr){
@@ -281,7 +281,7 @@ ResultOwnedStr string_dupe(Allocator *alloc, ConstStr source)
         };
 
     u64 srcLen = string_size(source);
-    HeapStr newStr = alloc->alloc(alloc, srcLen + 1);
+    HeapStr newStr = (HeapStr)a->alloc(a, srcLen + 1);
 
     if (!newStr)
         return (ResultOwnedStr){
@@ -305,7 +305,7 @@ ResultOwnedStr string_dupe(Allocator *alloc, ConstStr source)
  *
  * ```c
  * ConstStr source = "Example string";
- * OwnedStr newString = string_dupe_noresult(&c_allocator, source);
+ * OwnedStr newString = string_dupe_noresult(default_allocator(), source);
  * if (!newString) // Error!
  * // newString == "Example string"
  * ```
@@ -313,13 +313,13 @@ ResultOwnedStr string_dupe(Allocator *alloc, ConstStr source)
  * @param source Terminated string
  * @return String
  */
-OwnedStr string_dupe_noresult(Allocator *alloc, ConstStr source)
+static inline OwnedStr string_dupe_noresult(Allocator *a, ConstStr source)
 {
     if (!source)
         return NULL;
 
     u64 srcLen = string_size(source);
-    HeapStr newStr = alloc->alloc(alloc, srcLen + 1);
+    HeapStr newStr = (HeapStr)a->alloc(a, srcLen + 1);
 
     if (!newStr)
         return NULL;
@@ -330,7 +330,7 @@ OwnedStr string_dupe_noresult(Allocator *alloc, ConstStr source)
 
 // Converts a const char* to OwnedStr, uses default allocator.
 // TODO: take allocator instead of defaulting to c_alloc
-#define ConstToHeapStr(constStr) string_dupe_noresult((Allocator *)&c_allocator, constStr)
+#define ConstToHeapStr(allocPtr, constStr) string_dupe_noresult((allocPtr), (constStr))
 
 /**
  * @brief Creates a copy of the string with a new size. Copies as much of the contents
@@ -341,10 +341,10 @@ OwnedStr string_dupe_noresult(Allocator *alloc, ConstStr source)
  *
  * ```c
  * ConstStr myString = "str";
- * ResultOwnedStr newStr = string_resize(&c_allocator, myString, 7, 'w');
+ * ResultOwnedStr newStr = string_resize(default_allocator(), myString, 7, 'w');
  * if (newStr.error.code) // Error!
  * // newStr.value == ['s','t','r','w','w','w','w',0(end sentinel)]
- * ResultOwnedStr newStr2 = string_resize(&c_allocator, myString, 2, 'w');
+ * ResultOwnedStr newStr2 = string_resize(default_allocator(), myString, 2, 'w');
  * if (newStr2.error.code) // Error!
  * // newStr2.value == ['s','t',0(end sentinel)]
  * ```
@@ -353,7 +353,7 @@ OwnedStr string_dupe_noresult(Allocator *alloc, ConstStr source)
  * @param newSizeNonTerminated Size of the new string
  * @param fill character to fill the empty allocated space
  */
-ResultOwnedStr string_resize(Allocator *alloc, ConstStr source, u64 newSizeNonTerminated, i8 fill)
+static inline ResultOwnedStr string_resize(Allocator *a, ConstStr source, u64 newSizeNonTerminated, i8 fill)
 {
     if (!source)
         return (ResultOwnedStr){
@@ -364,7 +364,7 @@ ResultOwnedStr string_resize(Allocator *alloc, ConstStr source, u64 newSizeNonTe
     u64 prevSize = string_size(source);
     u64 cpySize = prevSize < newSizeNonTerminated ? prevSize : newSizeNonTerminated;
     u64 fillCnt = newSizeNonTerminated - cpySize;
-    HeapStr newStr = alloc->alloc(alloc, newSizeNonTerminated + 1);
+    HeapStr newStr = (HeapStr)a->alloc(a, newSizeNonTerminated + 1);
 
     if (!newStr)
         return (ResultOwnedStr){
@@ -395,7 +395,7 @@ ResultOwnedStr string_resize(Allocator *alloc, ConstStr source, u64 newSizeNonTe
  * ```c
  * ConstStr a = "Hello, ";
  * ConstStr b = "World!"
- * ResultOwnedStr newStr = string_concat(&c_allocator, a, b);
+ * ResultOwnedStr newStr = string_concat(default_allocator(), a, b);
  * if (newStr.error.code) // Error!
  * // newStr.value == "Hello, World!"
  * ```
@@ -404,9 +404,9 @@ ResultOwnedStr string_resize(Allocator *alloc, ConstStr source, u64 newSizeNonTe
  * @param b
  * @return String
  */
-ResultOwnedStr string_concat(Allocator *alloc, ConstStr a, ConstStr b)
+static inline ResultOwnedStr string_concat(Allocator *al, ConstStr a, ConstStr b)
 {
-    if (!alloc || !a || !b)
+    if (!al || !a || !b)
         return (ResultOwnedStr){
             .value = NULL,
             .error = X_ERR_EXT("string", "string_concat", ERR_INVALID_PARAMETER, "null arg"),
@@ -414,7 +414,7 @@ ResultOwnedStr string_concat(Allocator *alloc, ConstStr a, ConstStr b)
 
     u64 aLen = string_size(a);
     u64 bLen = string_size(b);
-    HeapStr newStr = alloc->alloc(alloc, aLen + bLen + 1);
+    HeapStr newStr = (HeapStr)al->alloc(al, aLen + bLen + 1);
 
     if (!newStr)
         return (ResultOwnedStr){
@@ -439,7 +439,7 @@ ResultOwnedStr string_concat(Allocator *alloc, ConstStr a, ConstStr b)
  *
  * ```c
  * ConstStr myStr = "Hello, World!";
- * ResultOwnedStr subStr = string_substr(&c_allocator, myStr, 7, 12);
+ * ResultOwnedStr subStr = string_substr(default_allocator(), myStr, 7, 12);
  * if (subStr.error.code) // Error!
  * // subStr.value == "World"
  * ```
@@ -449,33 +449,29 @@ ResultOwnedStr string_concat(Allocator *alloc, ConstStr a, ConstStr b)
  * @param end
  * @return ResultOwnedStr
  */
-ResultOwnedStr string_substr(Allocator *alloc, ConstStr s, u64 start, u64 end)
+static inline ResultOwnedStr string_substr(Allocator *a, ConstStr s, u64 start, u64 end)
 {
-    if (!alloc || !s)
+    if (!a || !s)
         return (ResultOwnedStr){
             .error = X_ERR_EXT("string", "string_substr", ERR_INVALID_PARAMETER, "null arg"),
-            .value = NULL,
         };
-    
+
     if (end < start)
         return (ResultOwnedStr){
             .error = X_ERR_EXT("string", "string_substr", ERR_INVALID_PARAMETER, "end smaller than start"),
-            .value = NULL,
         };
 
     u64 strSize = string_size(s);
     if (start > strSize || end > strSize)
         return (ResultOwnedStr){
             .error = X_ERR_EXT("string", "string_substr", ERR_INVALID_PARAMETER, "start/end out of string bounds"),
-            .value = NULL,
         };
 
     u64 subSize = end - start;
-    HeapStr newStr = alloc->alloc(alloc, subSize + 1);
+    HeapStr newStr = (HeapStr)a->alloc(a, subSize + 1);
 
     if (!newStr)
         return (ResultOwnedStr){
-            .value = NULL,
             .error = X_ERR_EXT("string", "string_substr", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
@@ -497,7 +493,7 @@ ResultOwnedStr string_substr(Allocator *alloc, ConstStr s, u64 start, u64 end)
  *
  * ```c
  * ConstStr myStr = "Hello, World!";
- * OwnedStr subStr = string_substr_unsafe(&c_allocator, myStr, 7, 12);
+ * OwnedStr subStr = string_substr_unsafe(default_allocator(), myStr, 7, 12);
  * if (!subStr) // Error!
  * // subStr == "World"
  * ```
@@ -507,10 +503,10 @@ ResultOwnedStr string_substr(Allocator *alloc, ConstStr s, u64 start, u64 end)
  * @param end
  * @return OwnedStr
  */
-OwnedStr string_substr_unsafe(Allocator *alloc, ConstStr s, u64 start, u64 end)
+static inline OwnedStr string_substr_unsafe(Allocator *a, ConstStr s, u64 start, u64 end)
 {
     u64 subSize = end - start;
-    HeapStr newStr = alloc->alloc(alloc, subSize + 1);
+    HeapStr newStr = (HeapStr)a->alloc(a, subSize + 1);
 
     if (!newStr)
         return NULL;
@@ -527,12 +523,12 @@ OwnedStr string_substr_unsafe(Allocator *alloc, ConstStr s, u64 start, u64 end)
  *
  * ```c
  * ConstStr myStr = "Hello, World!";
- * ResultList split = string_split_char(&c_allocator, myStr, ' ');
+ * ResultList split = string_split_char(default_allocator(), myStr, ' ');
  * if (split.error.code) // Error!
  * // split.value == List["Hello,", "World!"]
  * List l = res.value;
  * // Do list stuff
- * list_free_items(&c_allocator, &l); // Frees all allocated strings
+ * list_free_items(default_allocator(), &l); // Frees all allocated strings
  * list_deinit(&l); // Free the list
  * ```
  * @param alloc
@@ -540,7 +536,7 @@ OwnedStr string_substr_unsafe(Allocator *alloc, ConstStr s, u64 start, u64 end)
  * @param delimiter
  * @return String
  */
-ResultList string_split_char(Allocator *alloc, ConstStr s, i8 delimiter)
+static inline ResultList string_split_char(Allocator *alloc, ConstStr s, i8 delimiter)
 {
     // What a mess...
 
@@ -606,19 +602,19 @@ ResultList string_split_char(Allocator *alloc, ConstStr s, i8 delimiter)
  *
  * ```c
  * ConstStr myStr = "Hello,\nWorld!";
- * ResultList split = string_split_lines(&c_allocator, myStr);
+ * ResultList split = string_split_lines(default_allocator(), myStr);
  * if (split.error.code) // Error!
  * // split.value == List["Hello,", "World!"]
  * List l = res.value;
  * // Do list stuff
- * list_free_items(&c_allocator, &l); // Frees all allocated strings
+ * list_free_items(default_allocator(), &l); // Frees all allocated strings
  * list_deinit(&l); // Free the list
  * ```
  * @param alloc
  * @param s
  * @return ResultList
  */
-ResultList string_split_lines(Allocator *alloc, ConstStr s)
+static inline ResultList string_split_lines(Allocator *alloc, ConstStr s)
 {
     // What a mess...
 
@@ -688,7 +684,7 @@ ResultList string_split_lines(Allocator *alloc, ConstStr s)
  * @param needle
  * @return i64
  */
-i64 string_find_char(ConstStr haystack, i8 needle)
+static inline i64 string_find_char(ConstStr haystack, i8 needle)
 {
     if (!haystack || !needle)
         return -1;
@@ -712,7 +708,7 @@ i64 string_find_char(ConstStr haystack, i8 needle)
  * @param needle
  * @return i64
  */
-i64 string_find(ConstStr haystack, ConstStr needle)
+static inline i64 string_find(ConstStr haystack, ConstStr needle)
 {
     if (!haystack || !needle)
         return -1;
@@ -744,7 +740,7 @@ i64 string_find(ConstStr haystack, ConstStr needle)
  * if (resBuilder.error.code) // Error!
  * StringBuilder builder = resBuilder.value;
  * strbuilder_push_copy(&builder, "Hello,");
- * strbuilder_push_owned(&builder, ConstToHeapStr(" World!"));
+ * strbuilder_push_owned(&builder, ConstToHeapStr(&alloc, " World!"));
  * ResultOwnedStr resBuiltStr = strbuilder_get_string(&builder);
  * if (resBuiltStr.error.code) // Error!
  * OwnedStr builtStr = resBuiltStr.value;
@@ -753,7 +749,7 @@ i64 string_find(ConstStr haystack, ConstStr needle)
  * @param alloc
  * @return ResultStrBuilder
  */
-ResultStrBuilder strbuilder_init(Allocator *alloc)
+static inline ResultStrBuilder strbuilder_init(Allocator *alloc)
 {
     ResultList res = list_init(alloc, sizeof(HeapStr), 16);
 
@@ -780,7 +776,7 @@ ResultStrBuilder strbuilder_init(Allocator *alloc)
  *
  * @param builder
  */
-void strbuilder_clear(StringBuilder *builder)
+static inline void strbuilder_clear(StringBuilder *builder)
 {
     if (!builder || !builder->_valid)
         return;
@@ -795,7 +791,7 @@ void strbuilder_clear(StringBuilder *builder)
  *
  * @param builder
  */
-void strbuilder_deinit(StringBuilder *builder)
+static inline void strbuilder_deinit(StringBuilder *builder)
 {
     if (!builder || !builder->_valid)
         return;
@@ -820,7 +816,7 @@ void strbuilder_deinit(StringBuilder *builder)
  * @param builder
  * @param s
  */
-void strbuilder_push_owned(StringBuilder *builder, OwnedStr s)
+static inline void strbuilder_push_owned(StringBuilder *builder, OwnedStr s)
 {
     if (!builder || !builder->_valid)
         return;
@@ -837,7 +833,7 @@ void strbuilder_push_owned(StringBuilder *builder, OwnedStr s)
  * @param builder
  * @param s
  */
-void strbuilder_push_copy(StringBuilder *builder, ConstStr s)
+static inline void strbuilder_push_copy(StringBuilder *builder, ConstStr s)
 {
     if (!builder || !builder->_valid)
         return;
@@ -858,11 +854,11 @@ void strbuilder_push_copy(StringBuilder *builder, ConstStr s)
  * Memory is owned by the caller and should be freed after use.
  *
  * ```c
- * ResultStrBuilder res = strbuilder_init(&c_allocator);
+ * ResultStrBuilder res = strbuilder_init(default_allocator());
  * if (res.error.code) // Error!
  * StringBuilder builder = res.value;
  * strbuilder_push_copy(&builder, "Hello,");
- * strbuilder_push_owned(&builder, ConstToHeapStr("World!"));
+ * strbuilder_push_owned(&builder, ConstToHeapStr(default_allocator(), "World!"));
  * ResultOwnedStr built = strbuilder_get_string(&builder);
  * if (built.error.code) // Error!
  * OwnedStr resultStr = built.value;
@@ -871,7 +867,7 @@ void strbuilder_push_copy(StringBuilder *builder, ConstStr s)
  * @param builder
  * @return ResultOwnedStr
  */
-ResultOwnedStr strbuilder_get_string(StringBuilder *builder)
+static inline ResultOwnedStr strbuilder_get_string(StringBuilder *builder)
 {
     if (!builder || !builder->_valid)
         return (ResultOwnedStr){
@@ -884,12 +880,12 @@ ResultOwnedStr strbuilder_get_string(StringBuilder *builder)
 
     for (u64 i = 0; i < bound; ++i)
     {
-        HeapStr s = list_get_as_ptr(&builder->_strings, i);
+        HeapStr s = (HeapStr)list_get_as_ptr(&builder->_strings, i);
         totalSize += string_size(s);
     }
 
-    Allocator *alloc = &builder->_strings._allocator;
-    HeapStr newStr = alloc->alloc(alloc, totalSize + 1);
+    Allocator *a = &builder->_strings._allocator;
+    HeapStr newStr = (HeapStr)a->alloc(a, totalSize + 1);
 
     if (!newStr)
         return (ResultOwnedStr){
@@ -900,7 +896,7 @@ ResultOwnedStr strbuilder_get_string(StringBuilder *builder)
     u64 offset = 0;
     for (u64 i = 0; i < bound; ++i)
     {
-        HeapStr s = list_get_as_ptr(&builder->_strings, i);
+        HeapStr s = (HeapStr)list_get_as_ptr(&builder->_strings, i);
         HeapStr source = s;
 
         u64 j = 0;
@@ -936,7 +932,7 @@ ResultOwnedStr strbuilder_get_string(StringBuilder *builder)
  * @param with
  * @return ResultOwnedStr
  */
-ResultOwnedStr string_replace(Allocator *alloc, ConstStr s, ConstStr what, ConstStr with)
+static inline ResultOwnedStr string_replace(Allocator *alloc, ConstStr s, ConstStr what, ConstStr with)
 {
     if (!alloc || !s || !what || !with)
         return (ResultOwnedStr){
@@ -1019,7 +1015,7 @@ ResultOwnedStr string_replace(Allocator *alloc, ConstStr s, ConstStr what, Const
  * @param what Terminated string to find at the beginning of `s`
  * @return ibool
  */
-ibool string_starts_with(ConstStr s, ConstStr what)
+static inline ibool string_starts_with(ConstStr s, ConstStr what)
 {
     if (!s || !what)
         return 0;
@@ -1048,7 +1044,7 @@ ibool string_starts_with(ConstStr s, ConstStr what)
  * @param what Terminated string to find at the end of `s`
  * @return ibool
  */
-ibool string_ends_with(ConstStr s, ConstStr what)
+static inline ibool string_ends_with(ConstStr s, ConstStr what)
 {
     if (!s || !what)
         return 0;
@@ -1072,56 +1068,56 @@ ibool string_ends_with(ConstStr s, ConstStr what)
 
 /**
  * @brief Checks if character is alphabetic (in range a-z A-Z)
- * 
+ *
  * @param c character
- * @return ibool 
+ * @return ibool
  */
-ibool char_is_alpha(const i8 c)
+static inline ibool char_is_alpha(const i8 c)
 {
     return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
 }
 
 /**
  * @brief Checks if character is numerical (in range 0-9)
- * 
+ *
  * @param c character
- * @return ibool 
+ * @return ibool
  */
-ibool char_is_digit(const i8 c)
+static inline ibool char_is_digit(const i8 c)
 {
     return (c >= '0' && c <= '9');
 }
 
 /**
  * @brief Checks if character is alphanumerical (in range a-z A-Z 0-9)
- * 
- * @param c 
- * @return ibool 
+ *
+ * @param c
+ * @return ibool
  */
-ibool char_is_alphanum(const i8 c)
+static inline ibool char_is_alphanum(const i8 c)
 {
     return (char_is_alpha(c) || char_is_digit(c));
 }
 
 /**
  * @brief Checks if character is whitespace (space, tab, newline, carriage return)
- * 
- * @param c 
- * @return ibool 
+ *
+ * @param c
+ * @return ibool
  */
-ibool char_is_whitespace(const i8 c)
+static inline ibool char_is_whitespace(const i8 c)
 {
     return (c == ' ' || c == '\t' || c == '\n' || c == '\r');
 }
 
 /**
  * @brief Returns a lowercase version of a uppercase character,
- * returns provided character if not lowercase. 
- * 
- * @param c 
- * @return i8 
+ * returns provided character if not lowercase.
+ *
+ * @param c
+ * @return i8
  */
-i8 char_to_lower(const i8 c)
+static inline i8 char_to_lower(const i8 c)
 {
     if (c >= 'A' && c <= 'Z')
         return (i8)(c + ('a' - 'A'));
@@ -1130,12 +1126,12 @@ i8 char_to_lower(const i8 c)
 
 /**
  * @brief Returns a uppercase version of a lowercase character,
- * returns provided character if not lowercase. 
- * 
- * @param c 
- * @return i8 
+ * returns provided character if not lowercase.
+ *
+ * @param c
+ * @return i8
  */
-i8 char_to_upper(const i8 c)
+static inline i8 char_to_upper(const i8 c)
 {
     if (c >= 'a' && c <= 'z')
         return (i8)(c - ('a' - 'A'));
@@ -1145,10 +1141,10 @@ i8 char_to_upper(const i8 c)
 /**
  * @brief Performs a in-place replacement of uppercase characters with lowercase ones.
  * Provided string MUST be modifiable and non const.
- * 
+ *
  * @param s
  */
-void string_to_lower_inplace(HeapStr s)
+static inline void string_to_lower_inplace(HeapStr s)
 {
     if (!s)
         return;
@@ -1164,10 +1160,10 @@ void string_to_lower_inplace(HeapStr s)
 /**
  * @brief Performs a in-place replacement of lowercase characters with uppercase ones.
  * Provided string MUST be modifiable and non const.
- * 
+ *
  * @param s
  */
-void string_to_upper_inplace(HeapStr s)
+static inline void string_to_upper_inplace(HeapStr s)
 {
     if (!s)
         return;
@@ -1182,21 +1178,21 @@ void string_to_upper_inplace(HeapStr s)
 
 /**
  * @brief Returns a copy of `s` with all uppercase characters replaced with lowercase ones.
- * 
+ *
  * @param alloc
  * @param s
- * @return ResultOwnedStr 
+ * @return ResultOwnedStr
  */
-ResultOwnedStr string_lower(Allocator *alloc, ConstStr s)
+static inline ResultOwnedStr string_lower(Allocator *a, ConstStr s)
 {
-    if (!alloc || !s)
+    if (!a || !s)
         return (ResultOwnedStr){
             .value = NULL,
             .error = X_ERR_EXT("string", "string_lower", ERR_INVALID_PARAMETER, "null arg"),
         };
 
     const u64 len = string_size(s);
-    HeapStr copy = alloc->alloc(alloc, len + 1);
+    HeapStr copy = (HeapStr)a->alloc(a, len + 1);
     if (!copy)
         return (ResultOwnedStr){
             .value = NULL,
@@ -1215,21 +1211,21 @@ ResultOwnedStr string_lower(Allocator *alloc, ConstStr s)
 
 /**
  * @brief Returns a copy of `s` with all lowercase characters replaced with uppercase ones.
- * 
+ *
  * @param alloc
  * @param s
- * @return ResultOwnedStr 
+ * @return ResultOwnedStr
  */
-ResultOwnedStr string_upper(Allocator *alloc, ConstStr s)
+static inline ResultOwnedStr string_upper(Allocator *a, ConstStr s)
 {
-    if (!alloc || !s)
+    if (!a || !s)
         return (ResultOwnedStr){
             .value = NULL,
             .error = X_ERR_EXT("string", "string_upper", ERR_INVALID_PARAMETER, "null arg"),
         };
 
     const u64 len = string_size(s);
-    HeapStr copy = alloc->alloc(alloc, len + 1);
+    HeapStr copy = (HeapStr)a->alloc(a, len + 1);
     if (!copy)
         return (ResultOwnedStr){
             .value = NULL,
@@ -1254,12 +1250,12 @@ ResultOwnedStr string_upper(Allocator *alloc, ConstStr s)
  *
  * ```c
  * ConstStr myStr = "  Hello, World!  ";
- * ResultOwnedStr trimmed = string_trim_whitespace(&c_allocator, myStr, true, true);
+ * ResultOwnedStr trimmed = string_trim_whitespace(default_allocator(), myStr, true, true);
  * if (trimmed.error.code) // Error!
  * // trimmed.value == "Hello, World!"
  *
  * ConstStr myStr2 = "  Hello, World!  ";
- * ResultOwnedStr trimStart = string_trim_whitespace(&c_allocator, myStr2, true, false);
+ * ResultOwnedStr trimStart = string_trim_whitespace(default_allocator(), myStr2, true, false);
  * if (trimStart.error.code) // Error!
  * // trimStart.value == "Hello, World!  "
  * ```
@@ -1270,11 +1266,10 @@ ResultOwnedStr string_upper(Allocator *alloc, ConstStr s)
  * @param end If !0 (true), trim from the end of the string
  * @return ResultOwnedStr
  */
-ResultOwnedStr string_trim_whitespace(Allocator *alloc, ConstStr s, ibool start, ibool end)
+static inline ResultOwnedStr string_trim_whitespace(Allocator *a, ConstStr s, ibool start, ibool end)
 {
-    if (!alloc || !s)
+    if (!a || !s)
         return (ResultOwnedStr){
-            .value = NULL,
             .error = X_ERR_EXT("string", "string_trim_whitespace", ERR_INVALID_PARAMETER, "null arg"),
         };
 
@@ -1300,11 +1295,10 @@ ResultOwnedStr string_trim_whitespace(Allocator *alloc, ConstStr s, ibool start,
 
     if (startIdx >= endIdx)
     {
-        HeapStr newStr = string_dupe_noresult(alloc, "");
+        HeapStr newStr = string_dupe_noresult(a, "");
 
         if (!newStr)
             return (ResultOwnedStr){
-                .value = NULL,
                 .error = X_ERR_EXT("string", "string_trim_whitespace", ERR_OUT_OF_MEMORY, "alloc failure"),
             };
 
@@ -1315,11 +1309,10 @@ ResultOwnedStr string_trim_whitespace(Allocator *alloc, ConstStr s, ibool start,
     }
 
     u64 newLen = endIdx - startIdx;
-    HeapStr newStr = alloc->alloc(alloc, newLen + 1);
+    HeapStr newStr = (HeapStr)a->alloc(a, newLen + 1);
 
     if (!newStr)
         return (ResultOwnedStr){
-            .value = NULL,
             .error = X_ERR_EXT("string", "string_trim_whitespace", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
@@ -1335,11 +1328,11 @@ ResultOwnedStr string_trim_whitespace(Allocator *alloc, ConstStr s, ibool start,
 /**
  * @brief Rerturns a character version of an integer within the range 0-9
  * For example: (i16)0 returns '0'
- * 
- * @param i 
- * @return i8 
+ *
+ * @param i
+ * @return i8
  */
-i8 digit_to_char(const i16 i)
+static inline i8 digit_to_char(const i16 i)
 {
     if (i > 9)
         return 0;
@@ -1349,12 +1342,12 @@ i8 digit_to_char(const i16 i)
 
 /**
  * @brief Stringifies an integer.
- * 
- * @param alloc 
- * @param i 
- * @return ResultOwnedStr 
+ *
+ * @param alloc
+ * @param i
+ * @return ResultOwnedStr
  */
-ResultOwnedStr string_from_int(Allocator *alloc, const i64 i)
+static inline ResultOwnedStr string_from_int(Allocator *a, const i64 i)
 {
     char buf[20];
     i64 n = i;
@@ -1362,11 +1355,10 @@ ResultOwnedStr string_from_int(Allocator *alloc, const i64 i)
 
     if (n == 0)
     {
-        HeapStr intStr = alloc->alloc(alloc, 2);
+        HeapStr intStr = (HeapStr)a->alloc(a, 2);
 
         if (!intStr)
             return (ResultOwnedStr){
-                .value = NULL,
                 .error = X_ERR_EXT("string", "string_from_int", ERR_OUT_OF_MEMORY, "alloc failure"),
             };
 
@@ -1399,10 +1391,9 @@ ResultOwnedStr string_from_int(Allocator *alloc, const i64 i)
 
     buf[19] = '\0';
 
-    HeapStr intStr = alloc->alloc(alloc, (19 - (u64)idx) + 1);
+    HeapStr intStr = (HeapStr)a->alloc(a, (19 - (u64)idx) + 1);
     if (!intStr)
         return (ResultOwnedStr){
-            .value = NULL,
             .error = X_ERR_EXT("string", "string_from_int", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
@@ -1416,12 +1407,12 @@ ResultOwnedStr string_from_int(Allocator *alloc, const i64 i)
 
 /**
  * @brief Stringifies a unsigned integer.
- * 
- * @param alloc 
- * @param i 
- * @return ResultOwnedStr 
+ *
+ * @param alloc
+ * @param i
+ * @return ResultOwnedStr
  */
-ResultOwnedStr string_from_uint(Allocator *alloc, const u64 i)
+static inline ResultOwnedStr string_from_uint(Allocator *a, const u64 i)
 {
     char buf[20];
     u64 n = i;
@@ -1429,11 +1420,10 @@ ResultOwnedStr string_from_uint(Allocator *alloc, const u64 i)
 
     if (n == 0)
     {
-        HeapStr intStr = alloc->alloc(alloc, 2);
+        HeapStr intStr = (HeapStr)a->alloc(a, 2);
 
         if (!intStr)
             return (ResultOwnedStr){
-                .value = NULL,
                 .error = X_ERR_EXT("string", "string_from_uint", ERR_OUT_OF_MEMORY, "alloc failure"),
             };
 
@@ -1455,11 +1445,10 @@ ResultOwnedStr string_from_uint(Allocator *alloc, const u64 i)
 
     buf[19] = '\0';
 
-    HeapStr intStr = alloc->alloc(alloc, (19 - (u64)idx) + 1);
+    HeapStr intStr = (HeapStr)a->alloc(a, (19 - (u64)idx) + 1);
 
     if (!intStr)
         return (ResultOwnedStr){
-            .value = NULL,
             .error = X_ERR_EXT("string", "string_from_uint", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
@@ -1472,21 +1461,21 @@ ResultOwnedStr string_from_uint(Allocator *alloc, const u64 i)
 }
 
 /**
- * @brief Strigifies a float.
- * 
- * @param alloc 
- * @param flt 
- * @param precision 
- * @return ResultOwnedStr 
+ * @brief Stringifies a float.
+ *
+ * @param alloc
+ * @param flt
+ * @param precision
+ * @return ResultOwnedStr
  */
-ResultOwnedStr string_from_float(Allocator *alloc, const f64 flt, const u64 precision)
+static inline ResultOwnedStr string_from_float(Allocator *a, const f64 flt, const u64 precision)
 {
     f64 d = flt;
 
     i64 intPart = (i64)d;
     f64 fracPart = d - (f64)intPart;
 
-    ResultOwnedStr strIntPart = string_from_int(alloc, intPart);
+    ResultOwnedStr strIntPart = string_from_int(a, intPart);
 
     if (precision <= 0 || strIntPart.error.code != ERR_OK)
     {
@@ -1512,12 +1501,12 @@ ResultOwnedStr string_from_float(Allocator *alloc, const f64 flt, const u64 prec
         div /= 10;
     }
 
-    ResultOwnedStr zeroesStr = string_alloc(alloc, zeroes, '0');
+    ResultOwnedStr zeroesStr = string_alloc(a, zeroes, '0');
 
     if (zeroesStr.error.code != ERR_OK)
         return zeroesStr;
 
-    ResultOwnedStr strDecPart = string_from_uint(alloc, fracInt);
+    ResultOwnedStr strDecPart = string_from_uint(a, fracInt);
 
     if (strDecPart.error.code != ERR_OK)
         return strDecPart;
@@ -1526,7 +1515,7 @@ ResultOwnedStr string_from_float(Allocator *alloc, const f64 flt, const u64 prec
     u64 decPartSize = string_size(strDecPart.value);
 
     u64 totalSize = intPartSize + decPartSize + 2;
-    HeapStr finalStr = alloc->alloc(alloc, totalSize);
+    HeapStr finalStr = (HeapStr)a->alloc(a, totalSize);
 
     if (finalStr == NULL)
         return (ResultOwnedStr){
@@ -1546,11 +1535,11 @@ ResultOwnedStr string_from_float(Allocator *alloc, const f64 flt, const u64 prec
 
 /**
  * @brief Parses a positive or negative integer from a provided string.
- * 
- * @param s 
- * @return ResultI64 
+ *
+ * @param s
+ * @return ResultI64
  */
-ResultI64 string_parse_int(ConstStr s)
+static inline ResultI64 string_parse_int(ConstStr s)
 {
     if (!s || *s == '\0')
         return (ResultI64){
@@ -1585,7 +1574,7 @@ ResultI64 string_parse_int(ConstStr s)
         if (newVal < result)
             return (ResultI64){
                 .value = 0,
-                .error = X_ERR_EXT("string", "string_parse_int", ERR_WOULD_OVERFLOW, "integer overfow"),
+                .error = X_ERR_EXT("string", "string_parse_int", ERR_WOULD_OVERFLOW, "integer overflow"),
             };
 
         result = newVal;
@@ -1606,11 +1595,11 @@ ResultI64 string_parse_int(ConstStr s)
 
 /**
  * @brief Parses a unsigned integer from a provided string.
- * 
- * @param s 
- * @return ResultI64 
+ *
+ * @param s
+ * @return ResultI64
  */
-ResultU64 string_parse_uint(ConstStr s)
+static inline ResultU64 string_parse_uint(ConstStr s)
 {
     if (!s || *s == '\0')
         return (ResultU64){
@@ -1658,11 +1647,11 @@ ResultU64 string_parse_uint(ConstStr s)
 
 /**
  * @brief Parses a float from a provided string.
- * 
- * @param s 
- * @return ResultF64 
+ *
+ * @param s
+ * @return ResultF64
  */
-ResultF64 string_parse_float(ConstStr s)
+static inline ResultF64 string_parse_float(ConstStr s)
 {
     if (!s || *s == '\0')
         return (ResultF64){

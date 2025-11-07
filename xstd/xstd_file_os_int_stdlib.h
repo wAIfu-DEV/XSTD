@@ -7,78 +7,80 @@
 #include "stdio.h"
 #include "errno.h"
 
-void *__file_io_c_fstdout(void)
+static void *_fosint_cstd_fstdout(void)
 {
     return stdout;
 }
 
-void *__file_io_c_fstderr(void)
+static void *_fosint_cstd_fstderr(void)
 {
     return stderr;
 }
 
-void *__file_io_c_fstdin(void)
+static void *_fosint_cstd_fstdin(void)
 {
     return stdin;
 }
 
-int __file_io_c_fopen(void **stream, const char *fileName, const char *mode)
+static int _fosint_cstd_fopen(void **stream, const char *fileName, const char *mode)
 {
+    // Default fopen function differs by compiler type and/or OS
 #ifdef _MSC_VER
     return (int)fopen_s((FILE **)stream, fileName, mode);
 #else
     *(FILE **)stream = fopen(fileName, mode);
-    return *(FILE **)stream == NULL ? 0 : errno;
+    return *(FILE **)stream != NULL ? 0 : errno;
 #endif
 }
 
-int __file_io_c_fclose(void *stream)
+static int _fosint_cstd_fclose(void *stream)
 {
     return fclose((FILE *)stream);
 }
 
-int __file_io_c_fgetc(void *stream)
+static int _fosint_cstd_fgetc(void *stream)
 {
     return fgetc((FILE *)stream);
 }
 
-int __file_io_c_fseek(void *stream, long off, int origin)
+static int _fosint_cstd_fseek(void *stream, long off, int origin)
 {
     return fseek((FILE *)stream, off, origin);
 }
 
-long __file_io_c_ftell(void *stream)
+static long _fosint_cstd_ftell(void *stream)
 {
     return ftell((FILE *)stream);
 }
 
-int __file_io_c_fputc(int c, void *stream)
+static int _fosint_cstd_fputc(int c, void *stream)
 {
     return fputc(c, (FILE *)stream);
 }
 
-int __file_io_c_fflush(void *stream)
+static int _fosint_cstd_fflush(void *stream)
 {
     return fflush((FILE *)stream);
 }
 
-int __file_io_c_feof(void *stream)
+static int _fosint_cstd_feof(void *stream)
 {
     return feof((FILE *)stream);
 }
 
-const _FileOsInterface __file_os_int = {
+static const _FileOsInterface _file_os_int_stdlib = {
     ._internalState = NULL,
 
-    .fstdout = __file_io_c_fstdout,
-    .fstderr = __file_io_c_fstderr,
-    .fstdin = __file_io_c_fstdin,
-    .open = __file_io_c_fopen,
-    .close = __file_io_c_fclose,
-    .getc = __file_io_c_fgetc,
-    .seek = __file_io_c_fseek,
-    .tell = __file_io_c_ftell,
-    .putc = __file_io_c_fputc,
-    .flush = __file_io_c_fflush,
-    .eof = __file_io_c_feof,
+    .fstdout = _fosint_cstd_fstdout,
+    .fstderr = _fosint_cstd_fstderr,
+    .fstdin = _fosint_cstd_fstdin,
+
+    .open = _fosint_cstd_fopen,
+    .close = _fosint_cstd_fclose,
+    .getc = _fosint_cstd_fgetc,
+    .seek = _fosint_cstd_fseek,
+    .tell = _fosint_cstd_ftell,
+    .putc = _fosint_cstd_fputc,
+    .flush = _fosint_cstd_fflush,
+    .eof = _fosint_cstd_feof,
 };

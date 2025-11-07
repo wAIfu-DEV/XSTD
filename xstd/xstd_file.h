@@ -1,12 +1,15 @@
 #pragma once
 
+#include "xstd_alloc_default.h"
 #include "xstd_core.h"
+#include "xstd_errcode.h"
 #include "xstd_error.h"
 #include "xstd_result.h"
 #include "xstd_list.h"
 #include "xstd_string.h"
 #include "xstd_buffer.h"
 #include "xstd_file_os_int.h"
+#include "xstd_file_os_int_default.h"
 
 typedef u8 FileOpenMode;
 
@@ -15,7 +18,7 @@ typedef u8 FileOpenMode;
 #define FILE_OPENMODE_READWRITE 2
 #define FILE_OPENMODE_APPEND 3
 
-const struct _file_open_mode
+static const struct _file_open_mode
 {
     const FileOpenMode READ;
     const FileOpenMode WRITE;
@@ -40,7 +43,7 @@ typedef struct _result_file
     Error error;
 } ResultFile;
 
-const char *_file_openmode_to_str(const FileOpenMode mode)
+static inline const char *_file_openmode_to_str(const FileOpenMode mode)
 {
     switch (mode)
     {
@@ -72,7 +75,7 @@ const char *_file_openmode_to_str(const FileOpenMode mode)
  * @param format
  * @return ResultFile
  */
-ResultFile file_open(ConstStr path, const FileOpenMode mode)
+static inline ResultFile file_open(ConstStr path, const FileOpenMode mode)
 {
     if (!path)
         return (ResultFile){
@@ -90,7 +93,7 @@ ResultFile file_open(ConstStr path, const FileOpenMode mode)
 
     void *f;
 
-    int err = __file_os_int.open(&f, path, openArg);
+    int err = _default_file_os_int()->open(&f, path, openArg);
 
     if (err)
     {
@@ -132,7 +135,7 @@ ResultFile file_open(ConstStr path, const FileOpenMode mode)
  * ```
  * @param file
  */
-void file_close(File *file)
+static inline void file_close(File *file)
 {
     if (!file)
         return;
@@ -140,7 +143,7 @@ void file_close(File *file)
     if (!file->_valid)
         return;
 
-    __file_os_int.close(file->_handle);
+    _default_file_os_int()->close(file->_handle);
     file->_valid = false;
 }
 
@@ -153,7 +156,7 @@ void file_close(File *file)
  * @param f
  * @return u64
  */
-u64 file_size(File *file)
+static inline u64 file_size(File *file)
 {
     if (!file || !file->_valid)
         return 0;
@@ -161,26 +164,29 @@ u64 file_size(File *file)
     const int seekEnd = 2;
     const int seekSet = 0;
 
-    long ogTell = __file_os_int.tell(file->_handle);
+    const _FileOsInterface* fosi = _default_file_os_int();
 
-    __file_os_int.seek(file->_handle, 0, seekEnd);
-    long fileSize = __file_os_int.tell(file->_handle);
+    long ogTell = fosi->tell(file->_handle);
 
-    __file_os_int.seek(file->_handle, ogTell, seekSet);
+    fosi->seek(file->_handle, 0, seekEnd);
+    long fileSize = fosi->tell(file->_handle);
+
+    fosi->seek(file->_handle, ogTell, seekSet);
     return (u64)fileSize;
 }
 
-u64 __file_read_internal(File *f, i8 *buff, const u64 nBytes, ibool terminate)
+static inline u64 _file_read_internal(File *f, i8 *buff, const u64 nBytes, ibool terminate)
 {
     if (!f || !nBytes || !buff)
         return 0;
 
+    const _FileOsInterface* fosi = _default_file_os_int();
     u64 readPos = 0;
 
     int read;
-    while (!__file_os_int.eof(f->_handle) && readPos < nBytes)
+    while (!fosi->eof(f->_handle) && readPos < nBytes)
     {
-        read = __file_os_int.getc(f->_handle);
+        read = fosi->getc(f->_handle);
         buff[readPos] = (i8)read;
         ++readPos;
     }
@@ -212,27 +218,27 @@ u64 __file_read_internal(File *f, i8 *buff, const u64 nBytes, ibool terminate)
  * @param nBytes
  * @return ResultOwnedBuff
  */
-ResultOwnedBuff file_read_bytes(Allocator *alloc, File *file, const u64 nBytes)
+static inline ResultOwnedBuff file_read_bytes(Allocator *a, File *file, const u64 nBytes)
 {
-    if (!alloc || !file || !file->_valid)
+    if (!a || !file || !file->_valid)
         return (ResultOwnedBuff){
             .value = (HeapBuff){.bytes = NULL, .size = 0},
             .error = X_ERR_EXT("file", "file_read_bytes", ERR_INVALID_PARAMETER, "null arg"),
         };
 
-    i8 *new = alloc->alloc(alloc, nBytes);
+    i8 *newBuff = (i8*)a->alloc(a, nBytes);
 
-    if (!new)
+    if (!newBuff)
         return (ResultOwnedBuff){
             .value = (HeapBuff){.bytes = NULL, .size = 0},
             .error = X_ERR_EXT("file", "file_read_bytes", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
-    u64 readSize = __file_read_internal(file, new, nBytes, false);
+    u64 readSize = _file_read_internal(file, newBuff, nBytes, false);
 
     if (readSize == 0)
     {
-        alloc->free(alloc, new);
+        a->free(a, newBuff);
         return (ResultOwnedBuff){
             .value = (HeapBuff){.bytes = NULL, .size = 0},
             .error = X_ERR_EXT("file", "file_read_bytes", ERR_FILE_CANT_READ, "read size mismatch"),
@@ -240,7 +246,7 @@ ResultOwnedBuff file_read_bytes(Allocator *alloc, File *file, const u64 nBytes)
     }
 
     return (ResultOwnedBuff){
-        .value = (HeapBuff){.bytes = new, .size = readSize},
+        .value = (HeapBuff){.bytes = newBuff, .size = readSize},
         .error = X_ERR_OK,
     };
 }
@@ -266,30 +272,28 @@ ResultOwnedBuff file_read_bytes(Allocator *alloc, File *file, const u64 nBytes)
  * @param nBytes
  * @return ResultOwnedStr
  */
-ResultOwnedStr file_read_str(Allocator *alloc, File *file, const u64 nBytes)
+static inline ResultOwnedStr file_read_str(Allocator *a, File *file, const u64 nBytes)
 {
-    if (!alloc || !file || !file->_valid)
+    if (!a || !file || !file->_valid)
         return (ResultOwnedStr){
             .value = NULL,
-            .error = X_ERR_EXT("file", "file_read_bytes", ERR_INVALID_PARAMETER, "null arg"),
+            .error = X_ERR_EXT("file", "file_read_str", ERR_INVALID_PARAMETER, "null arg"),
         };
 
-    HeapStr newStr = alloc->alloc(alloc, nBytes + 1);
+    HeapStr newStr = (HeapStr)a->alloc(a, nBytes + 1);
 
     if (!newStr)
         return (ResultOwnedStr){
-            .value = NULL,
-            .error = X_ERR_EXT("file", "file_read_bytes", ERR_OUT_OF_MEMORY, "alloc failure"),
+            .error = X_ERR_EXT("file", "file_read_str", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
-    u64 readSize = __file_read_internal(file, newStr, nBytes, true);
+    u64 readSize = _file_read_internal(file, newStr, nBytes, true);
 
     if (readSize == 0)
     {
-        alloc->free(alloc, newStr);
+        a->free(a, newStr);
         return (ResultOwnedStr){
-            .value = NULL,
-            .error = X_ERR_EXT("file", "file_read_bytes", ERR_FILE_CANT_READ, "read size mismatch"),
+            .error = X_ERR_EXT("file", "file_read_str", ERR_FILE_CANT_READ, "read size mismatch"),
         };
     }
 
@@ -319,18 +323,18 @@ ResultOwnedStr file_read_str(Allocator *alloc, File *file, const u64 nBytes)
  * @param nBytes
  * @return OwnedStr
  */
-OwnedStr file_read_str_unsafe(Allocator *alloc, File *file, u64 nBytes)
+static inline OwnedStr file_read_str_unsafe(Allocator *a, File *file, u64 nBytes)
 {
-    HeapStr newStr = alloc->alloc(alloc, nBytes + 1);
+    HeapStr newStr = (HeapStr)a->alloc(a, nBytes + 1);
 
     if (!newStr)
         return NULL;
 
-    u64 readSize = __file_read_internal(file, newStr, nBytes, true);
+    u64 readSize = _file_read_internal(file, newStr, nBytes, true);
 
     if (readSize == 0)
     {
-        alloc->free(alloc, newStr);
+        a->free(a, newStr);
         return NULL;
     }
     return newStr;
@@ -356,22 +360,22 @@ OwnedStr file_read_str_unsafe(Allocator *alloc, File *file, u64 nBytes)
  * @param nBytes
  * @return HeapBuff
  */
-HeapBuff file_read_bytes_unsafe(Allocator *alloc, File *file, u64 nBytes)
+static inline HeapBuff file_read_bytes_unsafe(Allocator *a, File *file, u64 nBytes)
 {
-    i8 *new = alloc->alloc(alloc, nBytes);
+    i8 *newBuff = (i8*)a->alloc(a, nBytes);
 
-    if (!new)
+    if (!newBuff)
         return (HeapBuff){.bytes = NULL, .size = 0};
 
-    u64 readSize = __file_read_internal(file, new, nBytes, false);
+    u64 readSize = _file_read_internal(file, newBuff, nBytes, false);
 
     if (readSize == 0)
     {
-        alloc->free(alloc, new);
+        a->free(a, newBuff);
         return (HeapBuff){.bytes = NULL, .size = 0};
     }
 
-    return (HeapBuff){.bytes = new, .size = readSize};
+    return (HeapBuff){.bytes = newBuff, .size = readSize};
 }
 
 /**
@@ -391,7 +395,7 @@ HeapBuff file_read_bytes_unsafe(Allocator *alloc, File *file, u64 nBytes)
  * @param nBytes
  * @return ResultOwnedStr
  */
-ResultOwnedStr file_readall_str(Allocator *alloc, File *file)
+static inline ResultOwnedStr file_readall_str(Allocator *alloc, File *file)
 {
     return file_read_str(alloc, file, file_size(file));
 }
@@ -413,7 +417,7 @@ ResultOwnedStr file_readall_str(Allocator *alloc, File *file)
  * @param nBytes
  * @return ResultOwnedBuff
  */
-ResultOwnedBuff file_readall_bytes(Allocator *alloc, File *file)
+static inline ResultOwnedBuff file_readall_bytes(Allocator *alloc, File *file)
 {
     return file_read_bytes(alloc, file, file_size(file));
 }
@@ -434,7 +438,7 @@ ResultOwnedBuff file_readall_bytes(Allocator *alloc, File *file)
  * @param file
  * @return ResultList
  */
-ResultList file_read_lines(Allocator *alloc, File *file)
+static inline ResultList file_read_lines(Allocator *alloc, File *file)
 {
     // TODO: Might be wiser to read line per line
     // to prevent out of memory cases
@@ -460,18 +464,27 @@ ResultList file_read_lines(Allocator *alloc, File *file)
     };
 }
 
-void file_write_byte(File *file, const i8 byte)
+/**
+ * @brief Write a single byte to file.
+ *
+ * @param file
+ * @param byte
+ */
+static inline Error file_write_byte(File *file, const i8 byte)
 {
     if (!file || !file->_valid)
-        return;
+        return X_ERR_EXT("file", "file_write_byte", ERR_INVALID_PARAMETER, "null or invalid file");
 
-    FILE *f = file->_handle;
-    __file_os_int.putc(byte, f);
+    i32 err = _default_file_os_int()->putc(byte, file->_handle);
+    if (err == -1) {
+        return X_ERR_EXT("file", "file_write_byte", ERR_FILE_CANT_WRITE, "write failure");
+    }
+    return X_ERR_OK;
 }
 
-void file_write_char(File *file, const i8 c)
+static inline Error file_write_char(File *file, const i8 c)
 {
-    file_write_byte(file, c);
+    return file_write_byte(file, c);
 }
 
 /**
@@ -487,16 +500,18 @@ void file_write_char(File *file, const i8 c)
  * @param file
  * @param text
  */
-void file_write_str(File *file, ConstStr text)
+static inline Error file_write_str(File *file, ConstStr text)
 {
     if (!file || !file->_valid || !text)
-        return;
+        return X_ERR_EXT("file", "file_write_str", ERR_INVALID_PARAMETER, "null or invalid arg");
 
-    while (*text)
+    Error err = X_ERR_OK;
+    while (*text && err.code == ERR_OK)
     {
-        file_write_char(file, *text);
+        err = file_write_char(file, *text);
         ++text;
     }
+    return err;
 }
 
 /**
@@ -512,18 +527,20 @@ void file_write_str(File *file, ConstStr text)
  * @param file
  * @param text
  */
-void file_write_bytes(File *file, const i8 *bytes, u64 bytesCount)
+static inline Error file_write_bytes(File *file, const i8 *bytes, u64 bytesCount)
 {
     if (!file || !file->_valid || !bytes || bytesCount == 0)
-        return;
+        return X_ERR_EXT("file", "file_write_byte", ERR_INVALID_PARAMETER, "null or invalid arg");
 
     const i8 *end = bytes + bytesCount + 1;
 
-    while (bytes != end)
+    Error err = X_ERR_OK;
+    while (bytes != end && err.code == ERR_OK)
     {
-        file_write_byte(file, *bytes);
+        err = file_write_byte(file, *bytes);
         ++bytes;
     }
+    return err;
 }
 
 /**
@@ -538,64 +555,70 @@ void file_write_bytes(File *file, const i8 *bytes, u64 bytesCount)
  * ```
  * @param file
  */
-void file_flush(File *file)
+static inline void file_flush(File *file)
 {
     if (!file || !file->_valid)
         return;
 
-    __file_os_int.flush(file->_handle);
+    _default_file_os_int()->flush(file->_handle);
 }
 
 /**
  * @brief Returns !0 (true) if file has hit EOF (end of file), returns 0 (false) otherwise.
  *
  * ```c
+ * Allocator *a = default_allocator();
  * // Read file in chunks
  * while(!file_is_eof(file))
  * {
- *     OwnedStr fileChunk = file_read_str_unsafe(&c_allocator, file, 256);
+ *     OwnedStr fileChunk = file_read_str_unsafe(a, file, 256);
  *     if (!fileChunk) // Error!
  *     // Do string stuff
- *     c_allocator.free(&c_allocator, fileChunk);
+ *     a->free(a, fileChunk);
  * }
  * ```
  * @param file
  * @return ibool
  */
-ibool file_is_eof(File *file)
+static inline ibool file_is_eof(File *file)
 {
     if (!file || !file->_valid)
         return true;
 
-    return __file_os_int.eof(file->_handle);
+    return _default_file_os_int()->eof(file->_handle);
 }
 
-void file_write_null(File *file)
+static inline Error file_write_null(File *file)
 {
     if (!file || !file->_valid)
-        return;
+        return X_ERR_EXT("file", "file_write_null", ERR_INVALID_PARAMETER, "null or invalid file");
 
-    file_write_str(file, "(null)");
+    return file_write_str(file, "(null)");
 }
 
-void file_write_int(File *file, const i64 i)
+static inline Error file_write_int(File *file, const i64 i)
 {
     if (!file || !file->_valid)
-        return;
+        return X_ERR_EXT("file", "file_write_int", ERR_INVALID_PARAMETER, "null or invalid file");
 
     char buf[20];
     i64 n = i;
     i16 idx = 0;
 
+    Error err = X_ERR_OK;
+
     if (n == 0)
     {
-        file_write_char(file, '0');
-        return;
+        err = file_write_char(file, '0');
+        return err;
     }
 
     if (n < 0)
     {
-        file_write_char(file, '-');
+        err = file_write_char(file, '-');
+        if (err.code != ERR_OK)
+            return err;
+
         n = -n;
     }
 
@@ -608,23 +631,28 @@ void file_write_int(File *file, const i64 i)
 
     for (i16 j = idx - 1; j >= 0; --j)
     {
-        file_write_char(file, buf[j]);
+        err = file_write_char(file, buf[j]);
+        if (err.code != ERR_OK)
+            return err;
     }
+    return err;
 }
 
-void file_write_uint(File *file, const u64 i)
+static inline Error file_write_uint(File *file, const u64 i)
 {
     if (!file || !file->_valid)
-        return;
+        return X_ERR_EXT("file", "file_write_uint", ERR_INVALID_PARAMETER, "null or invalid file");
 
     char buf[20];
     i16 idx = 0;
     u64 n = i;
 
+    Error err = X_ERR_OK;
+
     if (n == 0)
     {
-        file_write_char(file, '0');
-        return;
+        err = file_write_char(file, '0');
+        return err;
     }
 
     while (n != 0)
@@ -636,32 +664,43 @@ void file_write_uint(File *file, const u64 i)
 
     for (i16 j = idx - 1; j >= 0; --j)
     {
-        file_write_char(file, buf[j]);
+        err = file_write_char(file, buf[j]);
+        if (err.code != ERR_OK)
+            return err;
     }
+    return err;
 }
 
-void file_write_f64(File *file, const f64 flt, const u64 precision)
+static inline Error file_write_f64(File *file, const f64 flt, const u64 precision)
 {
     if (!file || !file->_valid)
-        return;
+        return X_ERR_EXT("file", "file_write_float", ERR_INVALID_PARAMETER, "null or invalid file");
 
     f64 d = flt;
+    Error err = X_ERR_OK;
 
     if (d < 0)
     {
-        file_write_char(file, '-');
+        err = file_write_char(file, '-');
+        if (err.code != ERR_OK)
+            return err;
+
         d = -d;
     }
 
     u64 intPart = (u64)d;
     f64 fracPart = d - (f64)intPart;
 
-    file_write_uint(file, intPart);
+    err = file_write_uint(file, intPart);
+    if (err.code != ERR_OK)
+        return err;
 
     if (precision <= 0)
-        return;
+        return X_ERR_OK;
 
-    file_write_char(file, '.');
+    err = file_write_char(file, '.');
+    if (err.code != ERR_OK)
+        return err;
 
     f64 scale = 1.0;
     for (u64 i = 0; i < precision; ++i)
@@ -677,11 +716,15 @@ void file_write_f64(File *file, const f64 flt, const u64 precision)
 
     while (div > fracInt && div > 1)
     {
-        file_write_char(file, '0');
+        err = file_write_char(file, '0');
+        if (err.code != ERR_OK)
+            return err;
+
         div /= 10;
     }
 
-    file_write_uint(file, fracInt);
+    err = file_write_uint(file, fracInt);
+    return err;
 }
 
 // TODO: file_exists, file_create, file_seek, file_tell, file_rewind

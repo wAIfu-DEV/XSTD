@@ -3,6 +3,7 @@
 #include "xstd_core.h"
 #include "xstd_error.h"
 #include "xstd_alloc.h"
+#include "xstd_string.h"
 
 typedef struct _writer
 {
@@ -57,20 +58,20 @@ typedef struct _result_grow_str_writer
 } ResultGrowStrWriter;
 
 
-Error buffwriter_write_byte(BuffWriter* bw, i8 byte)
+static Error buffwriter_write_byte(BuffWriter* bw, i8 byte)
 {
     if (!bw)
         return X_ERR_EXT("writer", "buffwriter_write_byte", ERR_INVALID_PARAMETER, "null writer");
 
     if (bw->writeHead >= bw->writeEnd)
         return X_ERR_EXT("writer", "buffwriter_write_byte", ERR_WOULD_OVERFLOW, "tried writing past buffer end");
-    
+
     bw->buff.bytes[bw->writeHead] = byte;
     ++bw->writeHead;
     return X_ERR_OK;
 }
 
-Error growbuffwriter_write_byte(GrowBuffWriter* gbw, i8 byte)
+static Error growbuffwriter_write_byte(GrowBuffWriter* gbw, i8 byte)
 {
     if (!gbw)
         return X_ERR_EXT("writer", "growbuffwriter_write_byte", ERR_INVALID_PARAMETER, "null writer");
@@ -83,22 +84,22 @@ Error growbuffwriter_write_byte(GrowBuffWriter* gbw, i8 byte)
         if (newSize < gbw->buff.size)
             return X_ERR_EXT("writer", "growbuffwriter_write_byte", ERR_WOULD_OVERFLOW, "integer overflow with buffer size");
 
-        i8* newBlock = gbw->allocator.realloc(&gbw->allocator, gbw->buff.bytes, newSize);
+        i8* newBlock = (i8*)gbw->allocator.realloc(&gbw->allocator, gbw->buff.bytes, newSize);
 
         if (!newBlock)
             return X_ERR_EXT("writer", "growbuffwriter_write_byte", ERR_OUT_OF_MEMORY, "alloc failure");
-        
+
         gbw->buff.bytes = newBlock;
         gbw->buff.size = newSize;
         gbw->writeEnd = newSize;
     }
-    
+
     gbw->buff.bytes[gbw->writeHead] = byte;
     ++gbw->writeHead;
     return X_ERR_OK;
 }
 
-Error growstrwriter_write_byte(GrowStrWriter* gsw, i8 byte)
+static Error growstrwriter_write_byte(GrowStrWriter* gsw, i8 byte)
 {
     if (!gsw)
         return X_ERR_EXT("writer", "growstrwriter_write_byte", ERR_INVALID_PARAMETER, "null writer");
@@ -111,107 +112,107 @@ Error growstrwriter_write_byte(GrowStrWriter* gsw, i8 byte)
         if (newSize < gsw->strSize)
             return X_ERR_EXT("writer", "growstrwriter_write_byte", ERR_WOULD_OVERFLOW, "integer overflow with buffer size");
 
-        i8* newBlock = gsw->allocator.realloc(&gsw->allocator, gsw->str, newSize);
+        i8* newBlock = (i8*)gsw->allocator.realloc(&gsw->allocator, gsw->str, newSize);
         if (!newBlock)
             return X_ERR_EXT("writer", "growstrwriter_write_byte", ERR_OUT_OF_MEMORY, "alloc failure");
-        
+
         gsw->str = newBlock;
         gsw->strSize = newSize;
         gsw->writeEnd = newSize;
     }
-    
+
     gsw->str[gsw->writeHead] = byte;
     gsw->str[gsw->writeHead+1] = 0;
     ++gsw->writeHead;
     return X_ERR_OK;
-} 
+}
 
-ResultBuffWriter buffwriter_init(Buffer buff)
+static inline ResultBuffWriter buffwriter_init(Buffer buff)
 {
     if (buff.bytes == NULL || buff.size == 0)
         return (ResultBuffWriter){
             .error = X_ERR_EXT("writer", "buffwriter_init", ERR_INVALID_PARAMETER, "null or empty buff"),
         };
-    
+
     return (ResultBuffWriter){
         .value = (BuffWriter){
-            .buff = buff,
+            .write = buffwriter_write_byte,
             .writeHead = 0,
             .writeEnd = buff.size,
-            .write = buffwriter_write_byte,
+            .buff = buff,
         },
         .error = X_ERR_OK,
     };
 }
 
-ResultGrowBuffWriter growbuffwriter_init(Allocator alloc, u32 initSize)
+static inline ResultGrowBuffWriter growbuffwriter_init(Allocator alloc, u32 initSize)
 {
     if (initSize == 0)
         return (ResultGrowBuffWriter){
             .error = X_ERR_EXT("writer", "growbuffwriter_init", ERR_INVALID_PARAMETER, "0 init size"),
         };
-    
-    i8* block = alloc.alloc(&alloc, initSize);
+
+    i8* block = (i8*)alloc.alloc(&alloc, initSize);
 
     if (!block)
         return (ResultGrowBuffWriter){
             .error = X_ERR_EXT("writer", "growbuffwriter_init", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
-    
+
     return (ResultGrowBuffWriter){
         .value = (GrowBuffWriter){
+            .write = growbuffwriter_write_byte,
+            .writeHead = 0,
+            .writeEnd = initSize,
             .buff = (HeapBuff){
                 .bytes = block,
                 .size = initSize,
             },
             .allocator = alloc,
-            .writeHead = 0,
-            .writeEnd = initSize,
-            .write = growbuffwriter_write_byte,
         },
         .error = X_ERR_OK,
     };
 }
 
-ResultGrowStrWriter growstrwriter_init(Allocator alloc, u32 initSize)
+static inline ResultGrowStrWriter growstrwriter_init(Allocator alloc, u32 initSize)
 {
     if (initSize == 0)
         return (ResultGrowStrWriter){
             .error = X_ERR_EXT("writer", "growstrwriter_init", ERR_INVALID_PARAMETER, "0 init size"),
         };
-    
-    i8* block = alloc.alloc(&alloc, initSize);
+
+    i8* block = (i8*)alloc.alloc(&alloc, initSize);
 
     if (!block)
         return (ResultGrowStrWriter){
             .error = X_ERR_EXT("writer", "growstrwriter_init", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
-    
+
     block[0] = 0;
-    
+
     return (ResultGrowStrWriter){
         .value = (GrowStrWriter){
+            .write = growstrwriter_write_byte,
+            .writeHead = 0,
+            .writeEnd = initSize,
             .str = block,
             .strSize = initSize,
             .allocator = alloc,
-            .writeHead = 0,
-            .writeEnd = initSize,
-            .write = growstrwriter_write_byte,
         },
         .error = X_ERR_OK,
     };
 }
 
-Error growbuffwriter_resize(GrowBuffWriter* gbw, u64 newSize)
+static inline Error growbuffwriter_resize(GrowBuffWriter* gbw, u64 newSize)
 {
     if (!gbw || newSize == 0)
         return X_ERR_EXT("writer", "growbuffwriter_resize", ERR_INVALID_PARAMETER, "null writer or 0 new size");
 
-    i8* newBlock = gbw->allocator.realloc(&gbw->allocator, gbw->buff.bytes, newSize);
+    i8* newBlock = (i8*)gbw->allocator.realloc(&gbw->allocator, gbw->buff.bytes, newSize);
 
     if (!newBlock)
         return X_ERR_EXT("writer", "growbuffwriter_resize", ERR_OUT_OF_MEMORY, "alloc failure");
-    
+
     gbw->buff.bytes = newBlock;
     gbw->buff.size = newSize;
     gbw->writeEnd = newSize;
@@ -219,16 +220,16 @@ Error growbuffwriter_resize(GrowBuffWriter* gbw, u64 newSize)
     return X_ERR_OK;
 }
 
-Error growstrwriter_resize(GrowStrWriter* gbw, u64 newSize)
+static inline Error growstrwriter_resize(GrowStrWriter* gbw, u64 newSize)
 {
     if (!gbw || newSize == 0)
         return X_ERR_EXT("writer", "growstrwriter_resize", ERR_INVALID_PARAMETER, "null writer or 0 new size");
 
-    i8* newBlock = gbw->allocator.realloc(&gbw->allocator, gbw->str, newSize);
+    i8* newBlock = (i8*)gbw->allocator.realloc(&gbw->allocator, gbw->str, newSize);
 
     if (!newBlock)
         return X_ERR_EXT("writer", "growstrwriter_resize", ERR_OUT_OF_MEMORY, "alloc failure");
-    
+
     gbw->str = newBlock;
     gbw->strSize = newSize;
     gbw->writeEnd = newSize;
@@ -236,7 +237,7 @@ Error growstrwriter_resize(GrowStrWriter* gbw, u64 newSize)
     return X_ERR_OK;
 }
 
-Error writer_write_byte(Writer* w, i8 byte)
+static inline Error writer_write_byte(Writer* w, i8 byte)
 {
     if (!w)
         return X_ERR_EXT("writer", "writer_write_byte", ERR_INVALID_PARAMETER, "null writer");
@@ -244,9 +245,9 @@ Error writer_write_byte(Writer* w, i8 byte)
     return w->write(w, byte);
 }
 
-Error writer_write_null(Writer* w);
+static inline Error writer_write_null(Writer* w);
 
-Error writer_write_bytes(Writer* w, ConstBuff buff)
+static inline Error writer_write_bytes(Writer* w, ConstBuff buff)
 {
     if (!w || !buff.bytes)
         return X_ERR_EXT("writer", "writer_write_bytes", ERR_INVALID_PARAMETER, "null arg");
@@ -260,7 +261,7 @@ Error writer_write_bytes(Writer* w, ConstBuff buff)
     return X_ERR_OK;
 }
 
-Error writer_write_str(Writer* w, ConstStr text)
+static inline Error writer_write_str(Writer* w, ConstStr text)
 {
     if (!w)
         return X_ERR_EXT("writer", "writer_write_str", ERR_INVALID_PARAMETER, "null writer");
@@ -278,7 +279,7 @@ Error writer_write_str(Writer* w, ConstStr text)
     return X_ERR_OK;
 }
 
-Error writer_write_null(Writer* w)
+static inline Error writer_write_null(Writer* w)
 {
     if (!w)
         return X_ERR_EXT("writer", "writer_write_null", ERR_INVALID_PARAMETER, "null writer");
@@ -286,7 +287,7 @@ Error writer_write_null(Writer* w)
     return writer_write_str(w, "(null)");
 }
 
-Error writer_write_int(Writer* w, i64 i)
+static inline Error writer_write_int(Writer* w, i64 i)
 {
     if (!w)
         return X_ERR_EXT("writer", "writer_write_int", ERR_INVALID_PARAMETER, "null writer");
@@ -328,7 +329,7 @@ Error writer_write_int(Writer* w, i64 i)
     return X_ERR_OK;
 }
 
-Error writer_write_uint(Writer* w, u64 i)
+static inline Error writer_write_uint(Writer* w, u64 i)
 {
     if (!w)
         return X_ERR_EXT("writer", "writer_write_uint", ERR_INVALID_PARAMETER, "null writer");
@@ -362,7 +363,7 @@ Error writer_write_uint(Writer* w, u64 i)
     return X_ERR_OK;
 }
 
-Error writer_write_float(Writer* w, f64 flt, u64 precision)
+static inline Error writer_write_float(Writer* w, f64 flt, u64 precision)
 {
     if (!w)
         return X_ERR_EXT("writer", "writer_write_float", ERR_INVALID_PARAMETER, "null writer");
@@ -385,7 +386,7 @@ Error writer_write_float(Writer* w, f64 flt, u64 precision)
     if (err.code != ERR_OK)
         return err;
 
-    if (precision <= 0)
+    if (precision <= (f64)0.0)
         return X_ERR_OK;
 
     err = writer_write_byte(w, '.');
@@ -397,7 +398,7 @@ Error writer_write_float(Writer* w, f64 flt, u64 precision)
         scale *= (f64)10.0;
 
     fracPart *= scale;
-    u64 fracInt = (u64)(fracPart + 0.5); // rounding
+    u64 fracInt = (u64)(fracPart + (f64)0.5); // rounding
 
     // Ensure leading zeros in fractional part
     u64 div = 1;

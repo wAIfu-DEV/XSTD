@@ -3,10 +3,8 @@
 
 int main(void)
 {
-    process_setup_default_crash_handler();
-
     DebugAllocatorState dbgState;
-    ResultAllocator dbgAllocRes = debug_allocator(&dbgState, 128, &c_allocator);
+    ResultAllocator dbgAllocRes = debug_allocator(&dbgState, 128, default_allocator());
     assert_ok(dbgAllocRes.error, "Failed to create debug allocator.");
 
     Allocator dbgAlloc = dbgAllocRes.value;

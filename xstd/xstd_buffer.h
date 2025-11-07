@@ -23,7 +23,7 @@
  * @param b
  * @return ibool
  */
-ibool buffer_equals(ConstBuff a, ConstBuff b)
+static inline ibool buffer_equals(ConstBuff a, ConstBuff b)
 {
     if (a.size != b.size)
         return false;
@@ -52,7 +52,7 @@ ibool buffer_equals(ConstBuff a, ConstBuff b)
  * Memory is owned by the caller and should be freed using the same allocator.
  *
  * ```c
- * ResultOwnedBuff myBuff = buffer_alloc(&c_allocator, 3, 'w');
+ * ResultOwnedBuff myBuff = buffer_alloc(default_allocator(), 3, 'w');
  * if (myBuff.error.code) // Error!
  * // myBuff.value.bytes == ['w', 'w', 'w']
  * // myBuff.value.size == 3
@@ -62,9 +62,9 @@ ibool buffer_equals(ConstBuff a, ConstBuff b)
  * @param fill
  * @return ResultOwnedBuff
  */
-ResultOwnedBuff buffer_alloc(Allocator *alloc, u64 size, i8 fill)
+static inline ResultOwnedBuff buffer_alloc(Allocator *a, u64 size, i8 fill)
 {
-    i8 *bytes = alloc->alloc(alloc, size);
+    i8 *bytes = (i8*)a->alloc(a, size);
 
     if (!bytes)
         return (ResultOwnedBuff){
@@ -95,7 +95,7 @@ ResultOwnedBuff buffer_alloc(Allocator *alloc, u64 size, i8 fill)
  * Memory is owned by the caller and should be freed using the same allocator.
  *
  * ```c
- * ResultOwnedBuff myBuff = buffer_alloc(&c_allocator, 3);
+ * ResultOwnedBuff myBuff = buffer_alloc(default_allocator(), 3);
  * if (myBuff.error.code) // Error!
  * // myBuff.value.bytes == [undefined, undefined, undefined]
  * // myBuff.value.size == 3
@@ -104,9 +104,9 @@ ResultOwnedBuff buffer_alloc(Allocator *alloc, u64 size, i8 fill)
  * @param size
  * @return ResultOwnedBuff
  */
-ResultOwnedBuff buffer_alloc_undefined(Allocator *alloc, u64 size)
+static inline ResultOwnedBuff buffer_alloc_undefined(Allocator *a, u64 size)
 {
-    i8 *bytes = alloc->alloc(alloc, size);
+    i8 *bytes = (i8*)a->alloc(a, size);
 
     if (!bytes)
         return (ResultOwnedBuff){
@@ -132,7 +132,7 @@ ResultOwnedBuff buffer_alloc_undefined(Allocator *alloc, u64 size)
  *
  * @param buff
  */
-void buffer_free(Allocator *alloc, HeapBuff *buff)
+static inline void buffer_free(Allocator *alloc, HeapBuff *buff)
 {
     if (!alloc || !buff)
         return;
@@ -156,7 +156,7 @@ void buffer_free(Allocator *alloc, HeapBuff *buff)
  *
  * ```c
  * ConstStr source =     "Example string";
- * OwnedStr dest = ConstToHeapStr("____________________");
+ * OwnedStr dest = ConstToHeapStr(&alloc, "___________________");
  *
  * ConstBuff srcBuff = (ConstBuff){ .bytes = source, .size = string_size(source) + 1 };
  * HeapBuff destBuff = (HeapBuff){ .bytes = dest, .size = string_size(dest) + 1 };
@@ -170,7 +170,7 @@ void buffer_free(Allocator *alloc, HeapBuff *buff)
  * @param destination buffer of size >= source size
  * @return Error
  */
-Error buffer_copy(ConstBuff source, Buffer destination)
+static inline Error buffer_copy(ConstBuff source, Buffer destination)
 {
     if (!source.bytes || !destination.bytes)
         return X_ERR_EXT("buffer", "buffer_copy", ERR_INVALID_PARAMETER, "null args");
@@ -198,7 +198,7 @@ Error buffer_copy(ConstBuff source, Buffer destination)
  *
  * ```c
  * ConstStr source = "Example string";
- * OwnedStr dest = ConstToHeapStr("______________");
+ * OwnedStr dest = ConstToHeapStr(&alloc, "_____________");
  *
  * ConstBuff srcBuff = (ConstBuff){ .bytes = source, .size = string_size(source) + 1 };
  * HeapBuff destBuff = (HeapBuff){ .bytes = dest, .size = string_size(dest) + 1 };
@@ -212,7 +212,7 @@ Error buffer_copy(ConstBuff source, Buffer destination)
  * @return Error
  * @exception ERR_INVALID_PARAMETER, ERR_WOULD_OVERFLOW
  */
-Error buffer_copy_n(ConstBuff source, Buffer destination, u64 n)
+static inline Error buffer_copy_n(ConstBuff source, Buffer destination, u64 n)
 {
     if (!source.bytes || !destination.bytes)
         return X_ERR_EXT("buffer", "buffer_copy_n", ERR_INVALID_PARAMETER, "null args");
@@ -246,7 +246,7 @@ Error buffer_copy_n(ConstBuff source, Buffer destination, u64 n)
  *
  * ```c
  * ConstStr source =     "Example string";
- * String dest = ConstToHeapStr("__________________");
+ * String dest = ConstToHeapStr(&alloc, "_________________");
  *
  * ConstBuff srcBuff = (ConstBuff){ .bytes = source, .size = string_size(source) + 1 };
  * HeapBuff destBuff = (HeapBuff){ .bytes = dest, .size = string_size(dest) + 1 };
@@ -258,7 +258,7 @@ Error buffer_copy_n(ConstBuff source, Buffer destination, u64 n)
  * @param source
  * @param destination buffer of size >= source.size
  */
-void buffer_copy_unsafe(ConstBuff source, Buffer destination)
+static inline void buffer_copy_unsafe(ConstBuff source, Buffer destination)
 {
     const i8 *s = (const i8 *)source.bytes;
     i8 *d = (i8 *)destination.bytes;
@@ -280,7 +280,7 @@ void buffer_copy_unsafe(ConstBuff source, Buffer destination)
  *
  * ```c
  * ConstStr source = "Example string";
- * String dest = ConstToHeapStr("______________");
+ * String dest = ConstToHeapStr(&alloc, "_____________");
  *
  * ConstBuff srcBuff = (ConstBuff){ .bytes = source, .size = string_size(source) + 1 };
  * HeapBuff destBuff = (HeapBuff){ .bytes = dest, .size = string_size(dest) + 1 };
@@ -292,7 +292,7 @@ void buffer_copy_unsafe(ConstBuff source, Buffer destination)
  * @param destination buffer of size >= n
  * @param n number of bytes to copy
  */
-void buffer_copy_n_unsafe(ConstBuff source, Buffer destination, u64 n)
+static inline void buffer_copy_n_unsafe(ConstBuff source, Buffer destination, u64 n)
 {
     const i8 *s = (const i8 *)source.bytes;
     i8 *d = (i8 *)destination.bytes;
@@ -314,7 +314,7 @@ void buffer_copy_n_unsafe(ConstBuff source, Buffer destination, u64 n)
  * ConstStr source = "Example string";
  * ConstBuff srcBuff = (ConstBuff){ .bytes = source, .size = string_size(source) + 1 };
  *
- * ResultOwnedBuff newBuff = buff_dupe(&c_allocator, srcBuff);
+ * ResultOwnedBuff newBuff = buff_dupe(default_allocator(), srcBuff);
  * if (newBuff.error.code) // Error!
  * // newBuff.value.bytes == "Example string"
  * // newBuff.value.size == sizeof("Example string")
@@ -323,7 +323,7 @@ void buffer_copy_n_unsafe(ConstBuff source, Buffer destination, u64 n)
  * @param source
  * @return String
  */
-ResultOwnedBuff buffer_dupe(Allocator *alloc, ConstBuff source)
+static inline ResultOwnedBuff buffer_dupe(Allocator *alloc, ConstBuff source)
 {
     if (source.size == 0)
         return (ResultOwnedBuff){
@@ -337,15 +337,15 @@ ResultOwnedBuff buffer_dupe(Allocator *alloc, ConstBuff source)
             .error = X_ERR_EXT("buffer", "buffer_dupe", ERR_INVALID_PARAMETER, "null src"),
         };
 
-    void *new = alloc->alloc(alloc, source.size);
+    i8 *newBuff = (i8*)alloc->alloc(alloc, source.size);
 
-    if (!new)
+    if (!newBuff)
         return (ResultOwnedBuff){
             .value = {.bytes = NULL, .size = 0},
             .error = X_ERR_EXT("buffer", "buffer_dupe", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
-    HeapBuff buff = (HeapBuff){.bytes = new, .size = source.size};
+    HeapBuff buff = (HeapBuff){.bytes = newBuff, .size = source.size};
     buffer_copy_unsafe(source, buff);
 
     return (ResultOwnedBuff){
@@ -364,7 +364,7 @@ ResultOwnedBuff buffer_dupe(Allocator *alloc, ConstBuff source)
  * ConstStr source = "Example string";
  * ConstBuff srcBuff = (ConstBuff){ .bytes = source, .size = string_size(source) + 1 };
  *
- * HeapBuff newBuff = buffer_dupe_noresult(&c_allocator, srcBuff);
+ * HeapBuff newBuff = buffer_dupe_noresult(default_allocator(), srcBuff);
  * if (!newBuff) // Error!
  * // newBuff.value.bytes == "Example string"
  * // newBuff.value.size == sizeof("Example string")
@@ -373,14 +373,14 @@ ResultOwnedBuff buffer_dupe(Allocator *alloc, ConstBuff source)
  * @param source
  * @return HeapBuff
  */
-HeapBuff buffer_dupe_noresult(Allocator *alloc, ConstBuff source)
+static inline HeapBuff buffer_dupe_noresult(Allocator *alloc, ConstBuff source)
 {
-    void *new = alloc->alloc(alloc, source.size);
+    i8 *newBuff = (i8*)alloc->alloc(alloc, source.size);
 
-    if (!new)
+    if (!newBuff)
         return (HeapBuff){.bytes = NULL, .size = 0};
 
-    HeapBuff buff = (HeapBuff){.bytes = new, .size = source.size};
+    HeapBuff buff = (HeapBuff){.bytes = newBuff, .size = source.size};
     buffer_copy_unsafe(source, buff);
     return buff;
 }

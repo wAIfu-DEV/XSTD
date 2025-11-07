@@ -7,19 +7,19 @@
 #include "xstd_result.h"
 #include "xstd_error.h"
 
-#if __XSTD_ARCH_64BIT
-u64 __hashmap_fnv1a64(const void *key, u64 len)
+#if _XSTD_ARCH_64BIT
+static inline u64 _hashmap_fnv1a64(const void *key, u64 len)
 {
     const u8 *data = (const u8 *)key;
 
     u64 hash = 0xcbf29ce484222325ULL;
     for (u64 i = 0; i < len; ++i)
         hash = (hash ^ data[i]) * 0x100000001b3ULL;
-    
+
     return hash;
 }
 #else
-u32 __hashmap_fnv1a32(const void *key, u32 len)
+static inline u32 _hashmap_fnv1a32(const void *key, u32 len)
 {
     const u8 *data = (const u8 *)key;
 
@@ -61,9 +61,9 @@ typedef struct _result_hashmap
 
 /**
  * @brief Creates a HashMap allowing storing of key-value pairs, with constant time fetching by using hashing.
- * 
+ *
  * Prefer `HashMapInitT` for a type safe alternative.
- * 
+ *
  * ```c
  * ResultHashMap mapRes = hashmap_init(&c_alloc, sizeof(u64), 16);
  * if (mapRes.error.code) // Error!
@@ -78,12 +78,12 @@ typedef struct _result_hashmap
  * // outVal == 52
  * hashmap_deinit(&map);
  * ```
- * @param alloc 
- * @param valueByteSize 
- * @param initialAllocCount 
- * @return ResultHashMap 
+ * @param alloc
+ * @param valueByteSize
+ * @param initialAllocCount
+ * @return ResultHashMap
  */
-ResultHashMap hashmap_init(Allocator *alloc, u64 valueByteSize, u64 initialAllocCount)
+static inline ResultHashMap hashmap_init(Allocator *alloc, u64 valueByteSize, u64 initialAllocCount)
 {
     if (!alloc || valueByteSize == 0)
         return (ResultHashMap){
@@ -119,7 +119,7 @@ ResultHashMap hashmap_init(Allocator *alloc, u64 valueByteSize, u64 initialAlloc
 
 /**
  * @brief Type safe variant of `hashmap_init`
- * 
+ *
  * ```c
  * ResultHashMap mapRes = HashMapInitT(u64, &c_alloc);
  * if (mapRes.error.code) // Error!
@@ -139,16 +139,16 @@ ResultHashMap hashmap_init(Allocator *alloc, u64 valueByteSize, u64 initialAlloc
 
 /**
  * @brief Frees the memory allocated for the HashMap.
- * 
+ *
  * Invalidates the HashMap, usage of it after call to this function is undefined behavior.
- * 
- * @param map 
+ *
+ * @param map
  */
-void hashmap_deinit(HashMap *map)
+static inline void hashmap_deinit(HashMap *map)
 {
     if (!map || !map->_buckets)
         return;
-    
+
     Allocator *alloc = &map->_allocator;
     for (u64 i = 0; i < map->_bucketCount; ++i)
     {
@@ -172,7 +172,7 @@ void hashmap_deinit(HashMap *map)
     *map = (HashMap){0};
 }
 
-void __hashmap_memcpy(HashMap *h, const void *srcPtr, void *dstPtr)
+static inline void _hashmap_memcpy(HashMap *h, const void *srcPtr, void *dstPtr)
 {
     u64 rest = h->_valueSize;
 
@@ -183,7 +183,7 @@ void __hashmap_memcpy(HashMap *h, const void *srcPtr, void *dstPtr)
         *d++ = *s++;
 }
 
-ibool __hashmap_key_equals(Buffer a, Buffer b)
+static inline ibool _hashmap_key_equals(Buffer a, Buffer b)
 {
     if (a.size != b.size)
         return false;
@@ -194,50 +194,50 @@ ibool __hashmap_key_equals(Buffer a, Buffer b)
     for (u64 i = 0; i < a.size; ++i)
         if (a.bytes[i] != b.bytes[i])
             return false;
-    
+
     return true;
 }
 
-u64 __hashmap_bucket_idx(HashMap *map, u64 hash)
+static inline u64 _hashmap_bucket_idx(HashMap *map, u64 hash)
 {
     return hash % map->_bucketCount;
 }
 
-ibool __hashmap_is_invalid_idx(HashMap *map, u64 idx)
+static inline ibool _hashmap_is_invalid_idx(HashMap *map, u64 idx)
 {
     if (!map->_bucketCount)
         return true;
 
     if (idx > map->_bucketCount - 1)
         return true;
-    
+
     return false;
 }
 
-Error __hashmap_set(HashMap *map, Buffer key, const void *value, u64 hash)
+static inline Error _hashmap_set(HashMap *map, Buffer key, const void *value, u64 hash)
 {
     Allocator *alloc = &map->_allocator;
 
-    u64 idx = __hashmap_bucket_idx(map, hash);
-    if (__hashmap_is_invalid_idx(map, idx))
+    u64 idx = _hashmap_bucket_idx(map, hash);
+    if (_hashmap_is_invalid_idx(map, idx))
     {
-        return X_ERR_EXT("hashmap", "__hashmap_set", ERR_RANGE_ERROR, "inexistant entry");
+        return X_ERR_EXT("hashmap", "_hashmap_set", ERR_RANGE_ERROR, "inexistent entry");
     }
 
     _HashMapEntry *entry = map->_buckets[idx];
 
     while (entry)
     {
-        if (entry->_hash == hash && __hashmap_key_equals(entry->_key, key))
+        if (entry->_hash == hash && _hashmap_key_equals(entry->_key, key))
         {
             if (!entry->_value)
             {
                 entry->_value = alloc->alloc(alloc, map->_valueSize);
                 if (!entry->_value)
-                    return X_ERR_EXT("hashmap", "__hashmap_set", ERR_OUT_OF_MEMORY, "alloc failure");
+                    return X_ERR_EXT("hashmap", "_hashmap_set", ERR_OUT_OF_MEMORY, "alloc failure");
             }
 
-            __hashmap_memcpy(map, value, entry->_value);
+            _hashmap_memcpy(map, value, entry->_value);
             return X_ERR_OK;
         }
         entry = entry->_next;
@@ -246,8 +246,8 @@ Error __hashmap_set(HashMap *map, Buffer key, const void *value, u64 hash)
     _HashMapEntry *newEntry = (_HashMapEntry *)alloc->alloc(alloc, sizeof(_HashMapEntry));
 
     if (!newEntry)
-        return X_ERR_EXT("hashmap", "__hashmap_set", ERR_OUT_OF_MEMORY, "alloc failure");
-    
+        return X_ERR_EXT("hashmap", "_hashmap_set", ERR_OUT_OF_MEMORY, "alloc failure");
+
     newEntry->_hash = hash;
     newEntry->_key = (Buffer){
         .bytes = (i8 *)alloc->alloc(alloc, key.size),
@@ -257,18 +257,18 @@ Error __hashmap_set(HashMap *map, Buffer key, const void *value, u64 hash)
     if (!newEntry->_key.bytes)
     {
         alloc->free(alloc, newEntry);
-        return X_ERR_EXT("hashmap", "__hashmap_set", ERR_OUT_OF_MEMORY, "alloc failure");
+        return X_ERR_EXT("hashmap", "_hashmap_set", ERR_OUT_OF_MEMORY, "alloc failure");
     }
 
     for (u64 i = 0; i < key.size; ++i)
         newEntry->_key.bytes[i] = key.bytes[i];
-    
+
     newEntry->_value = alloc->alloc(alloc, map->_valueSize);
     if (!newEntry->_value)
     {
         alloc->free(alloc, newEntry->_key.bytes);
         alloc->free(alloc, newEntry);
-        return X_ERR_EXT("hashmap", "__hashmap_set", ERR_OUT_OF_MEMORY, "alloc failure");
+        return X_ERR_EXT("hashmap", "_hashmap_set", ERR_OUT_OF_MEMORY, "alloc failure");
     }
 
     for (u64 i = 0; i < map->_valueSize; ++i)
@@ -280,17 +280,17 @@ Error __hashmap_set(HashMap *map, Buffer key, const void *value, u64 hash)
     return X_ERR_OK;
 }
 
-Error __hashmap_rehash(HashMap *map, u64 newBucketCount)
+static inline Error _hashmap_rehash(HashMap *map, u64 newBucketCount)
 {
     if (newBucketCount == 0)
-        return X_ERR_EXT("hashmap", "__hashmap_rehash", ERR_INVALID_PARAMETER, "new bucket count is 0");
+        return X_ERR_EXT("hashmap", "_hashmap_rehash", ERR_INVALID_PARAMETER, "new bucket count is 0");
 
     Allocator *alloc = &map->_allocator;
     _HashMapEntry **newBuckets = (_HashMapEntry **)alloc->alloc(alloc, sizeof(_HashMapEntry *) * newBucketCount);
 
     if (!newBuckets)
-        return X_ERR_EXT("hashmap", "__hashmap_rehash", ERR_OUT_OF_MEMORY, "alloc failure");
-    
+        return X_ERR_EXT("hashmap", "_hashmap_rehash", ERR_OUT_OF_MEMORY, "alloc failure");
+
     for (u64 i = 0; i < newBucketCount; ++i)
         newBuckets[i] = 0;
 
@@ -315,28 +315,28 @@ Error __hashmap_rehash(HashMap *map, u64 newBucketCount)
 
 /**
  * @brief Sets or overwrites value for provided `key` of type `Buffer`
- * 
- * @param map 
- * @param key 
- * @param value 
- * @return Error 
+ *
+ * @param map
+ * @param key
+ * @param value
+ * @return Error
  */
-Error hashmap_set(HashMap *map, Buffer key, const void *value)
+static inline Error hashmap_set(HashMap *map, Buffer key, const void *value)
 {
     if (!map || !map->_buckets || !key.bytes)
         return X_ERR_EXT("hashmap", "hashmap_set", ERR_INVALID_PARAMETER, "null or invalid arg");
-    
+
     if ((map->_size + 1) * _X_HASHMAP_LOAD_FACTOR_DEN > map->_bucketCount * _X_HASHMAP_LOAD_FACTOR_NUM)
     {
-        Error err = __hashmap_rehash(map, map->_bucketCount * 2);
+        Error err = _hashmap_rehash(map, map->_bucketCount * 2);
         if (err.code != ERR_OK)
             return err;
     }
-    return __hashmap_set(map, key, value,
-        #if __XSTD_ARCH_64BIT
-        __hashmap_fnv1a64(key.bytes, key.size)
+    return _hashmap_set(map, key, value,
+        #if _XSTD_ARCH_64BIT
+        _hashmap_fnv1a64(key.bytes, key.size)
         #else
-        __hashmap_fnv1a32(key.bytes, key.size)
+        _hashmap_fnv1a32(key.bytes, key.size)
         #endif
     );
 }
@@ -350,17 +350,17 @@ Error hashmap_set(HashMap *map, Buffer key, const void *value)
 
 /**
  * @brief Sets or overwrites value for provided `key` of type `String`
- * 
- * @param map 
- * @param key 
- * @param value 
- * @return Error 
+ *
+ * @param map
+ * @param key
+ * @param value
+ * @return Error
  */
-Error hashmap_set_str(HashMap *map, ConstStr key, const void *value)
+static inline Error hashmap_set_str(HashMap *map, ConstStr key, const void *value)
 {
     if (!key)
         return X_ERR_EXT("hashmap", "hashmap_set_str", ERR_INVALID_PARAMETER, "null key");
-    
+
     Buffer keyBuff = {.bytes = (i8 *)key, .size = string_size(key)};
     return hashmap_set(map, keyBuff, value);
 }
@@ -374,28 +374,28 @@ Error hashmap_set_str(HashMap *map, ConstStr key, const void *value)
 
 /**
  * @brief Fetches a value from a provided `key` of type `Buffer`
- * 
+ *
  * If the map does not contain a value for the provided key, will return the Error ERR_FAILED
- * 
- * @param map 
- * @param key 
- * @param value 
- * @return Error 
+ *
+ * @param map
+ * @param key
+ * @param value
+ * @return Error
  */
-Error hashmap_get(HashMap *map, Buffer key, void *outValue)
+static inline Error hashmap_get(HashMap *map, Buffer key, void *outValue)
 {
     if (!map || !map->_buckets || !key.bytes)
         return X_ERR_EXT("hashmap", "hashmap_get", ERR_INVALID_PARAMETER, "null or invalid arg");
-    
-    #if __XSTD_ARCH_64BIT
-    u64 hash = __hashmap_fnv1a64(key.bytes, key.size);
+
+    #if _XSTD_ARCH_64BIT
+    u64 hash = _hashmap_fnv1a64(key.bytes, key.size);
     #else
-    u64 hash = __hashmap_fnv1a32(key.bytes, key.size);
+    u64 hash = _hashmap_fnv1a32(key.bytes, key.size);
     #endif
 
-    u64 idx = __hashmap_bucket_idx(map, hash);
+    u64 idx = _hashmap_bucket_idx(map, hash);
 
-    if (__hashmap_is_invalid_idx(map, idx))
+    if (_hashmap_is_invalid_idx(map, idx))
     {
         return X_ERR_EXT("hashmap", "hashmap_get", ERR_RANGE_ERROR, "inexistent key");
     }
@@ -403,11 +403,11 @@ Error hashmap_get(HashMap *map, Buffer key, void *outValue)
     _HashMapEntry *entry = map->_buckets[idx];
     while (entry)
     {
-        if (entry->_hash == hash && __hashmap_key_equals(entry->_key, key))
+        if (entry->_hash == hash && _hashmap_key_equals(entry->_key, key))
         {
             if (outValue && entry->_value)
             {
-                __hashmap_memcpy(map, entry->_value, outValue);
+                _hashmap_memcpy(map, entry->_value, outValue);
             }
             return X_ERR_OK;
         }
@@ -425,17 +425,17 @@ Error hashmap_get(HashMap *map, Buffer key, void *outValue)
 
 /**
  * @brief Fetches a value from a provided `key` of type `String`
- * 
+ *
  * Prefer `HashMapGetStrT` as a type safe alternative.
- * 
+ *
  * If the map does not contain a value for the provided key, will return the Error ERR_FAILED
- * 
- * @param map 
- * @param key 
- * @param value 
- * @return Error 
+ *
+ * @param map
+ * @param key
+ * @param value
+ * @return Error
  */
-Error hashmap_get_str(HashMap *map, ConstStr key, void *outValue)
+static inline Error hashmap_get_str(HashMap *map, ConstStr key, void *outValue)
 {
     Buffer keyBuff = {.bytes = (i8 *)key, .size = string_size(key)};
     return hashmap_get(map, keyBuff, outValue);
@@ -443,15 +443,15 @@ Error hashmap_get_str(HashMap *map, ConstStr key, void *outValue)
 
 /**
  * @brief Type safe variant of `hashmap_get_str`
- * 
+ *
  * Fetches a value from a provided `key` of type `String`
- * 
+ *
  * If the map does not contain a value for the provided key, will return the Error ERR_FAILED
- * 
- * @param map 
- * @param key 
- * @param value 
- * @return Error 
+ *
+ * @param map
+ * @param key
+ * @param value
+ * @return Error
  */
 #define HashMapGetStrT(T, mapPtr, keyStr, outPtr) \
     { \
@@ -462,25 +462,25 @@ Error hashmap_get_str(HashMap *map, ConstStr key, void *outValue)
 
 /**
  * @brief Removes a value associated with the provided key of type `Buffer`
- * 
- * @param map 
- * @param key 
- * @return Error 
+ *
+ * @param map
+ * @param key
+ * @return Error
  */
-Error hashmap_remove(HashMap *map, Buffer key)
+static inline Error hashmap_remove(HashMap *map, Buffer key)
 {
     if (!map || !map->_buckets || !key.bytes)
         return X_ERR_EXT("hashmap", "hashmap_remove", ERR_INVALID_PARAMETER, "null or invalid arg");
-    
-    #if __XSTD_ARCH_64BIT
-    u64 hash = __hashmap_fnv1a64(key.bytes, key.size);
+
+    #if _XSTD_ARCH_64BIT
+    u64 hash = _hashmap_fnv1a64(key.bytes, key.size);
     #else
-    u64 hash = __hashmap_fnv1a32(key.bytes, key.size);
+    u64 hash = _hashmap_fnv1a32(key.bytes, key.size);
     #endif
 
-    u64 idx = __hashmap_bucket_idx(map, hash);
+    u64 idx = _hashmap_bucket_idx(map, hash);
 
-    if (__hashmap_is_invalid_idx(map, idx))
+    if (_hashmap_is_invalid_idx(map, idx))
     {
         return X_ERR_EXT("hashmap", "hashmap_remove", ERR_RANGE_ERROR, "inexistent key");
     }
@@ -490,17 +490,17 @@ Error hashmap_remove(HashMap *map, Buffer key)
 
     while (entry)
     {
-        if (entry->_hash == hash && __hashmap_key_equals(entry->_key, key))
+        if (entry->_hash == hash && _hashmap_key_equals(entry->_key, key))
         {
             *prev = entry->_next;
             Allocator *alloc = &map->_allocator;
 
             if (entry->_key.bytes)
                 alloc->free(alloc, entry->_key.bytes);
-            
+
             if (entry->_value)
                 alloc->free(alloc, entry->_value);
-            
+
             alloc->free(alloc, entry);
             map->_size -= 1;
             return X_ERR_OK;
@@ -513,12 +513,12 @@ Error hashmap_remove(HashMap *map, Buffer key)
 
 /**
  * @brief Removes a value associated with the provided key of type `String`
- * 
- * @param map 
- * @param key 
- * @return Error 
+ *
+ * @param map
+ * @param key
+ * @return Error
  */
-Error hashmap_remove_str(HashMap *map, ConstStr key)
+static inline Error hashmap_remove_str(HashMap *map, ConstStr key)
 {
     Buffer keyBuff = {.bytes = (i8 *)key, .size = string_size(key)};
     return hashmap_remove(map, keyBuff);
@@ -526,16 +526,16 @@ Error hashmap_remove_str(HashMap *map, ConstStr key)
 
 /**
  * @brief Calls a function for each key-value pairs in the map.
- * 
- * @param map 
- * @param func 
- * @param userArg 
+ *
+ * @param map
+ * @param func
+ * @param userArg
  */
-void hashmap_for_each(HashMap *map, void (*func)(Buffer key, void *value, void *userArg), void *userArg)
+static inline void hashmap_for_each(HashMap *map, void (*func)(Buffer key, void *value, void *userArg), void *userArg)
 {
     if (!map || !map->_buckets || !func)
         return;
-    
+
     for (u64 i = 0; i < map->_bucketCount; ++i)
     {
         _HashMapEntry *entry = map->_buckets[i];
@@ -549,14 +549,14 @@ void hashmap_for_each(HashMap *map, void (*func)(Buffer key, void *value, void *
 
 /**
  * @brief Returns the count of key-value pairs in the map.
- * 
- * @param map 
- * @return u64 
+ *
+ * @param map
+ * @return u64
  */
-u64 hashmap_size(HashMap *map)
+static inline u64 hashmap_size(HashMap *map)
 {
     if (!map)
         return 0;
-    
+
     return map->_size;
 }

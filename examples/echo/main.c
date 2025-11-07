@@ -2,12 +2,13 @@
 
 int main(void)
 {
+    Allocator *a = default_allocator();
     io_println("Echo started, type \"quit\" to exit.");
 
     while (true)
     {
         // Read line from stdin
-        ResultOwnedStr inputRes = io_read_line(&c_allocator);
+        ResultOwnedStr inputRes = io_read_line(a);
         assert_ok(inputRes.error, "Could not read from stdin.");
 
         // Handle exit
@@ -17,6 +18,6 @@ int main(void)
         io_println(inputRes.value);
 
         // Free owned memory
-        c_allocator.free(&c_allocator, inputRes.value);
+        a->free(a, inputRes.value);
     }
 }

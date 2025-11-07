@@ -2,6 +2,8 @@
 
 int main(void)
 {
+    io_println("opening file");
+
     // OPEN FILE ===============================================================
     ResultFile resFile = file_open("sample.csv", FileOpenModes.READ);
     assert_ok(resFile.error, "Failed to open sample file");
@@ -12,25 +14,28 @@ int main(void)
 
     { // Stack allocated arena will be freed as it falls out of this scope
 
-        // Allocate 1MB of stack mem
+        /*// Allocate 1MB of stack mem
         i8 arenaBufferBytes[1024];
         // Create buffer pointing to mem
         Buffer arenaBuffer = (Buffer){
             .bytes = arenaBufferBytes,
-            .size = sizeof(arenaBufferBytes)};
+            .size = 1024,
+        };
 
         // Initialize alloc allocator
         ResultAllocator resArena = arena_allocator(arenaBuffer, false);
         assert_ok(resArena.error, "Failed to initialize alloc.");
 
-        Allocator alloc = resArena.value;
+        Allocator alloc = resArena.value;*/
 
         // ^^^
         // This is if you want to use stack memory
         // For heap memory you can use:
-        // Allocator alloc = c_allocator;
+        Allocator alloc = *default_allocator();
 
         // READ FILE ===========================================================
+
+        io_println("reading file");
 
         // Read file as list of lines
         ResultList resLines = file_read_lines(&alloc, &file);
@@ -39,6 +44,8 @@ int main(void)
         List lines = resLines.value;
 
         // PARSE FILE ==========================================================
+
+        io_println("parsing file");
 
         typedef struct _csv_line
         {
@@ -60,6 +67,9 @@ int main(void)
             // If list items are pointers (here String which is an alias of i8*)
             // list_get_as_ptr allows direct retrieval of the item as a pointer
             String line = list_get_as_ptr(&lines, i);
+
+            if (string_equals(line, ""))
+                continue;
 
             // Split line on ',' character, returns list of strings
             ResultList resSplit = string_split_char(&alloc, line, ',');
@@ -97,6 +107,8 @@ int main(void)
 
         // PRINT RESULTS =======================================================
 
+        io_println("content:");
+
         u64 resultNb = list_size(&resultList);
         for (u64 i = 0; i < resultNb; ++i)
         {
@@ -115,4 +127,6 @@ int main(void)
             io_println("");
         }
     } // Arena deallocation
+
+    io_println("done");
 }

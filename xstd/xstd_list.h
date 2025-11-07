@@ -25,7 +25,7 @@ typedef struct _result_list
  * @brief Create a dynamic array that can be appended to, modified and resized.
  *
  * ```c
- * ResultList res = list_init(&c_allocator, sizeof(String), 16);
+ * ResultList res = list_init(default_allocator(), sizeof(String), 16);
  * if (res.error.code) // Error!
  * List l = res.value;
  * ```
@@ -34,7 +34,7 @@ typedef struct _result_list
  * @param initialAllocSize
  * @return ResultList
  */
-ResultList list_init(Allocator *alloc, u64 itemByteSize, u64 initialAllocSize)
+static inline ResultList list_init(Allocator *alloc, u64 itemByteSize, u64 initialAllocSize)
 {
     if (!alloc)
         return (ResultList){
@@ -77,7 +77,7 @@ ResultList list_init(Allocator *alloc, u64 itemByteSize, u64 initialAllocSize)
  * @brief Create a dynamic array that can be appended to, modified and resized.
  *
  * ```c
- * ResultList res = ListInitT(String, &c_allocator);
+ * ResultList res = ListInitT(String, default_allocator());
  * if (res.error.code) // Error!
  * List l = res.value;
  * ```
@@ -99,7 +99,7 @@ ResultList list_init(Allocator *alloc, u64 itemByteSize, u64 initialAllocSize)
  * ```
  * @param list
  */
-void list_deinit(List *list)
+static inline void list_deinit(List *list)
 {
     if (!list)
         return;
@@ -124,7 +124,7 @@ void list_deinit(List *list)
  * @param list
  * @return u64
  */
-u64 list_size(List *list)
+static inline u64 list_size(List *list)
 {
     if (!list)
         return 0;
@@ -132,7 +132,7 @@ u64 list_size(List *list)
     return list->_itemCnt;
 }
 
-void _list_expand(List *l)
+static inline void _list_expand(List *l)
 {
     l->_data = l->_allocator.realloc(&l->_allocator,
                                      l->_data,
@@ -140,7 +140,7 @@ void _list_expand(List *l)
     l->_allocCnt *= 2;
 }
 
-ibool _list_should_shrink(List *l)
+static inline ibool _list_should_shrink(List *l)
 {
     u64 halfAlloc = (u64)((f64)(l->_allocCnt) * 0.5);
 
@@ -150,7 +150,7 @@ ibool _list_should_shrink(List *l)
     return (l->_itemCnt < halfAlloc);
 }
 
-void _list_shrink(List *l)
+static inline void _list_shrink(List *l)
 {
     u64 newCnt = (u64)((f64)(l->_allocCnt) * 0.5);
     l->_allocCnt = newCnt;
@@ -162,7 +162,7 @@ void _list_shrink(List *l)
                                      newSize);
 }
 
-void _list_wipe(List *l)
+static inline void _list_wipe(List *l)
 {
     l->_allocCnt = _X_LIST_INIT_SIZE;
     l->_itemCnt = 0;
@@ -174,7 +174,7 @@ void _list_wipe(List *l)
                                      newSize);
 }
 
-void _list_memcpy(List *l, const void *srcPtr, void *dstPtr)
+static inline void _list_memcpy(List *l, const void *srcPtr, void *dstPtr)
 {
     u64 rest = l->_typeSize;
 
@@ -185,7 +185,7 @@ void _list_memcpy(List *l, const void *srcPtr, void *dstPtr)
         *d++ = *s++;
 }
 
-void *_list_i_to_ptr(List *l, u64 i)
+static inline void *_list_i_to_ptr(List *l, u64 i)
 {
     return ((i8 *)l->_data) + l->_typeSize * i;
 }
@@ -195,7 +195,7 @@ void *_list_i_to_ptr(List *l, u64 i)
  * Prefer `ListGetT` macro as it provides compiler type checking.
  *
  * ```c
- * String s = ConstToHeapStr("Test string");
+ * String s = ConstToHeapStr(&alloc, "Test string");
  * list_push(&list, &s);
  * String resultStr;
  * Error err = list_get(&list, 0, &resultStr);
@@ -207,7 +207,7 @@ void *_list_i_to_ptr(List *l, u64 i)
  * @param out Pointer to allocated memory of size sizeof(ItemType)
  * @return Error
  */
-Error list_get(List *list, u64 i, void *out)
+static inline Error list_get(List *list, u64 i, void *out)
 {
     if (!list)
         return X_ERR_EXT("list", "list_init", ERR_INVALID_PARAMETER, "null list");
@@ -225,7 +225,7 @@ Error list_get(List *list, u64 i, void *out)
  * Writes contents of `list[i]` to `out`
  *
  * ```c
- * String s = ConstToHeapStr("Test string");
+ * String s = ConstToHeapStr(&alloc, "Test string");
  * list_push(&list, &s);
  * String resultStr;
  * Error err = list_get(&list, 0, &resultStr);
@@ -247,7 +247,7 @@ Error list_get(List *list, u64 i, void *out)
  * @brief Writes contents of `list[i]` to `out`. Does not do any bounds checking or validation.
  *
  * ```c
- * String s = ConstToHeapStr("Test string");
+ * String s = ConstToHeapStr(&alloc, "Test string");
  * list_push(&list, &s);
  * String resultStr;
  * Error err = list_get_unsafe(&list, 0, &resultStr);
@@ -257,7 +257,7 @@ Error list_get(List *list, u64 i, void *out)
  * @param i index
  * @param out Pointer to allocated memory of size sizeof(ItemType)
  */
-void list_get_unsafe(List *list, u64 i, void *out)
+static inline void list_get_unsafe(List *list, u64 i, void *out)
 {
     void *ptr = _list_i_to_ptr(list, i);
     _list_memcpy(list, ptr, out);
@@ -269,7 +269,7 @@ void list_get_unsafe(List *list, u64 i, void *out)
  * Prefer `ListGetRefT` macro as it provides compiler type checking.
  *
  * ```c
- * String s = ConstToHeapStr("Test string");
+ * String s = ConstToHeapStr(&alloc, "Test string");
  * list_push(&list, &s);
  * String* resultStr = list_getref(&list, 0);
  * if (!resultStr) // Error!
@@ -279,7 +279,7 @@ void list_get_unsafe(List *list, u64 i, void *out)
  * @param i index
  * @return void*
  */
-void *list_getref(List *list, u64 i)
+static inline void *list_getref(List *list, u64 i)
 {
     if (!list)
         return NULL;
@@ -297,7 +297,7 @@ void *list_getref(List *list, u64 i)
  * Memory is NOT owned by the caller.
  *
  * ```c
- * String s = ConstToHeapStr("Test string");
+ * String s = ConstToHeapStr(&alloc, "Test string");
  * list_push(&list, &s);
  * String* resultStr;
  * ListGetRefT(String, &list, 0, resultStr);
@@ -319,7 +319,7 @@ void *list_getref(List *list, u64 i)
  * Memory is NOT owned by the caller.
  *
  * ```c
- * String s = ConstToHeapStr("Test string");
+ * String s = ConstToHeapStr(&alloc, "Test string");
  * list_push(&list, &s);
  * String* resultStr = list_getref_unsafe(&list, 0);
  * // resultStr == &&"Test string"
@@ -328,7 +328,7 @@ void *list_getref(List *list, u64 i)
  * @param i index
  * @return Error
  */
-void *list_getref_unsafe(List *list, u64 i)
+static inline void *list_getref_unsafe(List *list, u64 i)
 {
     return _list_i_to_ptr(list, i);
 }
@@ -338,7 +338,7 @@ void *list_getref_unsafe(List *list, u64 i)
  * Memory is NOT owned by the caller.
  *
  * ```c
- * String s = ConstToHeapStr("Test string");
+ * String s = ConstToHeapStr(&alloc, "Test string");
  * list_push(&list, &s);
  * String resultStr = list_get_as_ptr(&list, 0);
  * if (!resultStr) // Error!
@@ -348,7 +348,7 @@ void *list_getref_unsafe(List *list, u64 i)
  * @param i index
  * @return void*
  */
-void *list_get_as_ptr(List *list, u64 i)
+static inline void *list_get_as_ptr(List *list, u64 i)
 {
     if (!list)
         return NULL;
@@ -368,7 +368,7 @@ void *list_get_as_ptr(List *list, u64 i)
  * Prefer `ListSetT` macro as it provides compiler type checking.
  *
  * ```c
- * String myStr = ConstToHeapStr("Test string");
+ * String myStr = ConstToHeapStr(&alloc, "Test string");
  * list_set(&list, 0, &myStr);
  * // list[0] == &"Test string"
  * ```
@@ -377,7 +377,7 @@ void *list_get_as_ptr(List *list, u64 i)
  * @param item Pointer to allocated memory of size sizeof(ItemType)
  * @return Error
  */
-void list_set(List *list, u64 i, const void *item)
+static inline void list_set(List *list, u64 i, const void *item)
 {
     if (!list)
         return;
@@ -394,7 +394,7 @@ void list_set(List *list, u64 i, const void *item)
  * Writes contents of `item` to `list[i]`
  *
  * ```c
- * String myStr = ConstToHeapStr("Test string");
+ * String myStr = ConstToHeapStr(&alloc, "Test string");
  * ListSetT(String, &list, 0, &myStr);
  * // list[0] == &"Test string"
  * ```
@@ -416,7 +416,7 @@ void list_set(List *list, u64 i, const void *item)
  * Emplaces a copy of the item pointed to by `item` into the list slot i.
  *
  * ```c
- * String myStr = ConstToHeapStr("Test string");
+ * String myStr = ConstToHeapStr(&alloc, "Test string");
  * list_set_unsafe(&list, 0, &myStr);
  * // list[0] == &"Test string"
  * ```
@@ -425,7 +425,7 @@ void list_set(List *list, u64 i, const void *item)
  * @param item Pointer to allocated memory of size sizeof(ItemType)
  * @return Error
  */
-void list_set_unsafe(List *list, u64 i, const void *item)
+static inline void list_set_unsafe(List *list, u64 i, const void *item)
 {
     _list_memcpy(list, item, _list_i_to_ptr(list, i));
 }
@@ -446,7 +446,7 @@ void list_set_unsafe(List *list, u64 i, const void *item)
  * @param alloc
  * @param list
  */
-void list_free_items(Allocator *alloc, List *list)
+static inline void list_free_items(Allocator *alloc, List *list)
 {
     if (!list)
         return;
@@ -462,7 +462,7 @@ void list_free_items(Allocator *alloc, List *list)
     u64 bound = list->_itemCnt;
     for (u64 i = 0; i < bound; ++i)
     {
-        void **ptr = list_getref_unsafe(list, i);
+        void **ptr = (void**)list_getref_unsafe(list, i);
         alloc->free(alloc, *ptr);
         list_set_unsafe(list, i, &nullPtr);
     }
@@ -473,7 +473,7 @@ void list_free_items(Allocator *alloc, List *list)
  * Prefer `ListPushT` macro as it provides compiler type checking.
  *
  * ```c
- * String myStr = ConstToHeapStr("Test string");
+ * String myStr = ConstToHeapStr(&alloc, "Test string");
  * list_push(&list, &myStr);
  * // list[list_size(&list) -1] == &"Test string"
  * ```
@@ -481,7 +481,7 @@ void list_free_items(Allocator *alloc, List *list)
  * @param item Pointer to allocated memory of size sizeof(ItemType)
  * @return Error
  */
-void list_push(List *list, const void *item)
+static inline void list_push(List *list, const void *item)
 {
     if (!list)
         return;
@@ -499,7 +499,7 @@ void list_push(List *list, const void *item)
  * Writes contents of `item` to end of the list, increases list size by 1.
  *
  * ```c
- * String myStr = ConstToHeapStr("Test string");
+ * String myStr = ConstToHeapStr(&alloc, "Test string");
  * ListPushT(String, &list, &myStr);
  * // list[list_size(&list) -1] == &"Test string"
  * ```
@@ -521,7 +521,7 @@ void list_push(List *list, const void *item)
  * Prefer `ListPopT` macro as it provides compiler type checking.
  *
  * ```c
- * String myStr = ConstToHeapStr("Test string");
+ * String myStr = ConstToHeapStr(&alloc, "Test string");
  * list_push(&list, &myStr);
  * String resultStr;
  * Error err = list_pop(&list, &resultStr);
@@ -532,7 +532,7 @@ void list_push(List *list, const void *item)
  * @param out
  * @return Error
  */
-Error list_pop(List *list, void *out)
+static inline Error list_pop(List *list, void *out)
 {
     if (!list)
         return X_ERR_EXT("list", "list_pop", ERR_INVALID_PARAMETER, "null list");
@@ -558,7 +558,7 @@ Error list_pop(List *list, void *out)
  * Memory is NOT owned by the caller.
  *
  * ```c
- * String myStr = ConstToHeapStr("Test string");
+ * String myStr = ConstToHeapStr(&alloc, "Test string");
  * list_push(&list, &myStr);
  * String resultStr;
  * Error err = list_pop(&list, &resultStr);
@@ -582,7 +582,7 @@ Error list_pop(List *list, void *out)
  *
  * @param list
  */
-void list_clear(List *list)
+static inline void list_clear(List *list)
 {
     if (!list)
         return;
@@ -596,7 +596,7 @@ void list_clear(List *list)
  *
  * @param list
  */
-void list_clear_nofree(List *list)
+static inline void list_clear_nofree(List *list)
 {
     if (!list)
         return;
@@ -610,7 +610,7 @@ void list_clear_nofree(List *list)
  * @param list
  * @param func
  */
-void list_for_each(List *list, void (*func)(void *itemPtr, u64 index, void* userArg), void* userArg)
+static inline void list_for_each(List *list, void (*func)(void *itemPtr, u64 index, void* userArg), void* userArg)
 {
     u64 bound = list->_itemCnt;
     for (u64 i = 0; i < bound; ++i)

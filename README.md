@@ -110,11 +110,11 @@ Simple, portable, and transparent. Absolutely no macros unless for type safety. 
 #include "xstd_string.h"
 
 i32 main() {
-    Allocator *a = &c_allocator;
+    Allocator *a = default_allocator();
 
     // Most XSTD functions will either return void, Error, or ResultT
     ResultStrBuilder builderRes = strbuilder_init(a);
-    
+
     // Check for errors by comparing error code against 0
     // Error code of 0 (ERR_OK) means success and a defined value,
     // But error code != 0 means failure, and a very likely undefined value.
@@ -185,16 +185,17 @@ It’s **just** modern utilities — nothing intrusive.
 
 int main(void)
 {
+    Allocator *a = default_allocator();
     io_println("Hello from xstd!");
 
-    ResultOwnedStr intStr = string_from_int(&c_allocator, -42);
+    ResultOwnedStr intStr = string_from_int(a, -42);
     if (intStr.error.code) {
         io_printerrln(intStr.error.msg);
         return 1;
     }
-    
+
     io_println(intStr.value);
-    c_allocator.free(&c_allocator, intStr.value);
+    a->free(a, intStr.value);
     return 0;
 }
 ```

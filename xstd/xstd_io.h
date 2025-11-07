@@ -2,11 +2,15 @@
 
 #include "xstd_file.h"
 
-#define IoStdout ((File){._handle = __file_os_int.fstdout(), ._valid = true})
-#define IoStderr ((File){._handle = __file_os_int.fstderr(), ._valid = true})
-#define IoStdin ((File){._handle = __file_os_int.fstdin(), ._valid = true})
+#include "xstd_proc_os_int.h"
+#include "xstd_proc_os_int_default.h"
+#include "xstd_file_os_int_default.h"
 
-void io_print_char(const char c)
+#define IoStdout ((File){._handle = _default_file_os_int()->fstdout(), ._valid = true})
+#define IoStderr ((File){._handle = _default_file_os_int()->fstderr(), ._valid = true})
+#define IoStdin ((File){._handle = _default_file_os_int()->fstdin(), ._valid = true})
+
+static inline void io_print_char(const char c)
 {
     File f = IoStdout;
     file_write_char(&f, c);
@@ -17,7 +21,7 @@ void io_print_char(const char c)
  *
  * @param text
  */
-void io_print(ConstStr text)
+static inline void io_print(ConstStr text)
 {
     File f = IoStdout;
 
@@ -34,19 +38,19 @@ void io_print(ConstStr text)
     }
 }
 
-void io_print_int(const i64 i)
+static inline void io_print_int(const i64 i)
 {
     File f = IoStdout;
     file_write_int(&f, i);
 }
 
-void io_print_uint(const u64 i)
+static inline void io_print_uint(const u64 i)
 {
     File f = IoStdout;
     file_write_uint(&f, i);
 }
 
-void io_print_float(const f64 flt, const u64 precision)
+static inline void io_print_float(const f64 flt, const u64 precision)
 {
     File f = IoStdout;
     file_write_f64(&f, flt, precision);
@@ -57,7 +61,7 @@ void io_print_float(const f64 flt, const u64 precision)
  *
  * @param text
  */
-void io_println(ConstStr text)
+static inline void io_println(ConstStr text)
 {
     File f = IoStdout;
 
@@ -81,7 +85,7 @@ void io_println(ConstStr text)
  *
  * @param text
  */
-void io_printerr(ConstStr text)
+static inline void io_printerr(ConstStr text)
 {
     File f = IoStderr;
 
@@ -108,7 +112,7 @@ void io_printerr(ConstStr text)
  *
  * @param text
  */
-void io_printerrln(ConstStr text)
+static inline void io_printerrln(ConstStr text)
 {
     File f = IoStderr;
 
@@ -140,45 +144,49 @@ void io_printerrln(ConstStr text)
  * @param alloc Allocator to use for allocating the buffer
  * @return OwnedStr or NULL on allocation failure or EOF
  */
-ResultOwnedStr io_read_line(Allocator *alloc)
+static inline ResultOwnedStr io_read_line(Allocator *a)
 {
     // TODO: Implement as generic file_read_line function
 
-    if (!alloc)
+    if (!a)
         return (ResultOwnedStr){
             .value = NULL,
-            .error = X_ERR_EXT("io", "io_read_line", ERR_INVALID_PARAMETER, "null allocator"),
+            .error = X_ERR_EXT("io", "io_read_line",
+                     ERR_INVALID_PARAMETER, "null allocator"),
         };
 
+    const _FileOsInterface* foi = _default_file_os_int();
     File f = IoStdin;
 
     u64 buffSize = 32;
-    i8 *buffer = alloc->alloc(alloc, buffSize);
+    i8 *buffer = (i8*)a->alloc(a, buffSize);
 
     if (!buffer)
         return (ResultOwnedStr){
             .value = NULL,
-            .error = X_ERR_EXT("io", "io_read_line", ERR_OUT_OF_MEMORY, "alloc failure"),
+            .error = X_ERR_EXT("io", "io_read_line",
+                     ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
     u64 len = 0;
 
     while (true)
     {
-        int ch = __file_os_int.getc(f._handle);
-        if (ch == EOF || ch == '\n' || ch == '\r')
+        int ch = foi->getc(f._handle);
+        if (ch == -1 /* EOF */ || ch == '\n' || ch == '\r')
             break;
 
         if (len + 1 >= buffSize)
         {
             u64 newSize = buffSize + 32;
-            i8 *newBuff = alloc->realloc(alloc, buffer, newSize);
+            i8 *newBuff = (i8*)a->realloc(a, buffer, newSize);
             if (!newBuff)
             {
-                alloc->free(alloc, buffer);
+                a->free(a, buffer);
                 return (ResultOwnedStr){
                     .value = NULL,
-                    .error = X_ERR_EXT("io", "io_read_line", ERR_OUT_OF_MEMORY, "alloc failure"),
+                    .error = X_ERR_EXT("io", "io_read_line",
+                             ERR_OUT_OF_MEMORY, "alloc failure"),
                 };
             }
             buffer = newBuff;
@@ -187,12 +195,13 @@ ResultOwnedStr io_read_line(Allocator *alloc)
         buffer[len++] = (i8)ch;
     }
 
-    if (len == 0 && __file_os_int.eof(f._handle))
+    if (len == 0 && foi->eof(f._handle))
     {
-        alloc->free(alloc, buffer);
+        a->free(a, buffer);
         return (ResultOwnedStr){
             .value = NULL,
-            .error = X_ERR_EXT("io", "io_read_line", ERR_FILE_CANT_READ, "cannot read from file"),
+            .error = X_ERR_EXT("io", "io_read_line",
+                     ERR_FILE_CANT_READ, "cannot read from file"),
         };
     }
     buffer[len] = 0;
@@ -203,13 +212,14 @@ ResultOwnedStr io_read_line(Allocator *alloc)
     };
 }
 
-void crash(i16 code)
+static inline void crash(i16 code)
 {
+    const _ProcOsInterface* poi = _default_proc_os_int();
     while (true)
-        exit(code);
+        poi->exit(code);
 }
 
-void crash_print(ConstStr errMsg, i16 code)
+static inline void crash_print(ConstStr errMsg, i16 code)
 {
     File f = IoStderr;
 
@@ -221,15 +231,15 @@ void crash_print(ConstStr errMsg, i16 code)
     crash(code);
 }
 
-void crash_print_error(Error err, ConstStr errMsg, i16 code)
+static inline void crash_print_error(Error err, ConstStr errMsg, i16 code)
 {
     File f = IoStderr;
 
     // We use file_write here to not spam file_flush
     file_write_str(&f, "\x1b[1;31m");
-    file_write_str(&f, "[CRASH](ERROR: ");
+    file_write_str(&f, "[CRASH]\n- code: ");
     file_write_str(&f, ErrorToString(err.code));
-    file_write_str(&f, "): ");
+    file_write_str(&f, "\n- desc: ");
     io_printerrln(errMsg);
 
     crash(code);
@@ -243,7 +253,7 @@ void crash_print_error(Error err, ConstStr errMsg, i16 code)
  * ```
  * @param text
  */
-void assert_true(const ibool condition, ConstStr falseMessage)
+static inline void assert_true(const ibool condition, ConstStr falseMessage)
 {
     if (condition)
         return;
@@ -266,7 +276,7 @@ void assert_true(const ibool condition, ConstStr falseMessage)
  * ```
  * @param text
  */
-void assert_ok(const Error err, ConstStr isErrMessage)
+static inline void assert_ok(const Error err, ConstStr isErrMessage)
 {
     if (err.code == ERR_OK)
         return;
@@ -275,11 +285,11 @@ void assert_ok(const Error err, ConstStr isErrMessage)
 
     // We use file_write here to not spam file_flush
     file_write_str(&f, "\x1b[1;31m");
-    file_write_str(&f, "[ASSERT ERR FAILURE](ERROR: ");
+    file_write_str(&f, "[ASSERT ERR FAILURE]\n- code: ");
     file_write_str(&f, ErrorToString(err.code));
-    file_write_str(&f, "; MSG: ");
+    file_write_str(&f, "\n- msg: ");
     file_write_str(&f, err.msg);
-    file_write_str(&f, "): ");
+    file_write_str(&f, "\n- desc: ");
     io_printerrln(isErrMessage);
 
     crash(1);
@@ -293,7 +303,7 @@ void assert_ok(const Error err, ConstStr isErrMessage)
  * ```
  * @param text
  */
-void assert_str_eq(ConstStr a, ConstStr b, ConstStr falseMessage)
+static inline void assert_str_eq(ConstStr a, ConstStr b, ConstStr falseMessage)
 {
     if (string_equals(a, b))
         return;

@@ -7,9 +7,9 @@
 
 typedef struct _buffalloc_block
 {
-    u64 size;              // Total size including header
+    u64 size;                      // Total size including header
     struct _buffalloc_block *next; // Next block in the list
-    ibool isFree;          // If this block is free
+    ibool isFree;                  // If this block is free
 } _BufferBlockHeader;
 
 typedef struct _buffalloc_state
@@ -19,16 +19,16 @@ typedef struct _buffalloc_state
     _BufferBlockHeader *head;
 } BufferAllocatorState;
 
-#define _X_BUFFALLOC_HEADER_SIZE ((u64)__buffalloc_offset_to_aligned(sizeof(BufferAllocatorState)))
-#define _X_BUFFALLOC_BLOCK_HEADER_SIZE ((u64)__buffalloc_offset_to_aligned(sizeof(_BufferBlockHeader)))
+#define _X_BUFFALLOC_HEADER_SIZE ((u64)_buffalloc_offset_to_aligned(sizeof(BufferAllocatorState)))
+#define _X_BUFFALLOC_BLOCK_HEADER_SIZE ((u64)_buffalloc_offset_to_aligned(sizeof(_BufferBlockHeader)))
 #define _X_BUFFALLOC_DEFAULT_ALIGN 16
 
-u64 __buffalloc_offset_to_aligned(u64 offset)
+static inline u64 _buffalloc_offset_to_aligned(u64 offset)
 {
     return (offset + (u64)_X_BUFFALLOC_DEFAULT_ALIGN - 1) & ~((u64)_X_BUFFALLOC_DEFAULT_ALIGN - 1);
 }
 
-ibool __buffalloc_offset_invalid(u64 totalCapacity, u64 alignedOffset, u64 allocSize)
+static inline ibool _buffalloc_offset_invalid(u64 totalCapacity, u64 alignedOffset, u64 allocSize)
 {
     if ((alignedOffset + allocSize) > totalCapacity)
         return true;
@@ -39,15 +39,15 @@ ibool __buffalloc_offset_invalid(u64 totalCapacity, u64 alignedOffset, u64 alloc
     return false;
 }
 
-static void *__buffalloc_alloc(Allocator *this, u64 size)
+static void *_buffalloc_alloc(Allocator *a, u64 size)
 {
-    if (!this || !this->_internalState || size == 0)
+    if (!a || !a->_internalState || size == 0)
         return NULL;
 
-    BufferAllocatorState *state = (BufferAllocatorState *)this->_internalState;
+    BufferAllocatorState *state = (BufferAllocatorState *)a->_internalState;
     _BufferBlockHeader *curr = state->head;
 
-    u64 totalSize = __buffalloc_offset_to_aligned(size) + _X_BUFFALLOC_BLOCK_HEADER_SIZE;
+    u64 totalSize = _buffalloc_offset_to_aligned(size) + _X_BUFFALLOC_BLOCK_HEADER_SIZE;
 
     while (curr)
     {
@@ -76,12 +76,12 @@ static void *__buffalloc_alloc(Allocator *this, u64 size)
     return NULL;
 }
 
-static void __buffalloc_free(Allocator *this, void *ptr)
+static void _buffalloc_free(Allocator *a, void *ptr)
 {
-    if (!this || !ptr)
+    if (!a || !ptr)
         return;
 
-    BufferAllocatorState *state = (BufferAllocatorState *)this->_internalState;
+    BufferAllocatorState *state = (BufferAllocatorState *)a->_internalState;
     _BufferBlockHeader *block = (_BufferBlockHeader *)((i8 *)ptr - _X_BUFFALLOC_BLOCK_HEADER_SIZE);
     block->isFree = true;
 
@@ -103,14 +103,14 @@ static void __buffalloc_free(Allocator *this, void *ptr)
     }
 }
 
-static void *__buffalloc_realloc(Allocator *this, void *ptr, u64 newSize)
+static void *_buffalloc_realloc(Allocator *a, void *ptr, u64 newSize)
 {
     if (!ptr)
-        return __buffalloc_alloc(this, newSize);
+        return _buffalloc_alloc(a, newSize);
 
     if (newSize == 0)
     {
-        __buffalloc_free(this, ptr);
+        _buffalloc_free(a, ptr);
         return NULL;
     }
 
@@ -120,14 +120,14 @@ static void *__buffalloc_realloc(Allocator *this, void *ptr, u64 newSize)
     if (newSize <= usableSize)
         return ptr;
 
-    void *newPtr = __buffalloc_alloc(this, newSize);
+    void *newPtr = _buffalloc_alloc(a, newSize);
     if (!newPtr)
         return NULL;
 
     for (u64 i = 0; i < usableSize; ++i)
         ((i8 *)newPtr)[i] = ((i8 *)ptr)[i];
 
-    __buffalloc_free(this, ptr);
+    _buffalloc_free(a, ptr);
     return newPtr;
 }
 
@@ -142,30 +142,31 @@ static void *__buffalloc_realloc(Allocator *this, void *ptr, u64 newSize)
  * @return ResultAllocator
  * @exception ERR_INVALID_PARAMETER
  */
-ResultAllocator buffer_allocator(Buffer buffer)
+static inline ResultAllocator buffer_allocator(Buffer buffer)
 {
     if (!buffer.bytes || buffer.size < _X_BUFFALLOC_HEADER_SIZE + _X_BUFFALLOC_BLOCK_HEADER_SIZE)
         return (ResultAllocator){
-            .value = {0},
-            .error = X_ERR_EXT("alloc_buffer", "buffer_allocator", ERR_INVALID_PARAMETER, "null or empty buff"),
+            .error = X_ERR_EXT(
+                "alloc_buffer", "buffer_allocator",
+                ERR_INVALID_PARAMETER, "null or empty buff"),
         };
 
-    u64 alignedOffset = __buffalloc_offset_to_aligned((u64)buffer.bytes);
+    u64 alignedOffset = _buffalloc_offset_to_aligned((u64)buffer.bytes);
     u64 alignDiff = alignedOffset - (u64)buffer.bytes;
     u64 headerSize = sizeof(BufferAllocatorState);
 
-    if (__buffalloc_offset_invalid(buffer.size, alignDiff, headerSize))
+    if (_buffalloc_offset_invalid(buffer.size, alignDiff, headerSize))
         return (ResultAllocator){
-            .value = {0},
-            .error = X_ERR_EXT("alloc_buffer", "buffer_allocator", ERR_INVALID_PARAMETER, "buffer too small for proper alignement"),
+            .error = X_ERR_EXT(
+                "alloc_buffer", "buffer_allocator",
+                ERR_INVALID_PARAMETER, "buffer too small for proper alignment"),
         };
 
     BufferAllocatorState *state = (BufferAllocatorState *)(buffer.bytes + alignDiff);
     *state = (BufferAllocatorState){
         .buffer = buffer.bytes,
         .capacity = buffer.size,
-        .head = NULL
-    };
+        .head = NULL};
 
     u64 usableOffset = alignDiff + headerSize;
     u64 usableSize = buffer.size - usableOffset;
@@ -173,8 +174,8 @@ ResultAllocator buffer_allocator(Buffer buffer)
     _BufferBlockHeader *initial = (_BufferBlockHeader *)(buffer.bytes + usableOffset);
     *initial = (_BufferBlockHeader){
         .size = usableSize,
-        .isFree = true,
         .next = NULL,
+        .isFree = true,
     };
 
     state->head = initial;
@@ -182,9 +183,9 @@ ResultAllocator buffer_allocator(Buffer buffer)
     return (ResultAllocator){
         .value = (Allocator){
             ._internalState = (void *)state,
-            .alloc = __buffalloc_alloc,
-            .realloc = __buffalloc_realloc,
-            .free = __buffalloc_free,
+            .alloc = _buffalloc_alloc,
+            .realloc = _buffalloc_realloc,
+            .free = _buffalloc_free,
         },
         .error = X_ERR_OK,
     };

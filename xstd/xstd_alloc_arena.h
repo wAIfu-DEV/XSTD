@@ -16,12 +16,12 @@ typedef struct _arena_allocator_state
     ibool bufferOwned; // if true, buffer is heap-allocated and should be freed
 } ArenaAllocatorState;
 
-u64 __arena_offset_to_aligned(u64 offset)
+static inline u64 _arena_offset_to_aligned(u64 offset)
 {
     return (offset + _X_ARENA_ALLOC_DEFAULT_ALIGN - 1) & ~(_X_ARENA_ALLOC_DEFAULT_ALIGN - 1);
 }
 
-ibool __arena_offset_invalid(u64 totalCapacity, u64 alignedOffset, u64 allocSize)
+static inline ibool _arena_offset_invalid(u64 totalCapacity, u64 alignedOffset, u64 allocSize)
 {
     if ((alignedOffset + allocSize) > totalCapacity)
         return true;
@@ -32,18 +32,18 @@ ibool __arena_offset_invalid(u64 totalCapacity, u64 alignedOffset, u64 allocSize
     return false;
 }
 
-void *__arena_alloc(Allocator *this, u64 size)
+static void *_arena_alloc(Allocator *a, u64 size)
 {
-    if (!this || !this->_internalState)
+    if (!a || !a->_internalState)
         return NULL;
 
-    ArenaAllocatorState *state = (ArenaAllocatorState *)this->_internalState;
+    ArenaAllocatorState *state = (ArenaAllocatorState *)a->_internalState;
     if (!state->buffer || size == 0)
         return NULL;
 
-    u64 alignedOffset = __arena_offset_to_aligned(state->offset);
+    u64 alignedOffset = _arena_offset_to_aligned(state->offset);
 
-    if (__arena_offset_invalid(state->capacity, alignedOffset, size))
+    if (_arena_offset_invalid(state->capacity, alignedOffset, size))
         return NULL;
 
     void *out = state->buffer + alignedOffset;
@@ -51,12 +51,12 @@ void *__arena_alloc(Allocator *this, u64 size)
     return out;
 }
 
-void *__arena_realloc(Allocator *this, void *block, u64 newSize)
+static void *_arena_realloc(Allocator *a, void *block, u64 newSize)
 {
-    if (!this || !this->_internalState)
+    if (!a || !a->_internalState)
         return NULL;
 
-    ArenaAllocatorState *state = (ArenaAllocatorState *)this->_internalState;
+    ArenaAllocatorState *state = (ArenaAllocatorState *)a->_internalState;
     if (!state->buffer || newSize == 0 || !block)
         return NULL;
 
@@ -64,23 +64,23 @@ void *__arena_realloc(Allocator *this, void *block, u64 newSize)
     u64 blockOffset = blockPtr - state->buffer;
 
     // If block is at end
-    if (blockOffset == (__arena_offset_to_aligned(state->offset) - newSize))
+    if (blockOffset == (_arena_offset_to_aligned(state->offset) - newSize))
     {
-        u64 alignedOffset = __arena_offset_to_aligned(blockOffset);
+        u64 alignedOffset = _arena_offset_to_aligned(blockOffset);
 
-        if (__arena_offset_invalid(state->capacity, alignedOffset, newSize))
+        if (_arena_offset_invalid(state->capacity, alignedOffset, newSize))
             return NULL;
 
         state->offset = alignedOffset + newSize;
         return block;
     }
 
-    return __arena_alloc(this, newSize);
+    return _arena_alloc(a, newSize);
 }
 
-void __arena_free(Allocator *this, void *block)
+static void _arena_free(Allocator *a, void *block)
 {
-    (void)this;
+    (void)a;
     (void)block;
 }
 
@@ -92,19 +92,19 @@ void __arena_free(Allocator *this, void *block)
  *
  * @param arena
  */
-void arena_allocator_clear(Allocator *arena)
+static inline void arena_allocator_clear(Allocator *arena)
 {
     ArenaAllocatorState *state = (ArenaAllocatorState *)arena->_internalState;
     state->offset = state->headerSize;
 }
 
-ArenaAllocatorState *__arena_alloc_header(Buffer buff, ibool isHeap)
+static inline ArenaAllocatorState *_arena_alloc_header(Buffer buff, ibool isHeap)
 {
     u64 headerSize = sizeof(ArenaAllocatorState);
-    u64 alignedOffset = __arena_offset_to_aligned((u64)buff.bytes);
-    u64 alignDiff = alignedOffset - (u64)buff.bytes;
+    u64 alignedOffset = _arena_offset_to_aligned((uPtr)buff.bytes);
+    u64 alignDiff = alignedOffset - (uPtr)buff.bytes;
 
-    if (__arena_offset_invalid(buff.size, alignDiff, headerSize))
+    if (_arena_offset_invalid(buff.size, alignDiff, headerSize))
         return NULL;
 
     ArenaAllocatorState *state = (ArenaAllocatorState *)(buff.bytes + alignDiff);
@@ -140,7 +140,7 @@ ArenaAllocatorState *__arena_alloc_header(Buffer buff, ibool isHeap)
  * @return Allocator
  * @exception ERR_INVALID_PARAMETER, ERR_OUT_OF_MEMORY
  */
-ResultAllocator arena_allocator(Buffer buffer, ibool isHeap)
+static inline ResultAllocator arena_allocator(Buffer buffer, ibool isHeap)
 {
     if (!buffer.bytes || buffer.size == 0)
         return (ResultAllocator){
@@ -148,7 +148,7 @@ ResultAllocator arena_allocator(Buffer buffer, ibool isHeap)
             .error = X_ERR_EXT("alloc_arena", "arena_allocator", ERR_INVALID_PARAMETER, "null or empty buff"),
         };
 
-    ArenaAllocatorState *state = __arena_alloc_header(buffer, isHeap);
+    ArenaAllocatorState *state = _arena_alloc_header(buffer, isHeap);
     if (!state)
         return (ResultAllocator){
             .value = {0},
@@ -158,9 +158,9 @@ ResultAllocator arena_allocator(Buffer buffer, ibool isHeap)
     return (ResultAllocator){
         .value = (Allocator){
             ._internalState = state,
-            .alloc = __arena_alloc,
-            .realloc = __arena_realloc,
-            .free = __arena_free,
+            .alloc = _arena_alloc,
+            .realloc = _arena_realloc,
+            .free = _arena_free,
         },
         .error = X_ERR_OK,
     };
