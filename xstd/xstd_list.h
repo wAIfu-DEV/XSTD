@@ -132,12 +132,27 @@ static inline u64 list_size(List *list)
     return list->_itemCnt;
 }
 
-static inline void _list_expand(List *l)
+static inline Error _list_expand(List *l)
 {
-    l->_data = l->_allocator.realloc(&l->_allocator,
-                                     l->_data,
-                                     (l->_allocCnt * l->_typeSize) * 2);
-    l->_allocCnt *= 2;
+    if (!l || !l->_data)
+        return X_ERR_EXT("list", "_list_expand", ERR_INVALID_PARAMETER, "null list");
+
+    if (l->_allocCnt >= ((u64)-1) / 2)
+        return X_ERR_EXT("list", "_list_expand", ERR_WOULD_OVERFLOW, "capacity overflow");
+
+    u64 newAllocCnt = l->_allocCnt * 2;
+    if (l->_typeSize && newAllocCnt > ((u64)-1) / l->_typeSize)
+        return X_ERR_EXT("list", "_list_expand", ERR_WOULD_OVERFLOW, "byte size overflow");
+
+    u64 newSize = newAllocCnt * l->_typeSize;
+
+    void *newData = l->_allocator.realloc(&l->_allocator, l->_data, newSize);
+    if (!newData)
+        return X_ERR_EXT("list", "_list_expand", ERR_OUT_OF_MEMORY, "realloc failure");
+
+    l->_data = newData;
+    l->_allocCnt = newAllocCnt;
+    return X_ERR_OK;
 }
 
 static inline ibool _list_should_shrink(List *l)
@@ -150,28 +165,54 @@ static inline ibool _list_should_shrink(List *l)
     return (l->_itemCnt < halfAlloc);
 }
 
-static inline void _list_shrink(List *l)
+static inline Error _list_shrink(List *l)
 {
+    if (!l || !l->_data)
+        return X_ERR_EXT("list", "_list_shrink", ERR_INVALID_PARAMETER, "null list");
+
     u64 newCnt = (u64)((f64)(l->_allocCnt) * 0.5);
-    l->_allocCnt = newCnt;
+    if (newCnt < _X_LIST_INIT_SIZE)
+        newCnt = _X_LIST_INIT_SIZE;
+
+    if (newCnt == l->_allocCnt)
+        return X_ERR_OK;
+
+    if (l->_typeSize && newCnt > ((u64)-1) / l->_typeSize)
+        return X_ERR_EXT("list", "_list_shrink", ERR_WOULD_OVERFLOW, "byte size overflow");
 
     u64 newSize = newCnt * l->_typeSize;
+    void *newData = l->_allocator.realloc(&l->_allocator, l->_data, newSize);
+    if (!newData)
+        return X_ERR_EXT("list", "_list_shrink", ERR_OUT_OF_MEMORY, "realloc failure");
 
-    l->_data = l->_allocator.realloc(&l->_allocator,
-                                     l->_data,
-                                     newSize);
+    l->_data = newData;
+    l->_allocCnt = newCnt;
+    if (l->_itemCnt > newCnt)
+        l->_itemCnt = newCnt;
+    return X_ERR_OK;
 }
 
-static inline void _list_wipe(List *l)
+static inline Error _list_wipe(List *l)
 {
-    l->_allocCnt = _X_LIST_INIT_SIZE;
-    l->_itemCnt = 0;
+    if (!l || !l->_data)
+    {
+        if (l)
+            l->_itemCnt = 0;
+        return X_ERR_OK;
+    }
 
     u64 newSize = _X_LIST_INIT_SIZE * l->_typeSize;
+    void *newData = l->_allocator.realloc(&l->_allocator, l->_data, newSize);
+    if (!newData)
+    {
+        l->_itemCnt = 0;
+        return X_ERR_EXT("list", "_list_wipe", ERR_OUT_OF_MEMORY, "realloc failure");
+    }
 
-    l->_data = l->_allocator.realloc(&l->_allocator,
-                                     l->_data,
-                                     newSize);
+    l->_data = newData;
+    l->_allocCnt = _X_LIST_INIT_SIZE;
+    l->_itemCnt = 0;
+    return X_ERR_OK;
 }
 
 static inline void _list_memcpy(List *l, const void *srcPtr, void *dstPtr)
@@ -481,17 +522,28 @@ static inline void list_free_items(Allocator *alloc, List *list)
  * @param item Pointer to allocated memory of size sizeof(ItemType)
  * @return Error
  */
-static inline void list_push(List *list, const void *item)
+static inline Error list_push_result(List *list, const void *item)
 {
-    if (!list)
-        return;
+    if (!list || !item)
+        return X_ERR_EXT("list", "list_push", ERR_INVALID_PARAMETER, "null argument");
 
     if (list->_itemCnt >= list->_allocCnt)
-        _list_expand(list);
+    {
+        Error expandErr = _list_expand(list);
+        if (expandErr.code != ERR_OK)
+            return expandErr;
+    }
 
-    u64 i = list->_itemCnt++;
+    u64 i = list->_itemCnt;
     void *ptr = _list_i_to_ptr(list, i);
     _list_memcpy(list, item, ptr);
+    list->_itemCnt = i + 1;
+    return X_ERR_OK;
+}
+
+static inline void list_push(List *list, const void *item)
+{
+    (void)list_push_result(list, item);
 }
 
 /**
@@ -513,6 +565,13 @@ static inline void list_push(List *list, const void *item)
         T *listItemTypeCheck = (itemPtr); \
         (void)listItemTypeCheck;          \
         list_push((listPtr), (itemPtr));  \
+    }
+
+#define ListPushResultT(T, listPtr, itemPtr) \
+    {                                        \
+        T *listItemTypeCheck = (itemPtr);    \
+        (void)listItemTypeCheck;             \
+        list_push_result((listPtr), (itemPtr)); \
     }
 
 /**
@@ -547,7 +606,7 @@ static inline Error list_pop(List *list, void *out)
 
     if (_list_should_shrink(list))
     {
-        _list_shrink(list);
+        (void)_list_shrink(list);
     }
     return X_ERR_OK;
 }
@@ -587,7 +646,7 @@ static inline void list_clear(List *list)
     if (!list)
         return;
 
-    _list_wipe(list);
+    (void)_list_wipe(list);
 }
 
 /**

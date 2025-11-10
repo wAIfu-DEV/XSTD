@@ -4,6 +4,7 @@
 #include "xstd_error.h"
 #include "xstd_result.h"
 #include "xstd_alloc.h"
+#include "xstd_mem.h"
 
 /**
  * @brief Compares the contents of two buffers and returns !0 (true) if both buffers are similar,
@@ -178,16 +179,7 @@ static inline Error buffer_copy(ConstBuff source, Buffer destination)
     if (destination.size < source.size)
         return X_ERR_EXT("buffer", "buffer_copy", ERR_WOULD_OVERFLOW, "dest smaller than src");
 
-    const i8 *s = (const i8 *)source.bytes;
-    i8 *d = (i8 *)destination.bytes;
-
-    u64 i = 0;
-    while (i < source.size)
-    {
-        d[i] = s[i];
-        ++i;
-    }
-
+    mem_copy(destination.bytes, source.bytes, source.size);
     destination.size = source.size;
     return X_ERR_OK;
 }
@@ -223,15 +215,7 @@ static inline Error buffer_copy_n(ConstBuff source, Buffer destination, u64 n)
     if (destination.size < n)
         return X_ERR_EXT("buffer", "buffer_copy_n", ERR_WOULD_OVERFLOW, "dest smaller than n");
 
-    const i8 *s = (const i8 *)source.bytes;
-    i8 *d = (i8 *)destination.bytes;
-
-    u64 i = 0;
-    while (i < n)
-    {
-        d[i] = s[i];
-        ++i;
-    }
+    mem_copy(destination.bytes, source.bytes, n);
     return X_ERR_OK;
 }
 
@@ -260,15 +244,7 @@ static inline Error buffer_copy_n(ConstBuff source, Buffer destination, u64 n)
  */
 static inline void buffer_copy_unsafe(ConstBuff source, Buffer destination)
 {
-    const i8 *s = (const i8 *)source.bytes;
-    i8 *d = (i8 *)destination.bytes;
-
-    u64 i = 0;
-    while (i < source.size)
-    {
-        d[i] = s[i];
-        ++i;
-    }
+    mem_copy(destination.bytes, source.bytes, source.size);
     destination.size = source.size;
 }
 
@@ -294,15 +270,7 @@ static inline void buffer_copy_unsafe(ConstBuff source, Buffer destination)
  */
 static inline void buffer_copy_n_unsafe(ConstBuff source, Buffer destination, u64 n)
 {
-    const i8 *s = (const i8 *)source.bytes;
-    i8 *d = (i8 *)destination.bytes;
-
-    u64 i = 0;
-    while (i < n)
-    {
-        d[i] = s[i];
-        ++i;
-    }
+    mem_copy(destination.bytes, source.bytes, n);
 }
 
 /**

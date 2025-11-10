@@ -6,6 +6,7 @@
 #include "xstd_string.h"
 #include "xstd_result.h"
 #include "xstd_error.h"
+#include "xstd_mem.h"
 
 #if _XSTD_ARCH_64BIT
 static inline u64 _hashmap_fnv1a64(const void *key, u64 len)
@@ -179,14 +180,16 @@ static inline void _hashmap_memcpy(HashMap *h, const void *srcPtr, void *dstPtr)
     i8 *d = (i8 *)dstPtr;
     const i8 *s = (i8 *)srcPtr;
 
-    while (rest--)
-        *d++ = *s++;
+    mem_copy(dstPtr, srcPtr, rest);
 }
 
 static inline ibool _hashmap_key_equals(Buffer a, Buffer b)
 {
     if (a.size != b.size)
         return false;
+
+    if (a.size == 0)
+        return true;
 
     if (!a.bytes || !b.bytes)
         return false;
@@ -230,6 +233,9 @@ static inline Error _hashmap_set(HashMap *map, Buffer key, const void *value, u6
     {
         if (entry->_hash == hash && _hashmap_key_equals(entry->_key, key))
         {
+            if (map->_valueSize == 0)
+                return X_ERR_OK;
+
             if (!entry->_value)
             {
                 entry->_value = alloc->alloc(alloc, map->_valueSize);
@@ -249,8 +255,9 @@ static inline Error _hashmap_set(HashMap *map, Buffer key, const void *value, u6
         return X_ERR_EXT("hashmap", "_hashmap_set", ERR_OUT_OF_MEMORY, "alloc failure");
 
     newEntry->_hash = hash;
+    u64 keyAllocSize = key.size ? key.size : 1;
     newEntry->_key = (Buffer){
-        .bytes = (i8 *)alloc->alloc(alloc, key.size),
+        .bytes = (i8 *)alloc->alloc(alloc, keyAllocSize),
         .size = key.size,
     };
 
@@ -260,19 +267,31 @@ static inline Error _hashmap_set(HashMap *map, Buffer key, const void *value, u6
         return X_ERR_EXT("hashmap", "_hashmap_set", ERR_OUT_OF_MEMORY, "alloc failure");
     }
 
-    for (u64 i = 0; i < key.size; ++i)
-        newEntry->_key.bytes[i] = key.bytes[i];
-
-    newEntry->_value = alloc->alloc(alloc, map->_valueSize);
-    if (!newEntry->_value)
+    if (key.size)
     {
-        alloc->free(alloc, newEntry->_key.bytes);
-        alloc->free(alloc, newEntry);
-        return X_ERR_EXT("hashmap", "_hashmap_set", ERR_OUT_OF_MEMORY, "alloc failure");
+        mem_copy(newEntry->_key.bytes, key.bytes, key.size);
+    }
+    else
+    {
+        newEntry->_key.bytes[0] = 0;
     }
 
-    for (u64 i = 0; i < map->_valueSize; ++i)
-        ((u8 *)newEntry->_value)[i] = ((const u8 *)value)[i];
+    if (map->_valueSize == 0)
+    {
+        newEntry->_value = NULL;
+    }
+    else
+    {
+        newEntry->_value = alloc->alloc(alloc, map->_valueSize);
+        if (!newEntry->_value)
+        {
+            alloc->free(alloc, newEntry->_key.bytes);
+            alloc->free(alloc, newEntry);
+            return X_ERR_EXT("hashmap", "_hashmap_set", ERR_OUT_OF_MEMORY, "alloc failure");
+        }
+
+        _hashmap_memcpy(map, value, newEntry->_value);
+    }
 
     newEntry->_next = map->_buckets[idx];
     map->_buckets[idx] = newEntry;
@@ -323,8 +342,14 @@ static inline Error _hashmap_rehash(HashMap *map, u64 newBucketCount)
  */
 static inline Error hashmap_set(HashMap *map, Buffer key, const void *value)
 {
-    if (!map || !map->_buckets || !key.bytes)
+    if (!map || !map->_buckets)
         return X_ERR_EXT("hashmap", "hashmap_set", ERR_INVALID_PARAMETER, "null or invalid arg");
+
+    if (key.size > 0 && !key.bytes)
+        return X_ERR_EXT("hashmap", "hashmap_set", ERR_INVALID_PARAMETER, "null key buffer");
+
+    if (map->_valueSize > 0 && !value)
+        return X_ERR_EXT("hashmap", "hashmap_set", ERR_INVALID_PARAMETER, "null value buffer");
 
     if ((map->_size + 1) * _X_HASHMAP_LOAD_FACTOR_DEN > map->_bucketCount * _X_HASHMAP_LOAD_FACTOR_NUM)
     {
@@ -332,11 +357,13 @@ static inline Error hashmap_set(HashMap *map, Buffer key, const void *value)
         if (err.code != ERR_OK)
             return err;
     }
+    static const i8 _x_hashmap_empty_key = 0;
+    const i8 *hashKeyBytes = key.bytes ? key.bytes : &_x_hashmap_empty_key;
     return _hashmap_set(map, key, value,
         #if _XSTD_ARCH_64BIT
-        _hashmap_fnv1a64(key.bytes, key.size)
+        _hashmap_fnv1a64(hashKeyBytes, key.size)
         #else
-        _hashmap_fnv1a32(key.bytes, key.size)
+        _hashmap_fnv1a32(hashKeyBytes, key.size)
         #endif
     );
 }
@@ -384,13 +411,19 @@ static inline Error hashmap_set_str(HashMap *map, ConstStr key, const void *valu
  */
 static inline Error hashmap_get(HashMap *map, Buffer key, void *outValue)
 {
-    if (!map || !map->_buckets || !key.bytes)
+    if (!map || !map->_buckets)
         return X_ERR_EXT("hashmap", "hashmap_get", ERR_INVALID_PARAMETER, "null or invalid arg");
 
+    if (key.size > 0 && !key.bytes)
+        return X_ERR_EXT("hashmap", "hashmap_get", ERR_INVALID_PARAMETER, "null key buffer");
+
+    static const i8 _x_hashmap_empty_key = 0;
+    const i8 *hashKeyBytes = key.bytes ? key.bytes : &_x_hashmap_empty_key;
+
     #if _XSTD_ARCH_64BIT
-    u64 hash = _hashmap_fnv1a64(key.bytes, key.size);
+    u64 hash = _hashmap_fnv1a64(hashKeyBytes, key.size);
     #else
-    u64 hash = _hashmap_fnv1a32(key.bytes, key.size);
+    u64 hash = _hashmap_fnv1a32(hashKeyBytes, key.size);
     #endif
 
     u64 idx = _hashmap_bucket_idx(map, hash);

@@ -8,6 +8,8 @@
 #include "xstd_list.h"
 #include "xstd_string.h"
 #include "xstd_buffer.h"
+#include "xstd_writer.h"
+#include "xstd_mem.h"
 #include "xstd_file_os_int.h"
 #include "xstd_file_os_int_default.h"
 
@@ -201,6 +203,26 @@ static inline u64 file_size(File *file)
     return (u64)fileSize;
 }
 
+/**
+ * Tests whether the file handle is currently positioned at end-of-file.
+ * An invalid handle is treated as EOF to ease error handling.
+ * @example
+ * ```c
+ * while (!file_is_eof(&file)) {
+ *     // Read data
+ * }
+ * ```
+ * @param file Open file handle to test.
+ * @returns Non-zero when EOF was reached or the handle is invalid.
+ */
+static inline ibool file_is_eof(File *file)
+{
+    if (!file || !file->_valid)
+        return true;
+
+    return _default_file_os_int()->eof(file->_handle);
+}
+
 static inline u64 _file_read_internal(File *f, i8 *buff, const u64 nBytes, ibool terminate)
 {
     if (!f || !nBytes || !buff)
@@ -209,14 +231,32 @@ static inline u64 _file_read_internal(File *f, i8 *buff, const u64 nBytes, ibool
     const _FileOsInterface* foi = _default_file_os_int();
     u64 readPos = 0;
 
-    while (readPos < nBytes)
+    if (foi->read)
     {
-        int read = foi->getc(f->_handle);
-        if (read < 0)
-            break;
+        while (readPos < nBytes)
+        {
+            u64 toRead = nBytes - readPos;
+            u64 chunk = foi->read(f->_handle, buff + readPos, toRead);
+            if (chunk == 0)
+                break;
 
-        buff[readPos] = (i8)read;
-        ++readPos;
+            readPos += chunk;
+
+            if (chunk < toRead)
+                break;
+        }
+    }
+    else
+    {
+        while (readPos < nBytes)
+        {
+            int read = foi->getc(f->_handle);
+            if (read < 0)
+                break;
+
+            buff[readPos] = (i8)read;
+            ++readPos;
+        }
     }
 
     if (terminate)
@@ -315,6 +355,12 @@ static inline ResultOwnedBuff file_read_bytes(Allocator *a, File *file, const u6
                 ERR_INVALID_PARAMETER, "null arg"),
         };
 
+    if (nBytes == 0)
+        return (ResultOwnedBuff){
+            .value = (HeapBuff){.bytes = NULL, .size = 0},
+            .error = X_ERR_OK,
+        };
+
     i8 *newBuff = (i8*)a->alloc(a, nBytes);
 
     if (!newBuff)
@@ -328,6 +374,12 @@ static inline ResultOwnedBuff file_read_bytes(Allocator *a, File *file, const u6
 
     if (readSize == 0)
     {
+        if (file_is_eof(file))
+            return (ResultOwnedBuff){
+                .value = (HeapBuff){.bytes = newBuff, .size = 0},
+                .error = X_ERR_OK,
+            };
+
         a->free(a, newBuff);
         return (ResultOwnedBuff){
             .value = (HeapBuff){.bytes = NULL, .size = 0},
@@ -371,6 +423,21 @@ static inline ResultOwnedStr file_read_str(Allocator *a, File *file, const u64 n
                 ERR_INVALID_PARAMETER, "null arg"),
         };
 
+    if (nBytes == 0)
+    {
+        HeapStr empty = (HeapStr)a->alloc(a, 1);
+        if (!empty)
+            return (ResultOwnedStr){
+                .error = X_ERR_EXT("file", "file_read_str",
+                    ERR_OUT_OF_MEMORY, "alloc failure"),
+            };
+        empty[0] = 0;
+        return (ResultOwnedStr){
+            .value = empty,
+            .error = X_ERR_OK,
+        };
+    }
+
     HeapStr newStr = (HeapStr)a->alloc(a, nBytes + 1);
 
     if (!newStr)
@@ -383,6 +450,15 @@ static inline ResultOwnedStr file_read_str(Allocator *a, File *file, const u64 n
 
     if (readSize == 0)
     {
+        if (file_is_eof(file))
+        {
+            newStr[0] = 0;
+            return (ResultOwnedStr){
+                .value = newStr,
+                .error = X_ERR_OK,
+            };
+        }
+
         a->free(a, newStr);
         return (ResultOwnedStr){
             .error = X_ERR_EXT("file", "file_read_str",
@@ -495,7 +571,8 @@ static inline ResultOwnedStr file_readall_str(Allocator *alloc, File *file)
         };
 
     file_rewind(file);
-    ResultOwnedStr res = file_read_str(alloc, file, file_size(file));
+    u64 totalSize = file_size(file);
+    ResultOwnedStr res = file_read_str(alloc, file, totalSize);
     file_seek(file, tellRes.value, 0);
     return res;
 }
@@ -521,6 +598,34 @@ static inline ResultOwnedBuff file_readall_bytes(Allocator *alloc, File *file)
     return file_read_bytes(alloc, file, file_size(file));
 }
 
+static inline Error _file_append_line(Allocator *alloc, List *lines, GrowBuffWriter *builder)
+{
+    if (!lines || !alloc || !builder)
+        return X_ERR_EXT("file", "_file_append_line", ERR_INVALID_PARAMETER, "null arg");
+
+    u64 lineLen = builder->writeHead;
+    OwnedStr line = (OwnedStr)alloc->alloc(alloc, lineLen + 1);
+    if (!line)
+        return X_ERR_EXT("file", "_file_append_line", ERR_OUT_OF_MEMORY, "alloc failure");
+
+    mem_copy(line, builder->buff.bytes, lineLen);
+    line[lineLen] = 0;
+
+    String stored = line;
+    Error pushErr = list_push_result(lines, &stored);
+    if (pushErr.code != ERR_OK)
+    {
+        alloc->free(alloc, line);
+        return pushErr;
+    }
+
+    builder->writeHead = 0;
+    if (builder->buff.bytes && builder->buff.size)
+        builder->buff.bytes[0] = 0;
+
+    return X_ERR_OK;
+}
+
 /**
  * Reads the entire file and splits it into individual lines.
  * The resulting list and its contents belong to the caller.
@@ -537,27 +642,111 @@ static inline ResultOwnedBuff file_readall_bytes(Allocator *alloc, File *file)
  * @param file Open file handle to read completely.
  * @returns Result that wraps a `List` of newline-separated strings on success.
  */
-static inline ResultList file_read_lines(Allocator *alloc, File *file)
+static inline ResultList file_read_lines(Allocator *a, File *file)
 {
-    // TODO: Might be wiser to read line per line
-    // to prevent out of memory cases
-    ResultOwnedStr res = file_readall_str(alloc, file);
-    if (res.error.code)
+    if (!a || !file || !file->_valid)
         return (ResultList){
-            .error = res.error,
+            .value = {0},
+            .error = X_ERR_EXT("file", "file_read_lines", ERR_INVALID_PARAMETER, "null allocator or file"),
         };
 
-    ResultList split = string_split_lines(alloc, res.value);
-    if (split.error.code)
+    ResultU64 tellRes = file_tell(file);
+    if (tellRes.error.code)
         return (ResultList){
-            .error = split.error,
+            .error = X_ERR_EXT("file", "file_readall_str",
+                ERR_FAILED, "file tell failure"),
         };
 
-    alloc->free(alloc, res.value);
+    file_rewind(file);
+
+    ResultList listRes = ListInitT(String, a);
+    if (listRes.error.code != ERR_OK)
+        return listRes;
+
+    List lines = listRes.value;
+
+    ResultGrowBuffWriter writerRes = growbuffwriter_init(*a, 128);
+    if (writerRes.error.code != ERR_OK)
+    {
+        list_deinit(&lines);
+        return (ResultList){
+            .value = {0},
+            .error = writerRes.error,
+        };
+    }
+
+    GrowBuffWriter writer = writerRes.value;
+    const _FileOsInterface *foi = _default_file_os_int();
+    int pending = -2;
+    Error err = X_ERR_OK;
+
+    while (1)
+    {
+        int ch;
+        if (pending != -2)
+        {
+            ch = pending;
+            pending = -2;
+        }
+        else
+        {
+            ch = foi->getc(file->_handle);
+        }
+
+        if (ch == -1)
+            break;
+
+        if (ch == '\n')
+        {
+            err = _file_append_line(a, &lines, &writer);
+            if (err.code != ERR_OK)
+                goto _file_read_lines_cleanup;
+            continue;
+        }
+
+        if (ch == '\r')
+        {
+            int next = foi->getc(file->_handle);
+            if (next != '\n' && next != -1)
+                pending = next;
+
+            err = _file_append_line(a, &lines, &writer);
+            if (err.code != ERR_OK)
+                goto _file_read_lines_cleanup;
+            continue;
+        }
+
+        err = growbuffwriter_write_byte(&writer, (i8)ch);
+        if (err.code != ERR_OK)
+            goto _file_read_lines_cleanup;
+    }
+
+    err = _file_append_line(a, &lines, &writer);
+    if (err.code != ERR_OK)
+        goto _file_read_lines_cleanup;
+
+    growbuffwriter_deinit(&writer);
+    file_seek(file, tellRes.value, 0);
 
     return (ResultList){
-        .value = split.value,
+        .value = lines,
         .error = X_ERR_OK,
+    };
+
+_file_read_lines_cleanup:
+    growbuffwriter_deinit(&writer);
+
+    list_free_items(a, &lines);
+    list_deinit(&lines);
+
+    file_seek(file, tellRes.value, 0);
+
+    if (err.code == ERR_OK)
+        err = X_ERR_EXT("file", "file_read_lines", ERR_FAILED, "read failure");
+
+    return (ResultList){
+        .value = (List){0},
+        .error = err,
     };
 }
 
@@ -594,6 +783,57 @@ static inline Error file_write_char(File *file, const i8 c)
 }
 
 /**
+ * Writes a fixed number of bytes to a file.
+ * The data may stay in the write buffer until `file_flush` is called.
+ * @param file Open file handle to write into.
+ * @param bytes Pointer to the bytes that should be written.
+ * @param bytesCount Number of bytes to copy from `bytes`.
+ * @returns `ERR_OK` on success or the error triggered by the underlying OS call.
+ */
+static inline Error file_write_bytes(File *file, Buffer buff)
+{
+    if (!file || !file->_valid || !buff.bytes || buff.size == 0)
+        return X_ERR_EXT("file", "file_write_byte",
+            ERR_INVALID_PARAMETER, "null or invalid arg");
+
+    const _FileOsInterface *foi = _default_file_os_int();
+
+    if (foi->write)
+    {
+        u64 totalWritten = 0;
+        while (totalWritten < buff.size)
+        {
+            u64 remaining = buff.size - totalWritten;
+            u64 written = foi->write(file->_handle, buff.bytes + totalWritten, remaining);
+            if (written == 0)
+                break;
+
+            totalWritten += written;
+
+            if (written < remaining)
+                break;
+        }
+
+        if (totalWritten != buff.size)
+            return X_ERR_EXT("file", "file_write_bytes",
+                ERR_FILE_CANT_WRITE, "write failure");
+
+        return X_ERR_OK;
+    }
+
+    i8 *start = buff.bytes;
+    const i8 *end = buff.bytes + buff.size;
+
+    Error err = X_ERR_OK;
+    while (start != end && err.code == ERR_OK)
+    {
+        err = file_write_byte(file, *start);
+        ++start;
+    }
+    return err;
+}
+
+/**
  * Writes a null-terminated string to a file.
  * The data may be buffered; call `file_flush` to force an immediate flush if required.
  * @example
@@ -611,39 +851,16 @@ static inline Error file_write_str(File *file, ConstStr text)
         return X_ERR_EXT("file", "file_write_str",
             ERR_INVALID_PARAMETER, "null or invalid arg");
 
-    Error err = X_ERR_OK;
-    while (*text && err.code == ERR_OK)
-    {
-        err = file_write_char(file, *text);
-        ++text;
-    }
-    return err;
-}
+    u64 len = string_size(text);
+    if (len == 0)
+        return X_ERR_OK;
 
-/**
- * Writes a fixed number of bytes to a file.
- * The data may stay in the write buffer until `file_flush` is called.
- * @param file Open file handle to write into.
- * @param bytes Pointer to the bytes that should be written.
- * @param bytesCount Number of bytes to copy from `bytes`.
- * @returns `ERR_OK` on success or the error triggered by the underlying OS call.
- */
-static inline Error file_write_bytes(File *file, Buffer buff)
-{
-    if (!file || !file->_valid || !buff.bytes || buff.size == 0)
-        return X_ERR_EXT("file", "file_write_byte",
-            ERR_INVALID_PARAMETER, "null or invalid arg");
+    Buffer buff = (Buffer){
+        .bytes = (i8*)text,
+        .size = len,
+    };
 
-    i8 *start = buff.bytes;
-    const i8 *end = buff.bytes + buff.size + 1;
-
-    Error err = X_ERR_OK;
-    while (start != end && err.code == ERR_OK)
-    {
-        err = file_write_byte(file, *start);
-        ++start;
-    }
-    return err;
+    return file_write_bytes(file, buff);
 }
 
 /**
@@ -662,26 +879,6 @@ static inline void file_flush(File *file)
         return;
 
     _default_file_os_int()->flush(file->_handle);
-}
-
-/**
- * Tests whether the file handle is currently positioned at end-of-file.
- * An invalid handle is treated as EOF to ease error handling.
- * @example
- * ```c
- * while (!file_is_eof(&file)) {
- *     // Read data
- * }
- * ```
- * @param file Open file handle to test.
- * @returns Non-zero when EOF was reached or the handle is invalid.
- */
-static inline ibool file_is_eof(File *file)
-{
-    if (!file || !file->_valid)
-        return true;
-
-    return _default_file_os_int()->eof(file->_handle);
 }
 
 /**

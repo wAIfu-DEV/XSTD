@@ -9,7 +9,10 @@ int main(void)
 
     Allocator dbgAlloc = dbgAllocRes.value;
 
-    io_println("[Testing math]:");
+    io_println("[Testing mem]:");
+    _xstd_mem_tests();
+
+    io_println("\n[Testing math]:");
     _xstd_math_tests(dbgAlloc);
 
     io_println("\n[Testing writer]:");

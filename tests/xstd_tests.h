@@ -9,6 +9,7 @@
 #include "../xstd/xstd_utf8.h"
 #include "../xstd/xstd_math.h"
 #include "../xstd/xstd_writer.h"
+#include "../xstd/xstd_mem.h"
 
 /*
 // FOR DEBUGGING
@@ -89,10 +90,98 @@ static void _xstd_file_tests(Allocator alloc)
         u64 writtenSize = file_size(&file);
         assert_true(writtenSize == 12, "file_size writtenSize != 12");
 
+        io_println("file_read_lines lf");
+
+        file_close(&file);
+        ResultFile linesFile = file_create(filePath);
+        assert_ok(linesFile.error, "file_read_lines failed to recreate file for LF");
+        file = linesFile.value;
+
+        ConstStr lfContent = "line1\nline2\nline3";
+        err = file_write_str(&file, lfContent);
+        assert_ok(err, "file_read_lines failed to write LF content");
+
+        err = file_rewind(&file);
+        assert_ok(err, "file_read_lines LF rewind err.code != ERR_OK");
+
+        ResultList lfLinesRes = file_read_lines(&alloc, &file);
+        assert_ok(lfLinesRes.error, "file_read_lines LF lfLinesRes.error.code != ERR_OK");
+        List lfLines = lfLinesRes.value;
+        assert_true(list_size(&lfLines) == 3, "file_read_lines LF count != 3");
+
+        String lfLine = NULL;
+        ListGetT(String, &lfLines, 0, &lfLine);
+        assert_str_eq(lfLine, "line1", "file_read_lines LF line0 != \"line1\"");
+        ListGetT(String, &lfLines, 1, &lfLine);
+        assert_str_eq(lfLine, "line2", "file_read_lines LF line1 != \"line2\"");
+        ListGetT(String, &lfLines, 2, &lfLine);
+        assert_str_eq(lfLine, "line3", "file_read_lines LF line2 != \"line3\"");
+
+        list_free_items(&alloc, &lfLines);
+        list_deinit(&lfLines);
+
+        io_println("file_read_lines crlf");
+
+        file_close(&file);
+        ResultFile crlfFile = file_create(filePath);
+        assert_ok(crlfFile.error, "file_read_lines failed to recreate file for CRLF");
+        file = crlfFile.value;
+
+        ConstStr crlfContent = "alpha\r\nbeta\r\ngamma\r\n";
+        err = file_write_str(&file, crlfContent);
+        assert_ok(err, "file_read_lines failed to write CRLF content");
+
+        err = file_rewind(&file);
+        assert_ok(err, "file_read_lines CRLF rewind err.code != ERR_OK");
+
+        ResultList crlfLinesRes = file_read_lines(&alloc, &file);
+        assert_ok(crlfLinesRes.error, "file_read_lines CRLF crlfLinesRes.error.code != ERR_OK");
+        List crlfLines = crlfLinesRes.value;
+        assert_true(list_size(&crlfLines) == 4, "file_read_lines CRLF count != 4");
+
+        String crlfLine = NULL;
+        ListGetT(String, &crlfLines, 0, &crlfLine);
+        assert_str_eq(crlfLine, "alpha", "file_read_lines CRLF line0 != \"alpha\"");
+        ListGetT(String, &crlfLines, 1, &crlfLine);
+        assert_str_eq(crlfLine, "beta", "file_read_lines CRLF line1 != \"beta\"");
+        ListGetT(String, &crlfLines, 2, &crlfLine);
+        assert_str_eq(crlfLine, "gamma", "file_read_lines CRLF line2 != \"gamma\"");
+        ListGetT(String, &crlfLines, 3, &crlfLine);
+        assert_str_eq(crlfLine, "", "file_read_lines CRLF line3 != \"\"");
+
+        list_free_items(&alloc, &crlfLines);
+        list_deinit(&crlfLines);
+
+        io_println("file_read_lines empty");
+
+        file_close(&file);
+        ResultFile emptyLinesFile = file_create(filePath);
+        assert_ok(emptyLinesFile.error, "file_read_lines failed to recreate file for empty");
+        file = emptyLinesFile.value;
+
+        ResultList emptyLinesRes = file_read_lines(&alloc, &file);
+        assert_ok(emptyLinesRes.error, "file_read_lines emptyLinesRes.error.code != ERR_OK");
+        List emptyLines = emptyLinesRes.value;
+        assert_true(list_size(&emptyLines) == 1, "file_read_lines empty count != 1");
+
+        String emptyLine = NULL;
+        ListGetT(String, &emptyLines, 0, &emptyLine);
+        assert_str_eq(emptyLine, "", "file_read_lines empty line0 != \"\"");
+
+        list_free_items(&alloc, &emptyLines);
+        list_deinit(&emptyLines);
+
         io_println("file_rewind");
 
         err = file_rewind(&file);
         assert_ok(err, "file_rewind err.code != ERR_OK");
+
+        io_println("file_write_str restore");
+
+        err = file_write_str(&file, "hello_world!");
+        assert_ok(err, "file_readall_str restore write err.code != ERR_OK");
+        err = file_rewind(&file);
+        assert_ok(err, "file_readall_str restore rewind err.code != ERR_OK");
 
         io_println("file_readall_str");
 
@@ -104,6 +193,31 @@ static void _xstd_file_tests(Allocator alloc)
 
         assert_str_eq(readAll.value, "hello_world!", "file_readall_str content != \"hello_world!\"");
         alloc.free(&alloc, readAll.value);
+
+        io_println("file_readall_str empty");
+
+        file_close(&file);
+        ResultFile emptyFileRes = file_create(filePath);
+        assert_ok(emptyFileRes.error, "file_readall_str empty recreate err");
+        file = emptyFileRes.value;
+        err = file_rewind(&file);
+        assert_ok(err, "file_readall_str empty rewind err.code != ERR_OK");
+
+        ResultOwnedStr emptyRead = file_readall_str(&alloc, &file);
+        assert_ok(emptyRead.error, "file_readall_str emptyRead.error.code != ERR_OK");
+        assert_true(emptyRead.value && emptyRead.value[0] == 0, "file_readall_str emptyRead not empty string");
+        alloc.free(&alloc, emptyRead.value);
+
+        ResultOwnedBuff emptyBytes = file_readall_bytes(&alloc, &file);
+        assert_ok(emptyBytes.error, "file_readall_bytes emptyBytes.error.code != ERR_OK");
+        assert_true(emptyBytes.value.bytes == NULL && emptyBytes.value.size == 0, "file_readall_bytes emptyBytes not empty");
+
+        io_println("file_write_str reseed");
+
+        err = file_write_str(&file, "hello_world!");
+        assert_ok(err, "file_readall_str reseed write err.code != ERR_OK");
+        err = file_rewind(&file);
+        assert_ok(err, "file_readall_str reseed rewind err.code != ERR_OK");
 
         io_println("file_rewind");
 
@@ -216,9 +330,6 @@ static void _xstd_string_tests(Allocator alloc)
     Error err;
     Allocator badAlloc = _xstd_bad_alloc();
 
-    // =========================================================================
-    // TEST string_size
-    // =========================================================================
     io_println("string_size");
     {
         ConstStr strLen22 = "This string is 22 long";
@@ -233,9 +344,6 @@ static void _xstd_string_tests(Allocator alloc)
         ConstStr strLenNull = NULL;
         assert_true(string_size(strLenNull) == 0, "string_size NULL != 0");
     }
-    // =========================================================================
-    // TEST string_equals
-    // =========================================================================
     io_println("string_equals");
     {
         ConstStr strEq1 = "This is equal.";
@@ -263,9 +371,6 @@ static void _xstd_string_tests(Allocator alloc)
         assert_true(!string_equals(NULL, strEq1), "string_equals NULL == strEq1");
         assert_true(string_equals(NULL, NULL), "string_equals NULL != NULL");
     }
-    // =========================================================================
-    // TEST string_alloc
-    // =========================================================================
     io_println("string_alloc");
     {
         ResultOwnedStr strHeapRes1 = string_alloc(&alloc, 5, ' ');
@@ -290,9 +395,6 @@ static void _xstd_string_tests(Allocator alloc)
         alloc.free(&alloc, strHeap1);
         alloc.free(&alloc, strHeap2);
     }
-    // =========================================================================
-    // TEST string_copy_unsafe
-    // =========================================================================
     io_println("string_copy_unsafe");
     {
         ConstStr strCopyUn1 = "Copied.";
@@ -312,9 +414,6 @@ static void _xstd_string_tests(Allocator alloc)
         alloc.free(&alloc, strCopyUn2);
         alloc.free(&alloc, strCopyUn3);
     }
-    // =========================================================================
-    // TEST string_copy_n_unsafe
-    // =========================================================================
     io_println("string_copy_n_unsafe");
     {
         ConstStr strCopyNUn1 = "Copied.";
@@ -350,9 +449,6 @@ static void _xstd_string_tests(Allocator alloc)
         alloc.free(&alloc, strCopyNUn4);
         alloc.free(&alloc, strCopyNUn5);
     }
-    // =========================================================================
-    // TEST string_copy
-    // =========================================================================
     io_println("string_copy");
     {
         ConstStr strCopy1 = "Copied.";
@@ -386,9 +482,6 @@ static void _xstd_string_tests(Allocator alloc)
         alloc.free(&alloc, strCopy2);
         alloc.free(&alloc, strCopy3);
     }
-    // =========================================================================
-    // TEST string_copy_n
-    // =========================================================================
     io_println("string_copy_n");
     {
         ConstStr strCopyN1 = "Copied.";
@@ -449,9 +542,6 @@ static void _xstd_string_tests(Allocator alloc)
         alloc.free(&alloc, strCopyN4);
         alloc.free(&alloc, strCopyN5);
     }
-    // =========================================================================
-    // TEST string_dupe
-    // =========================================================================
     io_println("string_dupe");
     {
         ConstStr strDupe0 = "";
@@ -474,9 +564,6 @@ static void _xstd_string_tests(Allocator alloc)
         alloc.free(&alloc, strDupe2.value);
         alloc.free(&alloc, strDupe3.value);
     }
-    // =========================================================================
-    // TEST string_dupe_noresult
-    // =========================================================================
     io_println("string_dupe_noresult");
     {
         ConstStr strDupeNr0 = "";
@@ -499,9 +586,6 @@ static void _xstd_string_tests(Allocator alloc)
         alloc.free(&alloc, strDupeNr2);
         alloc.free(&alloc, strDupeNr3);
     }
-    // =========================================================================
-    // TEST string_resize
-    // =========================================================================
     io_println("string_resize");
     {
         ConstStr strRes1 = "Resized";
@@ -528,9 +612,6 @@ static void _xstd_string_tests(Allocator alloc)
         alloc.free(&alloc, strRes3.value);
         alloc.free(&alloc, strRes5.value);
     }
-    // =========================================================================
-    // TEST string_concat
-    // =========================================================================
     io_println("string_concat");
     {
         ConstStr strConc1 = "Left ";
@@ -552,9 +633,6 @@ static void _xstd_string_tests(Allocator alloc)
         alloc.free(&alloc, strConc3.value);
         alloc.free(&alloc, strConc4.value);
     }
-    // =========================================================================
-    // TEST string_substr
-    // =========================================================================
     io_println("string_substr");
     {
         ConstStr strSub1 = "This is a substring";
@@ -580,9 +658,6 @@ static void _xstd_string_tests(Allocator alloc)
         alloc.free(&alloc, strSub2.value);
         alloc.free(&alloc, strSub3.value);
     }
-    // =========================================================================
-    // TEST string_substr_unsafe
-    // =========================================================================
     io_println("string_substr_unsafe");
     {
         ConstStr strSub1 = "This is a substring";
@@ -602,9 +677,6 @@ static void _xstd_string_tests(Allocator alloc)
         alloc.free(&alloc, strSub2);
         alloc.free(&alloc, strSub3);
     }
-    // =========================================================================
-    // TEST string_splitc
-    // =========================================================================
     io_println("string_splitc");
     {
         ConstStr strSpl0 = " This is a split string ";
@@ -670,9 +742,6 @@ static void _xstd_string_tests(Allocator alloc)
         list_free_items(&alloc, &l2);
         list_deinit(&l2);
     }
-    // =========================================================================
-    // TEST string_find
-    // =========================================================================
     io_println("string_find");
     {
         ConstStr strFin1 = "Thus is a test string";
@@ -701,9 +770,6 @@ static void _xstd_string_tests(Allocator alloc)
         found = string_find(strFin1, "");
         assert_true(found == 0, "string_find strFin1 \"\" found != 0");
     }
-    // =========================================================================
-    // TEST string_find_char
-    // =========================================================================
     io_println("string_find_char");
     {
         ConstStr strFin1 = "Thus is a test string";
@@ -726,9 +792,6 @@ static void _xstd_string_tests(Allocator alloc)
         found = string_find_char(NULL, 0);
         assert_true(found == -1, "string_find_char NULL3 found != -1");
     }
-    // =========================================================================
-    // TEST StringBuilder
-    // =========================================================================
     io_println("StringBuilder");
     {
         ResultStrBuilder resBld = strbuilder_init(&alloc);
@@ -767,9 +830,6 @@ static void _xstd_string_tests(Allocator alloc)
 
         strbuilder_deinit(&builder);
     }
-    // =========================================================================
-    // TEST string_replace
-    // =========================================================================
     io_println("string_replace");
     {
         ConstStr strRep1 = "This is a test";
@@ -797,9 +857,6 @@ static void _xstd_string_tests(Allocator alloc)
         alloc.free(&alloc, resRep1.value);
         alloc.free(&alloc, resRep2.value);
     }
-    // =========================================================================
-    // TEST string_starts_with
-    // =========================================================================
     io_println("string_starts_with");
     {
         ibool strStaWth1 = string_starts_with("This is a test", "This");
@@ -820,9 +877,6 @@ static void _xstd_string_tests(Allocator alloc)
         ibool strStaWth6 = string_starts_with("This is a test", "");
         assert_true(strStaWth6, "string_starts_with strStaWth6 != true");
     }
-    // =========================================================================
-    // TEST string_ends_with
-    // =========================================================================
     io_println("string_ends_with");
     {
         ibool strEndWth1 = string_ends_with("This is a test", "test");
@@ -843,9 +897,6 @@ static void _xstd_string_tests(Allocator alloc)
         ibool strEndWth6 = string_ends_with("This is a test", "");
         assert_true(strEndWth6, "string_ends_with strEndWth6 != true");
     }
-    // =========================================================================
-    // TEST char_is_alpha
-    // =========================================================================
     io_println("char_is_alpha");
     {
         assert_true(!char_is_alpha('a' - 1), "char_is_alpha invalid range <a");
@@ -870,9 +921,6 @@ static void _xstd_string_tests(Allocator alloc)
 
         assert_true(!char_is_alpha('Z' + 1), "char_is_alpha invalid range >Z");
     }
-    // =========================================================================
-    // TEST char_is_digit
-    // =========================================================================
     io_println("char_is_digit");
     {
         assert_true(!char_is_digit('0' - 1), "char_is_digit invalid range <0");
@@ -886,9 +934,6 @@ static void _xstd_string_tests(Allocator alloc)
 
         assert_true(!char_is_digit('9' + 1), "char_is_digit invalid range >9");
     }
-    // =========================================================================
-    // TEST char_is_alphanum
-    // =========================================================================
     io_println("char_is_alphanum");
     {
         assert_true(!char_is_alphanum('a' - 1), "char_is_alphanum invalid range <a");
@@ -924,9 +969,6 @@ static void _xstd_string_tests(Allocator alloc)
 
         assert_true(!char_is_alphanum('9' + 1), "char_is_alphanum invalid range >9");
     }
-    // =========================================================================
-    // TEST string_trim_whitespace
-    // =========================================================================
     io_println("string_trim_whitespace");
     {
         ResultOwnedStr strTrim1 = string_trim_whitespace(&alloc, "  \n  This is a test.", true, true);
@@ -943,9 +985,6 @@ static void _xstd_string_tests(Allocator alloc)
         alloc.free(&alloc, strTrim1.value);
         alloc.free(&alloc, strTrim2.value);
     }
-    // =========================================================================
-    // TEST string_char_at
-    // =========================================================================
     io_println("string_char_at");
     {
         ConstStr utf8Sample = "naïve ☕";
@@ -968,9 +1007,6 @@ static void _xstd_string_tests(Allocator alloc)
         ResultUtf8Codepoint cpNull = string_char_at(NULL, 0);
         assert_true(cpNull.error.code != ERR_OK, "string_char_at cpNull == ERR_OK");
     }
-    // =========================================================================
-    // TEST string_char_at_ascii
-    // =========================================================================
     io_println("string_char_at_ascii");
     {
         ConstStr asciiInput = "example";
@@ -986,9 +1022,6 @@ static void _xstd_string_tests(Allocator alloc)
         ResultByte asciiNull = string_char_at_ascii(NULL, 0, 0);
         assert_true(asciiNull.error.code != ERR_OK, "string_char_at_ascii asciiNull == ERR_OK");
     }
-    // =========================================================================
-    // TEST string_substr_ascii
-    // =========================================================================
     io_println("string_substr_ascii");
     {
         ConstStr asciiSrc = "Ascii substring sample";
@@ -1005,9 +1038,6 @@ static void _xstd_string_tests(Allocator alloc)
 
         alloc.free(&alloc, asciiSub.value);
     }
-    // =========================================================================
-    // TEST string_substr_ascii_unsafe
-    // =========================================================================
     io_println("string_substr_ascii_unsafe");
     {
         ConstStr unsafeSrc = "Unsafe ascii segment";
@@ -1020,9 +1050,6 @@ static void _xstd_string_tests(Allocator alloc)
         OwnedStr unsafeFail = string_substr_ascii_unsafe(&badAlloc, unsafeSrc, 0, 3);
         assert_true(unsafeFail == NULL, "string_substr_ascii_unsafe unsafeFail != NULL");
     }
-    // =========================================================================
-    // TEST string_split_char_ascii
-    // =========================================================================
     io_println("string_split_char_ascii");
     {
         ConstStr splitAscii = "one,,two,three";
@@ -1055,9 +1082,6 @@ static void _xstd_string_tests(Allocator alloc)
         ResultList listErr = string_split_char_ascii(&alloc, NULL, ',');
         assert_true(listErr.error.code != ERR_OK, "string_split_char_ascii listErr == ERR_OK");
     }
-    // =========================================================================
-    // TEST string_split_lines
-    // =========================================================================
     io_println("string_split_lines");
     {
         ConstStr linesUtf8 = "line1\nlínea2\r\nline3 ☕\n";
@@ -1088,9 +1112,6 @@ static void _xstd_string_tests(Allocator alloc)
         ResultList linesErr = string_split_lines(&alloc, NULL);
         assert_true(linesErr.error.code != ERR_OK, "string_split_lines linesErr == ERR_OK");
     }
-    // =========================================================================
-    // TEST string_split_lines_ascii
-    // =========================================================================
     io_println("string_split_lines_ascii");
     {
         ConstStr linesAscii = "first\r\nsecond\nthird";
@@ -1118,9 +1139,6 @@ static void _xstd_string_tests(Allocator alloc)
         ResultList asciiLinesErr = string_split_lines_ascii(&alloc, NULL);
         assert_true(asciiLinesErr.error.code != ERR_OK, "string_split_lines_ascii asciiLinesErr == ERR_OK");
     }
-    // =========================================================================
-    // TEST string_lower
-    // =========================================================================
     io_println("string_lower");
     {
         ResultOwnedStr lowerRes = string_lower(&alloc, "MiXeD Case CAFÉ");
@@ -1128,9 +1146,6 @@ static void _xstd_string_tests(Allocator alloc)
         assert_str_eq(lowerRes.value, "mixed case cafÉ", "string_lower lowerRes != \"mixed case cafÉ\"");
         alloc.free(&alloc, lowerRes.value);
     }
-    // =========================================================================
-    // TEST string_upper
-    // =========================================================================
     io_println("string_upper");
     {
         ResultOwnedStr upperRes = string_upper(&alloc, "mixed case café");
@@ -1138,9 +1153,6 @@ static void _xstd_string_tests(Allocator alloc)
         assert_str_eq(upperRes.value, "MIXED CASE CAFé", "string_upper upperRes != \"MIXED CASE CAFé\"");
         alloc.free(&alloc, upperRes.value);
     }
-    // =========================================================================
-    // TEST string_lower_ascii
-    // =========================================================================
     io_println("string_lower_ascii");
     {
         ResultOwnedStr lowerAscii = string_lower_ascii(&alloc, "HELLO ASCII");
@@ -1148,9 +1160,6 @@ static void _xstd_string_tests(Allocator alloc)
         assert_str_eq(lowerAscii.value, "hello ascii", "string_lower_ascii lowerAscii != \"hello ascii\"");
         alloc.free(&alloc, lowerAscii.value);
     }
-    // =========================================================================
-    // TEST string_upper_ascii
-    // =========================================================================
     io_println("string_upper_ascii");
     {
         ResultOwnedStr upperAscii = string_upper_ascii(&alloc, "hello ascii");
@@ -1158,9 +1167,6 @@ static void _xstd_string_tests(Allocator alloc)
         assert_str_eq(upperAscii.value, "HELLO ASCII", "string_upper_ascii upperAscii != \"HELLO ASCII\"");
         alloc.free(&alloc, upperAscii.value);
     }
-    // =========================================================================
-    // TEST string_to_lower_inplace
-    // =========================================================================
     io_println("string_to_lower_inplace");
     {
         HeapStr lowerBuff = ConstToHeapStr(&alloc, "ModIfY Me É");
@@ -1169,9 +1175,6 @@ static void _xstd_string_tests(Allocator alloc)
         assert_str_eq(lowerBuff, "modify me É", "string_to_lower_inplace lowerBuff != \"modify me É\"");
         alloc.free(&alloc, lowerBuff);
     }
-    // =========================================================================
-    // TEST string_to_upper_inplace
-    // =========================================================================
     io_println("string_to_upper_inplace");
     {
         HeapStr upperBuff = ConstToHeapStr(&alloc, "modify me é");
@@ -1180,9 +1183,6 @@ static void _xstd_string_tests(Allocator alloc)
         assert_str_eq(upperBuff, "MODIFY ME é", "string_to_upper_inplace upperBuff != \"MODIFY ME é\"");
         alloc.free(&alloc, upperBuff);
     }
-    // =========================================================================
-    // TEST string_from_int
-    // =========================================================================
     io_println("string_from_int");
     {
         ResultOwnedStr intStr = string_from_int(&alloc, -12345);
@@ -1195,9 +1195,6 @@ static void _xstd_string_tests(Allocator alloc)
         assert_str_eq(zeroStr.value, "0", "string_from_int zeroStr != \"0\"");
         alloc.free(&alloc, zeroStr.value);
     }
-    // =========================================================================
-    // TEST string_from_uint
-    // =========================================================================
     io_println("string_from_uint");
     {
         ResultOwnedStr uintStr = string_from_uint(&alloc, 9876543210ULL);
@@ -1205,9 +1202,6 @@ static void _xstd_string_tests(Allocator alloc)
         assert_str_eq(uintStr.value, "9876543210", "string_from_uint uintStr != \"9876543210\"");
         alloc.free(&alloc, uintStr.value);
     }
-    // =========================================================================
-    // TEST string_from_float
-    // =========================================================================
     io_println("string_from_float");
     {
         ResultOwnedStr floatStr = string_from_float(&alloc, -12.5, 1);
@@ -1235,9 +1229,6 @@ static void _xstd_string_tests(Allocator alloc)
         assert_str_eq(roundingCarry.value, "100000000000.000", "string_from_float roundingCarry != \"100000000000.000\"");
         alloc.free(&alloc, roundingCarry.value);
     }
-    // =========================================================================
-    // TEST string_parse_int_ascii
-    // =========================================================================
     io_println("string_parse_int_ascii");
     {
         ResultI64 parseInt = string_parse_int_ascii("  -42  ");
@@ -1247,9 +1238,6 @@ static void _xstd_string_tests(Allocator alloc)
         ResultI64 parseErr = string_parse_int_ascii("abc");
         assert_true(parseErr.error.code != ERR_OK, "string_parse_int_ascii parseErr == ERR_OK");
     }
-    // =========================================================================
-    // TEST string_parse_int
-    // =========================================================================
     io_println("string_parse_int");
     {
         ConstStr utf8Int = " +256 ";
@@ -1260,9 +1248,6 @@ static void _xstd_string_tests(Allocator alloc)
         ResultI64 parseUtf8Err = string_parse_int("12a");
         assert_true(parseUtf8Err.error.code != ERR_OK, "string_parse_int parseUtf8Err == ERR_OK");
     }
-    // =========================================================================
-    // TEST string_parse_uint_ascii
-    // =========================================================================
     io_println("string_parse_uint_ascii");
     {
         ResultU64 parseUInt = string_parse_uint_ascii("  4096 ");
@@ -1272,9 +1257,6 @@ static void _xstd_string_tests(Allocator alloc)
         ResultU64 parseUIntErr = string_parse_uint_ascii("-1");
         assert_true(parseUIntErr.error.code != ERR_OK, "string_parse_uint_ascii parseUIntErr == ERR_OK");
     }
-    // =========================================================================
-    // TEST string_parse_uint
-    // =========================================================================
     io_println("string_parse_uint");
     {
         ConstStr utf8UInt = " 1024 ";
@@ -1285,9 +1267,6 @@ static void _xstd_string_tests(Allocator alloc)
         ResultU64 parseUtf8UIntErr = string_parse_uint("++1");
         assert_true(parseUtf8UIntErr.error.code != ERR_OK, "string_parse_uint parseUtf8UIntErr == ERR_OK");
     }
-    // =========================================================================
-    // TEST string_parse_float_ascii
-    // =========================================================================
     io_println("string_parse_float_ascii");
     {
         ResultF64 parseFloat = string_parse_float_ascii(" +3.25 ");
@@ -1297,9 +1276,6 @@ static void _xstd_string_tests(Allocator alloc)
         ResultF64 parseFloatErr = string_parse_float_ascii("3.");
         assert_true(parseFloatErr.error.code != ERR_OK, "string_parse_float_ascii parseFloatErr == ERR_OK");
     }
-    // =========================================================================
-    // TEST string_parse_float
-    // =========================================================================
     io_println("string_parse_float");
     {
         ConstStr utf8Float = " -12.5 ";
@@ -1310,9 +1286,6 @@ static void _xstd_string_tests(Allocator alloc)
         ResultF64 parseUtf8FloatErr = string_parse_float("nan");
         assert_true(parseUtf8FloatErr.error.code != ERR_OK, "string_parse_float parseUtf8FloatErr == ERR_OK");
     }
-    // =========================================================================
-    // TEST string_trim_whitespace_ascii
-    // =========================================================================
     io_println("string_trim_whitespace_ascii");
     {
         ResultOwnedStr trimAscii = string_trim_whitespace_ascii(&alloc, "  padded ascii  ", true, true);
@@ -1333,9 +1306,6 @@ static void _xstd_string_tests(Allocator alloc)
 static void _xstd_writer_tests(Allocator alloc)
 {
     Allocator badAlloc = _xstd_bad_alloc();
-    // =========================================================================
-    // TEST buffwriter_init
-    // =========================================================================
     io_println("buffwriter_init");
     {
         i8 storage[8] = {0};
@@ -1361,9 +1331,6 @@ static void _xstd_writer_tests(Allocator alloc)
         ResultBuffWriter errRes = buffwriter_init((Buffer){.bytes = NULL, .size = 4});
         assert_true(errRes.error.code != ERR_OK, "buffwriter_init errRes.error.code == ERR_OK");
     }
-    // =========================================================================
-    // TEST growbuffwriter_init
-    // =========================================================================
     io_println("growbuffwriter_init");
     {
         ResultGrowBuffWriter res = growbuffwriter_init(alloc, 4);
@@ -1388,14 +1355,11 @@ static void _xstd_writer_tests(Allocator alloc)
         gbw.buff.bytes[gbw.writeHead] = 0;
         assert_str_eq(gbw.buff.bytes, "grow", "growbuffwriter_init writer_write_str output != \"grow\"");
 
-        alloc.free(&alloc, gbw.buff.bytes);
+        growbuffwriter_deinit(&gbw);
 
         ResultGrowBuffWriter resErr = growbuffwriter_init(badAlloc, 8);
         assert_true(resErr.error.code != ERR_OK, "growbuffwriter_init resErr.error.code == ERR_OK");
     }
-    // =========================================================================
-    // TEST growbuffwriter_resize
-    // =========================================================================
     io_println("growbuffwriter_resize");
     {
         ResultGrowBuffWriter res = growbuffwriter_init(alloc, 8);
@@ -1419,11 +1383,8 @@ static void _xstd_writer_tests(Allocator alloc)
         Error invalid = growbuffwriter_resize(NULL, 4);
         assert_true(invalid.code == ERR_INVALID_PARAMETER, "growbuffwriter_resize invalid.code != ERR_INVALID_PARAMETER");
 
-        alloc.free(&alloc, gbw.buff.bytes);
+        growbuffwriter_deinit(&gbw);
     }
-    // =========================================================================
-    // TEST growstrwriter_init
-    // =========================================================================
     io_println("growstrwriter_init");
     {
         ResultGrowStrWriter res = growstrwriter_init(alloc, 4);
@@ -1451,9 +1412,6 @@ static void _xstd_writer_tests(Allocator alloc)
         ResultGrowStrWriter resErr = growstrwriter_init(badAlloc, 4);
         assert_true(resErr.error.code != ERR_OK, "growstrwriter_init resErr.error.code == ERR_OK");
     }
-    // =========================================================================
-    // TEST growstrwriter_resize
-    // =========================================================================
     io_println("growstrwriter_resize");
     {
         ResultGrowStrWriter res = growstrwriter_init(alloc, 8);
@@ -1479,9 +1437,6 @@ static void _xstd_writer_tests(Allocator alloc)
 
         alloc.free(&alloc, gsw.str);
     }
-    // =========================================================================
-    // TEST writer_write_bytes
-    // =========================================================================
     io_println("writer_write_bytes");
     {
         i8 storage[6] = {0};
@@ -1498,9 +1453,6 @@ static void _xstd_writer_tests(Allocator alloc)
         storage[bw.writeHead] = 0;
         assert_str_eq(storage, "ABCD", "writer_write_bytes storage != \"ABCD\"");
     }
-    // =========================================================================
-    // TEST writer_write_str
-    // =========================================================================
     io_println("writer_write_str");
     {
         i8 storage[12] = {0};
@@ -1520,9 +1472,6 @@ static void _xstd_writer_tests(Allocator alloc)
         nullBw.buff.bytes[nullBw.writeHead] = 0;
         assert_str_eq(nullBw.buff.bytes, "(null)", "writer_write_str null output != \"(null)\"");
     }
-    // =========================================================================
-    // TEST writer_write_int
-    // =========================================================================
     io_println("writer_write_int");
     {
         ResultGrowStrWriter res = growstrwriter_init(alloc, 8);
@@ -1535,9 +1484,6 @@ static void _xstd_writer_tests(Allocator alloc)
 
         alloc.free(&alloc, gsw.str);
     }
-    // =========================================================================
-    // TEST writer_write_uint
-    // =========================================================================
     io_println("writer_write_uint");
     {
         ResultGrowStrWriter res = growstrwriter_init(alloc, 8);
@@ -1556,9 +1502,6 @@ static void _xstd_writer_tests(Allocator alloc)
 
         alloc.free(&alloc, gsw.str);
     }
-    // =========================================================================
-    // TEST writer_write_float
-    // =========================================================================
     io_println("writer_write_float");
     {
         ResultGrowStrWriter res1 = growstrwriter_init(alloc, 16);
@@ -1590,9 +1533,6 @@ static void _xstd_writer_tests(Allocator alloc)
 static void _xstd_utf8_tests(Allocator alloc)
 {
     (void)alloc;
-    // =========================================================================
-    // TEST utf8_iter_str
-    // =========================================================================
     io_println("utf8_iter_str");
     {
         ConstStr sample = "hé";
@@ -1604,9 +1544,6 @@ static void _xstd_utf8_tests(Allocator alloc)
         ResultUtf8Iter iterNull = utf8_iter_str(NULL);
         assert_true(iterNull.error.code != ERR_OK, "utf8_iter_str iterNull == ERR_OK");
     }
-    // =========================================================================
-    // TEST utf8_iter_buff
-    // =========================================================================
     io_println("utf8_iter_buff");
     {
         const i8 *emoji = "😀";
@@ -1626,9 +1563,6 @@ static void _xstd_utf8_tests(Allocator alloc)
         ResultUtf8Iter buffErr = utf8_iter_buff(badBuff);
         assert_true(buffErr.error.code != ERR_OK, "utf8_iter_buff buffErr == ERR_OK");
     }
-    // =========================================================================
-    // TEST utf8_iter_has_next
-    // =========================================================================
     io_println("utf8_iter_has_next");
     {
         ResultUtf8Iter iterRes = utf8_iter_str("A");
@@ -1639,9 +1573,6 @@ static void _xstd_utf8_tests(Allocator alloc)
         assert_true(!utf8_iter_has_next(&it), "utf8_iter_has_next end == true");
         assert_true(!utf8_iter_has_next(NULL), "utf8_iter_has_next NULL != false");
     }
-    // =========================================================================
-    // TEST utf8_iter_peek_next
-    // =========================================================================
     io_println("utf8_iter_peek_next");
     {
         ConstStr sample = "A☕";
@@ -1669,9 +1600,6 @@ static void _xstd_utf8_tests(Allocator alloc)
         assert_true(nextCoffee.value.codepoint == 0x2615, "utf8_iter_next nextCoffee codepoint != ☕");
         assert_true(!utf8_iter_has_next(&it), "utf8_iter_peek_next has_next after end");
     }
-    // =========================================================================
-    // TEST utf8_iter_next_invalid
-    // =========================================================================
     io_println("utf8_iter_next_invalid");
     {
         i8 invalidSeq[] = {(i8)0xE2, 0x28, (i8)0xA1, 0};
@@ -1682,9 +1610,6 @@ static void _xstd_utf8_tests(Allocator alloc)
         ResultUtf8Codepoint invalidCp = utf8_iter_next(&it);
         assert_true(invalidCp.error.code != ERR_OK, "utf8_iter_next_invalid invalidCp == ERR_OK");
     }
-    // =========================================================================
-    // TEST utf8_iter_next_truncated
-    // =========================================================================
     io_println("utf8_iter_next_truncated");
     {
         const i8 *euro = "€";
@@ -1699,9 +1624,6 @@ static void _xstd_utf8_tests(Allocator alloc)
         ResultUtf8Codepoint truncated = utf8_iter_next(&it);
         assert_true(truncated.error.code != ERR_OK, "utf8_iter_next_truncated truncated == ERR_OK");
     }
-    // =========================================================================
-    // TEST utf8_iter_advance_bytes
-    // =========================================================================
     io_println("utf8_iter_advance_bytes");
     {
         ConstStr sample = "ab☕";
@@ -1724,9 +1646,6 @@ static void _xstd_list_tests(Allocator alloc)
     Error err;
     Allocator badAlloc = _xstd_bad_alloc();
 
-    // =========================================================================
-    // TEST list_init
-    // =========================================================================
     io_println("list_init");
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
@@ -1745,9 +1664,6 @@ static void _xstd_list_tests(Allocator alloc)
         ResultList res3 = list_init(&alloc, 0, 16);
         assert_true(res3.error.code != ERR_OK, "list_init res3.error.code == ERR_OK");
     }
-    // =========================================================================
-    // TEST list_push
-    // =========================================================================
     io_println("list_push");
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
@@ -1772,9 +1688,6 @@ static void _xstd_list_tests(Allocator alloc)
 
         list_deinit(&l);
     }
-    // =========================================================================
-    // TEST list_pop
-    // =========================================================================
     io_println("list_pop");
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
@@ -1810,9 +1723,6 @@ static void _xstd_list_tests(Allocator alloc)
 
         list_deinit(&l);
     }
-    // =========================================================================
-    // TEST list_get
-    // =========================================================================
     io_println("list_get");
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
@@ -1841,9 +1751,6 @@ static void _xstd_list_tests(Allocator alloc)
 
         list_deinit(&l);
     }
-    // =========================================================================
-    // TEST list_set
-    // =========================================================================
     io_println("list_set");
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
@@ -1864,9 +1771,6 @@ static void _xstd_list_tests(Allocator alloc)
 
         list_deinit(&l);
     }
-    // =========================================================================
-    // TEST list_getref
-    // =========================================================================
     io_println("list_getref");
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
@@ -1889,9 +1793,6 @@ static void _xstd_list_tests(Allocator alloc)
 
         list_deinit(&l);
     }
-    // =========================================================================
-    // TEST list_get_unsafe
-    // =========================================================================
     io_println("list_get_unsafe");
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
@@ -1908,9 +1809,6 @@ static void _xstd_list_tests(Allocator alloc)
 
         list_deinit(&l);
     }
-    // =========================================================================
-    // TEST list_set_unsafe
-    // =========================================================================
     io_println("list_set_unsafe");
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
@@ -1931,9 +1829,6 @@ static void _xstd_list_tests(Allocator alloc)
 
         list_deinit(&l);
     }
-    // =========================================================================
-    // TEST list_getref_unsafe
-    // =========================================================================
     io_println("list_getref_unsafe");
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
@@ -1950,9 +1845,6 @@ static void _xstd_list_tests(Allocator alloc)
 
         list_deinit(&l);
     }
-    // =========================================================================
-    // TEST list_free_items
-    // =========================================================================
     io_println("list_free_items");
     {
         ResultList res = ListInitT(HeapStr, &alloc);
@@ -1969,9 +1861,6 @@ static void _xstd_list_tests(Allocator alloc)
         list_free_items(&alloc, &l);
         list_deinit(&l);
     }
-    // =========================================================================
-    // TEST list_clear
-    // =========================================================================
     io_println("list_clear");
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
@@ -1988,9 +1877,6 @@ static void _xstd_list_tests(Allocator alloc)
 
         list_deinit(&l);
     }
-    // =========================================================================
-    // TEST list_clear_nofree
-    // =========================================================================
     io_println("list_clear_nofree");
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
@@ -2007,9 +1893,6 @@ static void _xstd_list_tests(Allocator alloc)
 
         list_deinit(&l);
     }
-    // =========================================================================
-    // TEST list_for_each
-    // =========================================================================
     io_println("list_for_each");
     {
         ResultList res = ListInitT(HeapStr, &alloc);
@@ -2040,9 +1923,6 @@ static void _xstd_math_tests(Allocator alloc)
 {
     (void)alloc;
 
-    // =========================================================================
-    // TEST add
-    // =========================================================================
     io_println("add");
     {
         u8 addRes1 = math_u8_add(0, 1);
@@ -2088,9 +1968,6 @@ static void _xstd_math_tests(Allocator alloc)
         assert_true(addResF64 == 3.5, "math_f64_add addResF64 != 3.5");
     }
 
-    // =========================================================================
-    // TEST add_nooverflow
-    // =========================================================================
     io_println("add_nooverflow");
     {
         ResultU8 addResNo1 = math_u8_add_nooverflow(0, 1);
@@ -2139,9 +2016,6 @@ static void _xstd_math_tests(Allocator alloc)
         assert_true(addResNo13.error.code != ERR_OK, "math_i64_add_nooverflow addResNo13 == OK");
     }
 
-    // =========================================================================
-    // TEST substract
-    // =========================================================================
     io_println("substract");
     {
         u8 subRes1 = math_u8_substract(5, 2);
@@ -2160,9 +2034,6 @@ static void _xstd_math_tests(Allocator alloc)
         assert_true(subResF == 3.5f, "math_f32_substract subResF != 3.5f");
     }
 
-    // =========================================================================
-    // TEST substract_nooverflow
-    // =========================================================================
     io_println("substract_nooverflow");
     {
         ResultU8 subNo1 = math_u8_substract_nooverflow(5, 3);
@@ -2194,9 +2065,6 @@ static void _xstd_math_tests(Allocator alloc)
         assert_true(subNo8.error.code != ERR_OK, "math_i64_substract_nooverflow subNo8 == OK");
     }
 
-    // =========================================================================
-    // TEST multiply
-    // =========================================================================
     io_println("multiply");
     {
         u16 mulRes1 = math_u16_multiply(4, 5);
@@ -2212,9 +2080,6 @@ static void _xstd_math_tests(Allocator alloc)
         assert_true(mulRes4 == 3.0, "math_f64_multiply mulRes4 != 3.0");
     }
 
-    // =========================================================================
-    // TEST multiply_nooverflow
-    // =========================================================================
     io_println("multiply_nooverflow");
     {
         ResultU16 mulNo1 = math_u16_multiply_nooverflow(4, 5);
@@ -2242,9 +2107,6 @@ static void _xstd_math_tests(Allocator alloc)
         assert_true(mulNo7.error.code != ERR_OK, "math_i64_multiply_nooverflow mulNo7 == OK");
     }
 
-    // =========================================================================
-    // TEST divide
-    // =========================================================================
     io_println("divide");
     {
         ResultU8 divRes0 = math_u8_divide(9, 3);
@@ -2280,9 +2142,6 @@ static void _xstd_math_tests(Allocator alloc)
         assert_true(divRes7.error.code == ERR_INVALID_PARAMETER, "math_f64_divide divRes7 != ERR_INVALID_PARAMETER");
     }
 
-    // =========================================================================
-    // TEST divide_nooverflow
-    // =========================================================================
     io_println("divide_nooverflow");
     {
         ResultU32 divNo1 = math_u32_divide_nooverflow(9, 3);
@@ -2314,9 +2173,6 @@ static void _xstd_math_tests(Allocator alloc)
         assert_true(divNo8.error.code != ERR_OK, "math_i64_divide_nooverflow divNo8 == OK");
     }
 
-    // =========================================================================
-    // TEST abs
-    // =========================================================================
     io_println("abs");
     {
         i8 absRes1 = math_i8_abs(-5);
@@ -2335,9 +2191,6 @@ static void _xstd_math_tests(Allocator alloc)
         assert_true(absRes5 == 3.5, "math_f64_abs absRes5 != 3.5");
     }
 
-    // =========================================================================
-    // TEST power
-    // =========================================================================
     io_println("power");
     {
         u8 powRes1 = math_u8_power(2, 4);
@@ -2356,9 +2209,6 @@ static void _xstd_math_tests(Allocator alloc)
         assert_true(powRes5 == 0.25, "math_f64_power powRes5 != 0.25");
     }
 
-    // =========================================================================
-    // TEST power_nooverflow
-    // =========================================================================
     io_println("power_nooverflow");
     {
         ResultU8 powNo1 = math_u8_power_nooverflow(2, 4);
@@ -2396,9 +2246,6 @@ static void _xstd_math_tests(Allocator alloc)
         assert_true(powNo10.error.code != ERR_OK, "math_i64_power_nooverflow powNo10 == OK");
     }
 
-    // =========================================================================
-    // TEST round
-    // =========================================================================
     io_println("round");
     {
         f32 roundRes1 = math_f32_round(2.6f);
@@ -2415,5 +2262,65 @@ static void _xstd_math_tests(Allocator alloc)
 
         f64 roundRes5 = math_f64_round(-1.6);
         assert_true(roundRes5 == -2.0, "math_f64_round roundRes5 != -2.0");
+    }
+}
+static void _xstd_mem_tests(void)
+{
+    io_println("mem_copy zero size");
+    {
+        u8 src[4] = {1, 2, 3, 4};
+        u8 dst[4] = {9, 9, 9, 9};
+
+        mem_copy(dst, src, 0);
+
+        for (u64 i = 0; i < 4; ++i)
+            assert_true(dst[i] == 9, "mem_copy zero size modified destination");
+    }
+
+    io_println("mem_copy full copy");
+    {
+        u8 src[32];
+        u8 dst[32] = {0};
+
+        for (u64 i = 0; i < sizeof(src); ++i)
+            src[i] = (u8)(i * 3);
+
+        mem_copy(dst, src, sizeof(src));
+
+        for (u64 i = 0; i < sizeof(src); ++i)
+            assert_true(dst[i] == src[i], "mem_copy full copy mismatch");
+    }
+
+    io_println("mem_copy unaligned");
+    {
+        u8 src[40];
+        u8 dst[40];
+
+        for (u64 i = 0; i < 40; ++i)
+        {
+            src[i] = (u8)(i + 5);
+            dst[i] = 0;
+        }
+
+        mem_copy(dst + 3, src + 1, 31);
+
+        for (u64 i = 0; i < 31; ++i)
+            assert_true(dst[i + 3] == src[i + 1], "mem_copy unaligned mismatch");
+    }
+
+    io_println("mem_copy same buffer");
+    {
+        u8 buff[24];
+        for (u64 i = 0; i < sizeof(buff); ++i)
+            buff[i] = (u8)(i ^ 0xAA);
+
+        u8 expected[24];
+        for (u64 i = 0; i < sizeof(buff); ++i)
+            expected[i] = buff[i];
+
+        mem_copy(buff, buff, sizeof(buff));
+
+        for (u64 i = 0; i < sizeof(buff); ++i)
+            assert_true(buff[i] == expected[i], "mem_copy same buffer altered data");
     }
 }

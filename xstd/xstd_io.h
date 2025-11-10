@@ -5,6 +5,9 @@
 #include "xstd_proc_os_int.h"
 #include "xstd_proc_os_int_default.h"
 #include "xstd_file_os_int_default.h"
+#ifdef _WIN32
+    #include "xstd_win32.h"
+#endif
 
 #define IoStdout ((File){._handle = _default_file_os_int()->fstdout(), ._valid = true})
 #define IoStderr ((File){._handle = _default_file_os_int()->fstderr(), ._valid = true})

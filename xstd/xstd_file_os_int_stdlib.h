@@ -43,6 +43,31 @@ static int _fosint_cstd_fgetc(void *stream)
     return fgetc((FILE *)stream);
 }
 
+static u64 _fosint_cstd_fread(void *stream, void *dst, u64 bytes)
+{
+    if (!stream || !dst || bytes == 0)
+        return 0;
+
+    FILE *f = (FILE *)stream;
+    unsigned char *out = (unsigned char *)dst;
+    u64 totalRead = 0;
+
+    while (totalRead < bytes)
+    {
+        size_t remaining = (size_t)((bytes - totalRead) > (u64)(size_t)-1 ? (size_t)-1 : (bytes - totalRead));
+        if (remaining == 0)
+            break;
+
+        size_t read = fread(out + totalRead, 1, remaining, f);
+        totalRead += read;
+
+        if (read != remaining)
+            break;
+    }
+
+    return totalRead;
+}
+
 static int _fosint_cstd_fseek(void *stream, long off, int origin)
 {
     return fseek((FILE *)stream, off, origin);
@@ -56,6 +81,31 @@ static long _fosint_cstd_ftell(void *stream)
 static int _fosint_cstd_fputc(int c, void *stream)
 {
     return fputc(c, (FILE *)stream);
+}
+
+static u64 _fosint_cstd_fwrite(void *stream, const void *src, u64 bytes)
+{
+    if (!stream || !src || bytes == 0)
+        return 0;
+
+    FILE *f = (FILE *)stream;
+    const unsigned char *data = (const unsigned char *)src;
+    u64 totalWritten = 0;
+
+    while (totalWritten < bytes)
+    {
+        size_t remaining = (size_t)((bytes - totalWritten) > (u64)(size_t)-1 ? (size_t)-1 : (bytes - totalWritten));
+        if (remaining == 0)
+            break;
+
+        size_t written = fwrite(data + totalWritten, 1, remaining, f);
+        totalWritten += written;
+
+        if (written != remaining)
+            break;
+    }
+
+    return totalWritten;
 }
 
 static int _fosint_cstd_fflush(void *stream)
@@ -78,9 +128,11 @@ static const _FileOsInterface _file_os_int_stdlib = {
     .open = _fosint_cstd_fopen,
     .close = _fosint_cstd_fclose,
     .getc = _fosint_cstd_fgetc,
+    .read = _fosint_cstd_fread,
     .seek = _fosint_cstd_fseek,
     .tell = _fosint_cstd_ftell,
     .putc = _fosint_cstd_fputc,
+    .write = _fosint_cstd_fwrite,
     .flush = _fosint_cstd_fflush,
     .eof = _fosint_cstd_feof,
 };

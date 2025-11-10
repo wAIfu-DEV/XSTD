@@ -7,6 +7,7 @@
 #include "xstd_result.h"
 #include "xstd_list.h"
 #include "xstd_utf8.h"
+#include "xstd_mem.h"
 
 typedef struct _string_builder
 {
@@ -99,7 +100,8 @@ static inline ResultOwnedStr string_alloc(Allocator *a, u64 sizeNonTerminated, i
     if (!str)
         return (ResultOwnedStr){
             .value = NULL,
-            .error = X_ERR_EXT("string", "string_alloc", ERR_OUT_OF_MEMORY, "alloc failure"),
+            .error = X_ERR_EXT("string", "string_alloc",
+                ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
     u64 i = sizeNonTerminated + 1;
@@ -138,22 +140,17 @@ static inline ResultOwnedStr string_alloc(Allocator *a, u64 sizeNonTerminated, i
 static inline Error string_copy(ConstStr source, String destination)
 {
     if (!source || !destination)
-        return X_ERR_EXT("string", "string_copy", ERR_INVALID_PARAMETER, "null arg");
+        return X_ERR_EXT("string", "string_copy",
+            ERR_INVALID_PARAMETER, "null arg");
 
     u64 srcLen = string_size(source);
     u64 destLen = string_size(destination);
 
     if (destLen < srcLen)
-        return X_ERR_EXT("string", "string_copy", ERR_WOULD_OVERFLOW, "dest smaller than src");
+        return X_ERR_EXT("string", "string_copy",
+            ERR_WOULD_OVERFLOW, "dest smaller than src");
 
-    u64 i = 0;
-    while (source[i])
-    {
-        destination[i] = source[i];
-        ++i;
-    }
-    destination[i] = (i8)0;
-
+    mem_copy(destination, source, srcLen + 1);
     return X_ERR_OK;
 }
 
@@ -177,26 +174,24 @@ static inline Error string_copy(ConstStr source, String destination)
 static inline Error string_copy_n(ConstStr source, String destination, u64 n, ibool terminate)
 {
     if (!source || !destination)
-        return X_ERR_EXT("string", "string_copy_n", ERR_INVALID_PARAMETER, "null arg");
+        return X_ERR_EXT("string", "string_copy_n",
+            ERR_INVALID_PARAMETER, "null arg");
 
     u64 srcLen = string_size(source);
     u64 destLen = string_size(destination);
 
     if (srcLen < n)
-        return X_ERR_EXT("string", "string_copy_n", ERR_WOULD_OVERFLOW, "src smaller than n");
+        return X_ERR_EXT("string", "string_copy_n",
+            ERR_WOULD_OVERFLOW, "src smaller than n");
 
     if (destLen < n)
-        return X_ERR_EXT("string", "string_copy_n", ERR_WOULD_OVERFLOW, "dest smaller than n");
+        return X_ERR_EXT("string", "string_copy_n",
+            ERR_WOULD_OVERFLOW, "dest smaller than n");
 
-    u64 i = 0;
-    while (i < n)
-    {
-        destination[i] = source[i];
-        ++i;
-    }
+    mem_copy(destination, source, n);
 
     if (terminate)
-        destination[i] = (i8)0;
+        destination[n] = (i8)0;
 
     return X_ERR_OK;
 }
@@ -221,13 +216,8 @@ static inline Error string_copy_n(ConstStr source, String destination, u64 n, ib
  */
 static inline void string_copy_unsafe(ConstStr source, String destination)
 {
-    u64 i = 0;
-    while (source[i])
-    {
-        destination[i] = source[i];
-        ++i;
-    }
-    destination[i] = (i8)0;
+    u64 len = string_size(source);
+    mem_copy(destination, source, len + 1);
 }
 
 /**
@@ -249,14 +239,10 @@ static inline void string_copy_unsafe(ConstStr source, String destination)
  */
 static inline void string_copy_n_unsafe(ConstStr source, String destination, u64 n, ibool terminate)
 {
-    u64 i = 0;
-    while (i < n)
-    {
-        destination[i] = source[i];
-        ++i;
-    }
+    mem_copy(destination, source, n);
+
     if (terminate)
-        destination[i] = (i8)0;
+        destination[n] = (i8)0;
 }
 
 /**
@@ -291,7 +277,7 @@ static inline ResultOwnedStr string_dupe(Allocator *a, ConstStr source)
             .error = X_ERR_EXT("string", "string_dupe", ERR_WOULD_OVERFLOW, "alloc failure"),
         };
 
-    string_copy_unsafe(source, newStr);
+    mem_copy(newStr, source, srcLen + 1);
 
     return (ResultOwnedStr){
         .value = newStr,
@@ -399,7 +385,7 @@ static inline OwnedStr string_dupe_noresult(Allocator *a, ConstStr source)
     if (!newStr)
         return NULL;
 
-    string_copy_unsafe(source, newStr);
+    mem_copy(newStr, source, srcLen + 1);
     return newStr;
 }
 
@@ -497,8 +483,8 @@ static inline ResultOwnedStr string_concat(Allocator *al, ConstStr a, ConstStr b
             .error = X_ERR_EXT("string", "string_concat", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
-    string_copy_unsafe(a, newStr);
-    string_copy_unsafe(b, newStr + aLen);
+    mem_copy(newStr, a, aLen);
+    mem_copy(newStr + aLen, b, bLen + 1);
 
     return (ResultOwnedStr){
         .value = newStr,
@@ -612,18 +598,21 @@ static inline ResultOwnedStr string_substr_ascii(Allocator *a, ConstStr s, u64 s
 {
     if (!a || !s)
         return (ResultOwnedStr){
-            .error = X_ERR_EXT("string", "string_substr_ascii", ERR_INVALID_PARAMETER, "null arg"),
+            .error = X_ERR_EXT("string", "string_substr_ascii",
+                ERR_INVALID_PARAMETER, "null arg"),
         };
 
     if (end < start)
         return (ResultOwnedStr){
-            .error = X_ERR_EXT("string", "string_substr_ascii", ERR_INVALID_PARAMETER, "end smaller than start"),
+            .error = X_ERR_EXT("string", "string_substr_ascii",
+                ERR_INVALID_PARAMETER, "end smaller than start"),
         };
 
     u64 strSize = string_size(s);
     if (start > strSize || end > strSize)
         return (ResultOwnedStr){
-            .error = X_ERR_EXT("string", "string_substr_ascii", ERR_INVALID_PARAMETER, "start/end out of string bounds"),
+            .error = X_ERR_EXT("string", "string_substr_ascii",
+                ERR_INVALID_PARAMETER, "start/end out of string bounds"),
         };
 
     u64 subSize = end - start;
@@ -631,7 +620,8 @@ static inline ResultOwnedStr string_substr_ascii(Allocator *a, ConstStr s, u64 s
 
     if (!newStr)
         return (ResultOwnedStr){
-            .error = X_ERR_EXT("string", "string_substr_ascii", ERR_OUT_OF_MEMORY, "alloc failure"),
+            .error = X_ERR_EXT("string", "string_substr_ascii",
+                ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
     string_copy_n_unsafe(s + start, newStr, subSize, false);
@@ -2093,15 +2083,16 @@ static inline ResultOwnedStr string_from_int(Allocator *a, const i64 i)
         --idx;
     }
 
-    buf[19] = '\0';
+    buf[19] = '\0'; 
 
-    HeapStr intStr = (HeapStr)a->alloc(a, (19 - (u64)idx) + 1);
+    u64 intStrSize = 19 - (u64)idx;
+    HeapStr intStr = (HeapStr)a->alloc(a, intStrSize + 1);
     if (!intStr)
         return (ResultOwnedStr){
             .error = X_ERR_EXT("string", "string_from_int", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
-    string_copy_unsafe(buf + idx + 1, intStr);
+    mem_copy(intStr, buf + idx + 1, intStrSize + 1);
 
     return (ResultOwnedStr){
         .value = intStr,
@@ -2149,14 +2140,15 @@ static inline ResultOwnedStr string_from_uint(Allocator *a, const u64 i)
 
     buf[19] = '\0';
 
-    HeapStr intStr = (HeapStr)a->alloc(a, (19 - (u64)idx) + 1);
+    u64 intStrSize = 19 - (u64)idx;
+    HeapStr intStr = (HeapStr)a->alloc(a, intStrSize + 1);
 
     if (!intStr)
         return (ResultOwnedStr){
             .error = X_ERR_EXT("string", "string_from_uint", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
-    string_copy_unsafe(buf + idx + 1, intStr);
+    mem_copy(intStr, buf + idx + 1, intStrSize + 1);
 
     return (ResultOwnedStr){
         .value = intStr,

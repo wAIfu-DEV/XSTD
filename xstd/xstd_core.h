@@ -40,11 +40,7 @@ typedef unsigned int u32;       // 32bit value representing an unsigned integer 
 
 typedef float f32;  // 32bit value representing a decimal number.
 
-#if _XSTD_ARCH_64BIT
-    typedef double f64; // 64bit value representing a decimal number.
-#else
-    typedef f32 f64; // 64bit value representing a decimal number.
-#endif
+typedef double f64; // 64bit value representing a decimal number.
 
 #define U8_MAXVAL (u8)-1
 #define U16_MAXVAL (u16)-1

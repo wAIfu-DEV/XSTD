@@ -3,6 +3,7 @@
 #include "xstd_core.h"
 #include "xstd_alloc.h"
 #include "xstd_error.h"
+#include "xstd_mem.h"
 #include "xstd_buffer.h"
 
 typedef struct _buffalloc_block
@@ -124,8 +125,7 @@ static void *_buffalloc_realloc(Allocator *a, void *ptr, u64 newSize)
     if (!newPtr)
         return NULL;
 
-    for (u64 i = 0; i < usableSize; ++i)
-        ((i8 *)newPtr)[i] = ((i8 *)ptr)[i];
+    mem_copy(newPtr, ptr, usableSize);
 
     _buffalloc_free(a, ptr);
     return newPtr;

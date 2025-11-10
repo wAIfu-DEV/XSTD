@@ -145,6 +145,22 @@ static inline ResultBuffWriter buffwriter_init(Buffer buff)
     };
 }
 
+/**
+ * @brief Invalidates the buffwriter
+ * @warning does not deallocate the underlying buffer, as it may or may not be heap allocated,
+ * user should deallocate it separately.
+ * 
+ * @param writer 
+ */
+static inline void buffwriter_deinit(BuffWriter* writer)
+{
+    writer->write = NULL;
+    writer->writeHead = 0;
+    writer->writeEnd = 0;
+    writer->buff.bytes = NULL;
+    writer->buff.size = 0;
+}
+
 static inline ResultGrowBuffWriter growbuffwriter_init(Allocator alloc, u32 initSize)
 {
     if (initSize == 0)
@@ -174,6 +190,25 @@ static inline ResultGrowBuffWriter growbuffwriter_init(Allocator alloc, u32 init
     };
 }
 
+/**
+ * @brief Invalidates and deallocates the GrowBuffWriter
+ * 
+ * @param writer 
+ */
+static inline void growbuffwriter_deinit(GrowBuffWriter* writer)
+{
+    writer->write = NULL;
+    writer->writeHead = 0;
+    writer->writeEnd = 0;
+    writer->buff.size = 0;
+
+    if (writer->buff.bytes)
+    {
+        Allocator* a = &writer->allocator;
+        a->free(a, writer->buff.bytes);
+    }
+}
+
 static inline ResultGrowStrWriter growstrwriter_init(Allocator alloc, u32 initSize)
 {
     if (initSize == 0)
@@ -201,6 +236,27 @@ static inline ResultGrowStrWriter growstrwriter_init(Allocator alloc, u32 initSi
         },
         .error = X_ERR_OK,
     };
+}
+
+/**
+ * @brief Invalidates the GrowStrWriter
+ * @warning does not deallocate the underlying buffer, as it may or may not be heap allocated,
+ * user should deallocate it separately.
+ * 
+ * @param writer 
+ */
+static inline void growstrwriter_deinit(GrowStrWriter* writer)
+{
+    writer->write = NULL;
+    writer->writeHead = 0;
+    writer->writeEnd = 0;
+    writer->strSize = 0;
+
+    if (writer->str)
+    {
+        Allocator* a = &writer->allocator;
+        a->free(a, writer->str);
+    }
 }
 
 static inline Error growbuffwriter_resize(GrowBuffWriter* gbw, u64 newSize)
