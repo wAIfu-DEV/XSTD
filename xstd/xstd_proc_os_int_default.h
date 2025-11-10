@@ -23,7 +23,7 @@
  *
  * This function is meant to be used by XSTD.
  */
-static const _ProcOsInterface* _default_proc_os_int(void) {
+static inline const _ProcOsInterface* _default_proc_os_int(void) {
     #ifdef _WIN32
         return &_proc_os_int_win32;
     #else

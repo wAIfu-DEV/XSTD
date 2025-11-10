@@ -66,10 +66,23 @@ typedef float f32;  // 32bit value representing a decimal number.
     #define I64_MINVAL I32_MINVAL
 #endif
 
+// ASCII/UTF8 strings
 typedef i8 *String;         // Pointer to string of characters terminated with 0.
 typedef const i8 *ConstStr; // Pointer to immutable string of characters terminated with 0.
 typedef i8 *HeapStr;        // Pointer to heap-allocated string of characters terminated with 0.
 typedef i8 *OwnedStr;       // Pointer to heap-allocated string of characters terminated with 0. Should be freed.
+
+// Widechar UTF16 strings
+typedef i16* Utf16Str;            // Pointer to UTF-16 string terminated with 0.
+typedef const i16* Utf16ConstStr; // Pointer to immutable string of 16 bit characters terminated with 0.
+typedef i16* Utf16HeapStr;        // Pointer to heap-allocated string of 16 bit characters terminated with 0.
+typedef i16* Utf16OwnedStr;       // Pointer to heap-allocated UTF-16 string terminated with 0. Should be freed.
+
+typedef struct _utf16_buff
+{
+    Utf16Str units; // Pointer to valid UTF-16 code units.
+    u64 size;            // Number of UTF-16 code units available from units.
+} Utf16Buff;
 
 // Represents an area of memory either on the stack or on the heap.
 typedef struct _buffer

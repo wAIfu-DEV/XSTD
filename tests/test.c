@@ -9,18 +9,25 @@ int main(void)
 
     Allocator dbgAlloc = dbgAllocRes.value;
 
-    io_print("Tests: ");
-
-    io_print("lists, ");
-    _xstd_list_tests(dbgAlloc);
-
-    io_print("strings, ");
-    _xstd_string_tests(dbgAlloc);
-
-    io_print("maths");
+    io_println("[Testing math]:");
     _xstd_math_tests(dbgAlloc);
 
-    io_println(" - Passed.");
+    io_println("\n[Testing writer]:");
+    _xstd_writer_tests(dbgAlloc);
+
+    io_println("\n[Testing list]:");
+    _xstd_list_tests(dbgAlloc);
+
+    io_println("\n[Testing utf8]:");
+    _xstd_utf8_tests(dbgAlloc);
+
+    io_println("\n[Testing string]:");
+    _xstd_string_tests(dbgAlloc);
+
+    io_println("\n[Testing file]:");
+    _xstd_file_tests(dbgAlloc);
+
+    io_println("\n[Passed all tests]");
 
     io_print("Active allocations after test: ");
     io_print_uint(dbgState.activeAllocCount);

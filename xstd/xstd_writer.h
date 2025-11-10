@@ -368,53 +368,53 @@ static inline Error writer_write_float(Writer* w, f64 flt, u64 precision)
     if (!w)
         return X_ERR_EXT("writer", "writer_write_float", ERR_INVALID_PARAMETER, "null writer");
 
-    f64 d = flt;
     Error err;
+    f64 absVal = (flt >= 0.0) ? flt : -flt;
+    u64 intPart = (u64)absVal;
+    f64 fracPart = absVal - (f64)intPart;
 
-    if (d < 0)
+    f64 scale = 1.0;
+    for (u64 i = 0; i < precision; ++i)
+        scale *= 10.0;
+
+    u64 fracInt = (precision > 0) ? (u64)(fracPart * scale + 0.5) : 0;
+
+    if (fracInt >= (u64)scale && precision > 0)
+    {
+        fracInt -= (u64)scale;
+        ++intPart;
+    }
+
+    if (flt < 0.0)
     {
         err = writer_write_byte(w, '-');
         if (err.code != ERR_OK)
             return err;
-        d = -d;
     }
-
-    u64 intPart = (u64)d;
-    f64 fracPart = d - (f64)intPart;
 
     err = writer_write_uint(w, intPart);
     if (err.code != ERR_OK)
         return err;
 
-    if (precision <= (f64)0.0)
+    if (precision == 0)
         return X_ERR_OK;
 
     err = writer_write_byte(w, '.');
     if (err.code != ERR_OK)
         return err;
 
-    f64 scale = 1.0;
+    u64 divisor = (u64)(scale / 10.0);
     for (u64 i = 0; i < precision; ++i)
-        scale *= (f64)10.0;
-
-    fracPart *= scale;
-    u64 fracInt = (u64)(fracPart + (f64)0.5); // rounding
-
-    // Ensure leading zeros in fractional part
-    u64 div = 1;
-    for (u64 i = 1; i < precision; ++i)
-        div *= 10;
-
-    while (div > fracInt && div > 1)
     {
-        err = writer_write_byte(w, '0');
+        if (divisor == 0)
+            divisor = 1;
+
+        u64 digit = fracInt / divisor;
+        err = writer_write_byte(w, digit_to_char((i16)digit));
         if (err.code != ERR_OK)
             return err;
-        div /= 10;
+        fracInt -= digit * divisor;
+        divisor /= 10;
     }
-
-    err = writer_write_uint(w, fracInt);
-    if (err.code != ERR_OK)
-        return err;
     return X_ERR_OK;
 }

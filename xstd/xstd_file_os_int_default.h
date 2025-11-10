@@ -23,7 +23,7 @@
  *
  * This function is meant to be used by XSTD.
  */
-static const _FileOsInterface* _default_file_os_int(void) {
+static inline const _FileOsInterface* _default_file_os_int(void) {
     #ifdef _WIN32
         return &_file_os_int_win32;
     #else

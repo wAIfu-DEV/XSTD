@@ -487,28 +487,47 @@ static inline ResultI64 math_i64_multiply_nooverflow(i64 a, i64 b)
         };
     }
 
-    if (a == -1 && b == I64_MINVAL)
-        return (ResultI64){
-            .value = 0,
-            .error = X_ERR_EXT("math", "math_i64_multiply_nooverflow", ERR_WOULD_OVERFLOW, "integer overflow"),
-        };
-
-    if (b == -1 && a == I64_MINVAL)
-        return (ResultI64){
-            .value = 0,
-            .error = X_ERR_EXT("math", "math_i64_multiply_nooverflow", ERR_WOULD_OVERFLOW, "integer overflow"),
-        };
-
-    i64 res = a * b;
-
-    if (res / b != a)
-        return (ResultI64){
-            .value = 0,
-            .error = X_ERR_EXT("math", "math_i64_multiply_nooverflow", ERR_WOULD_OVERFLOW, "integer overflow"),
-        };
+    if (a > 0)
+    {
+        if (b > 0)
+        {
+            if (a > I64_MAXVAL / b)
+                return (ResultI64){
+                    .value = 0,
+                    .error = X_ERR_EXT("math", "math_i64_multiply_nooverflow", ERR_WOULD_OVERFLOW, "integer overflow"),
+                };
+        }
+        else
+        {
+            if (b < I64_MINVAL / a)
+                return (ResultI64){
+                    .value = 0,
+                    .error = X_ERR_EXT("math", "math_i64_multiply_nooverflow", ERR_WOULD_OVERFLOW, "integer overflow"),
+                };
+        }
+    }
+    else
+    {
+        if (b > 0)
+        {
+            if (a < I64_MINVAL / b)
+                return (ResultI64){
+                    .value = 0,
+                    .error = X_ERR_EXT("math", "math_i64_multiply_nooverflow", ERR_WOULD_OVERFLOW, "integer overflow"),
+                };
+        }
+        else
+        {
+            if (a != 0 && b < I64_MAXVAL / a)
+                return (ResultI64){
+                    .value = 0,
+                    .error = X_ERR_EXT("math", "math_i64_multiply_nooverflow", ERR_WOULD_OVERFLOW, "integer overflow"),
+                };
+        }
+    }
 
     return (ResultI64){
-        .value = res,
+        .value = a * b,
         .error = X_ERR_OK,
     };
 }
@@ -556,12 +575,16 @@ static inline ResultI64 math_i64_power_nooverflow(i64 x, i64 exponent)
 
     for (i64 i = 0; i < exponent; ++i)
     {
-        if ((x > 0 && (r > I64_MAXVAL / x || r < I64_MINVAL / x)) ||
-            (x < 0 && (r < I64_MINVAL / x || r > I64_MAXVAL / x)))
-            return (ResultI64){
-                .value = 0,
-                .error = X_ERR_EXT("math", "math_i64_power_nooverflow", ERR_WOULD_OVERFLOW, "integer overflow"),
-            };
+        if (x == 0)
+        {
+            r = 0;
+            break;
+        }
+
+        ResultI64 mulRes = math_i64_multiply_nooverflow(r, x);
+        if (mulRes.error.code != ERR_OK)
+            return mulRes;
+        r = mulRes.value;
     }
 
     return (ResultI64){

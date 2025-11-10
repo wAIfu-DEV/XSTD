@@ -14,7 +14,9 @@ int main(void)
 
     { // Stack allocated arena will be freed as it falls out of this scope
 
-        /*// Allocate 1MB of stack mem
+        /*
+        // For stack memory usage:
+        // Allocate 1MB of stack mem
         i8 arenaBufferBytes[1024];
         // Create buffer pointing to mem
         Buffer arenaBuffer = (Buffer){
@@ -26,7 +28,8 @@ int main(void)
         ResultAllocator resArena = arena_allocator(arenaBuffer, false);
         assert_ok(resArena.error, "Failed to initialize alloc.");
 
-        Allocator alloc = resArena.value;*/
+        Allocator alloc = resArena.value;
+        */
 
         // ^^^
         // This is if you want to use stack memory

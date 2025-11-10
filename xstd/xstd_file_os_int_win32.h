@@ -1,8 +1,14 @@
 #pragma once
 
+#include "xstd_alloc.h"
+#include "xstd_alloc_win32.h"
+#include "xstd_alloc_default.h"
 #include "xstd_core.h"
 #include "xstd_file_os_int.h"
 #include "xstd_win32.h"
+
+#include "xstd_utf16.h"
+#include "xstd_utf8.h"
 
 typedef struct {
     _w32_handle h;
@@ -33,15 +39,64 @@ static void* _fosint_win32_stdin(void)  {
 
 static int _fosint_win32_open(void** stream, const char* fileName, const char* mode) {
     _w32_dword access = 0, creation = 0;
-    if (mode[0] == 'r') { access = _WIN_32_GENERIC_READ; creation = _WIN_32_OPEN_EXISTING; }
-    else if (mode[0] == 'w') { access = _WIN_32_GENERIC_WRITE; creation = _WIN_32_CREATE_ALWAYS; }
-    else if (mode[0] == 'a') { access = _WIN_32_GENERIC_WRITE; creation = _WIN_32_OPEN_EXISTING; }
+    ibool allowRead = false;
 
-    _w32_handle h = CreateFileA(fileName, access, 0, 0, creation, 0, 0);
-    if (h == _WIN_32_INVALID_HANDLE_VALUE) return -1;
+    if (mode) {
+        for (const char *m = mode; *m; ++m) {
+            if (*m == '+') {
+                allowRead = true;
+                break;
+            }
+        }
+    }
+
+    if (mode[0] == 'r') {
+        access = _WIN_32_GENERIC_READ;
+        if (allowRead)
+            access |= _WIN_32_GENERIC_WRITE;
+        creation = _WIN_32_OPEN_EXISTING;
+    }
+    else if (mode[0] == 'w') {
+        access = _WIN_32_GENERIC_WRITE;
+        if (allowRead)
+            access |= _WIN_32_GENERIC_READ;
+        creation = _WIN_32_CREATE_ALWAYS;
+    }
+    else if (mode[0] == 'a') {
+        access = _WIN_32_GENERIC_WRITE;
+        if (allowRead)
+            access |= _WIN_32_GENERIC_READ;
+        creation = _WIN_32_OPEN_EXISTING;
+    }
+    else {
+        return -3;
+    }
+
+    Allocator* a = &_win32_allocator;
+    ResultUtf16OwnedStr convRes = utf8_to_utf16(a, fileName);
+    if (convRes.error.code)
+        return -2;
+
+    Utf16OwnedStr utf16FileName = convRes.value;
+
+    _w32_handle h = CreateFileW(utf16FileName, access, 0, 0, creation, 0, 0);
+    if (h == _WIN_32_INVALID_HANDLE_VALUE) {
+        if (mode[0] == 'a') {
+            h = CreateFileW(utf16FileName, access, 0, 0, _WIN_32_CREATE_ALWAYS, 0, 0);
+        }
+
+        if (h == _WIN_32_INVALID_HANDLE_VALUE) {
+            return -1;
+        }
+    }
 
     _Win32File* f = (_Win32File*)HeapAlloc(GetProcessHeap(), 0, sizeof(_Win32File));
     f->h = h; f->eof = 0;
+
+    if (mode[0] == 'a') {
+        SetFilePointerEx(f->h, 0, 0, _WIN_32_FILE_END);
+    }
+
     *stream = f;
     return 0;
 }
@@ -90,6 +145,7 @@ static long _fosint_win32_tell(void* stream) {
 }
 
 static int _fosint_win32_fflush(void* stream) {
+    (void)stream;
     // Win32 WriteFile is unbuffered at this level, so nothing to flush
     return 0;
 }

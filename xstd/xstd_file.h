@@ -124,7 +124,7 @@ static inline ResultFile file_open(ConstStr path, const FileOpenMode mode)
     {
         Error newErr = X_ERR_EXT("file", "file_open",
             ERR_FILE_CANT_OPEN, "open failure");
-        
+
         switch (err)
         {
         // ENOENT
@@ -165,14 +165,11 @@ static inline ResultFile file_open(ConstStr path, const FileOpenMode mode)
  */
 static inline void file_close(File *file)
 {
-    if (!file)
+    if (!file || !file->_valid)
         return;
 
-    if (!file->_valid)
-        return;
-
-    _default_file_os_int()->close(file->_handle);
     file->_valid = false;
+    _default_file_os_int()->close(file->_handle);
 }
 
 /**
@@ -212,19 +209,82 @@ static inline u64 _file_read_internal(File *f, i8 *buff, const u64 nBytes, ibool
     const _FileOsInterface* foi = _default_file_os_int();
     u64 readPos = 0;
 
-    int read;
-    while (!foi->eof(f->_handle) && readPos < nBytes)
+    while (readPos < nBytes)
     {
-        read = foi->getc(f->_handle);
+        int read = foi->getc(f->_handle);
+        if (read < 0)
+            break;
+
         buff[readPos] = (i8)read;
         ++readPos;
     }
 
     if (terminate)
-        buff[readPos] = (i8)0;
+        buff[readPos] = 0;
 
     return readPos;
 }
+
+/**
+ * Adjusts the file cursor relative to the specified origin.
+ * @param file Open file handle.
+ * @param offset Byte offset relative to `origin`.
+ * @param origin One of the standard seek constants (0 = start, 1 = current, 2 = end).
+ * @returns `ERR_OK` on success or an error detailing the failure.
+ */
+static inline Error file_seek(File *file, const i64 offset, const i32 origin)
+{
+    if (!file || !file->_valid)
+        return X_ERR_EXT("file", "file_seek",
+            ERR_INVALID_PARAMETER, "null or invalid file");
+
+    const int rc = _default_file_os_int()->seek(file->_handle, (long)offset, (int)origin);
+    if (rc != 0)
+        return X_ERR_EXT("file", "file_seek",
+            ERR_FAILED, "seek failure");
+
+    return X_ERR_OK;
+}
+
+/**
+ * Reports the current cursor position of a file handle.
+ * @param file Open file handle.
+ * @returns Result containing the absolute byte offset or an error descriptor.
+ */
+static inline ResultU64 file_tell(File *file)
+{
+    if (!file || !file->_valid)
+        return (ResultU64){
+            .value = 0,
+            .error = X_ERR_EXT("file", "file_tell",
+                ERR_INVALID_PARAMETER, "null or invalid file"),
+        };
+
+    const long pos = _default_file_os_int()->tell(file->_handle);
+    if (pos < 0)
+        return (ResultU64){
+            .value = 0,
+            .error = X_ERR_EXT("file", "file_tell",
+                ERR_FAILED, "tell failure"),
+        };
+
+    return (ResultU64){
+        .value = (u64)pos,
+        .error = X_ERR_OK,
+    };
+}
+
+/**
+ * Repositions the file cursor to the beginning of the file.
+ * @param file Open file handle.
+ * @returns `ERR_OK` on success or the error returned by `file_seek`.
+ */
+static inline Error file_rewind(File *file)
+{
+    const int seekSet = 0;
+    return file_seek(file, 0, seekSet);
+}
+
 
 /**
  * Reads up to `nBytes` from the file into a newly allocated `HeapBuff`.
@@ -427,7 +487,17 @@ static inline HeapBuff file_read_bytes_unsafe(Allocator *a, File *file, u64 nByt
  */
 static inline ResultOwnedStr file_readall_str(Allocator *alloc, File *file)
 {
-    return file_read_str(alloc, file, file_size(file));
+    ResultU64 tellRes = file_tell(file);
+    if (tellRes.error.code)
+        return (ResultOwnedStr){
+            .error = X_ERR_EXT("file", "file_readall_str",
+                ERR_FAILED, "file tell failure"),
+        };
+
+    file_rewind(file);
+    ResultOwnedStr res = file_read_str(alloc, file, file_size(file));
+    file_seek(file, tellRes.value, 0);
+    return res;
 }
 
 /**
@@ -723,7 +793,7 @@ static inline Error file_write_uint(File *file, const u64 i)
  * The fractional component is rounded to the requested number of digits.
  * @param file Open file handle to write into.
  * @param flt Floating-point value to emit.
- * @param precision Number of digits to print after the decimal point.
+ * @param precision Number of digits to print after the decimal point. Must be in range 0-18.
  * @returns `ERR_OK` on success or the error returned by the write helpers.
  */
 static inline Error file_write_f64(File *file, const f64 flt, const u64 precision)
@@ -731,6 +801,10 @@ static inline Error file_write_f64(File *file, const f64 flt, const u64 precisio
     if (!file || !file->_valid)
         return X_ERR_EXT("file", "file_write_float",
             ERR_INVALID_PARAMETER, "null or invalid file");
+        
+    if (precision > 19)
+        return X_ERR_EXT("file", "file_write_float",
+            ERR_INVALID_PARAMETER, "precision > 19");
 
     f64 d = flt;
     Error err = X_ERR_OK;
@@ -758,18 +832,18 @@ static inline Error file_write_f64(File *file, const f64 flt, const u64 precisio
     if (err.code != ERR_OK)
         return err;
 
-    f64 scale = 1.0;
-    for (u64 i = 0; i < precision; ++i)
-        scale *= 10.0;
+    f64 scale = math_f64_power(10.0, precision - 1);
 
     fracPart *= scale;
     u64 fracInt = (u64)(fracPart + 0.5); // rounding
 
     // Ensure leading zeros in fractional part
-    i64 div = 1;
-    for (int i = 1; i < precision; ++i)
-        div *= 10;
+    ResultU64 divPowRes = math_u64_power_nooverflow(10, precision - 1);
+    if (divPowRes.error.code)
+        return X_ERR_EXT("file", "file_write_f64",
+            ERR_WOULD_OVERFLOW, "integer overflow");
 
+    u64 div = divPowRes.value;
     while (div > fracInt && div > 1)
     {
         err = file_write_char(file, '0');
@@ -827,7 +901,7 @@ static inline ResultFile file_create(ConstStr path)
     {
         Error newErr = X_ERR_EXT("file", "file_create",
             ERR_FILE_CANT_OPEN, "create failure");
-        
+
         switch (err)
         {
         // ENOENT
@@ -851,64 +925,4 @@ static inline ResultFile file_create(ConstStr path)
         },
         .error = X_ERR_OK,
     };
-}
-
-/**
- * Adjusts the file cursor relative to the specified origin.
- * @param file Open file handle.
- * @param offset Byte offset relative to `origin`.
- * @param origin One of the standard seek constants (0 = start, 1 = current, 2 = end).
- * @returns `ERR_OK` on success or an error detailing the failure.
- */
-static inline Error file_seek(File *file, const i64 offset, const i32 origin)
-{
-    if (!file || !file->_valid)
-        return X_ERR_EXT("file", "file_seek",
-            ERR_INVALID_PARAMETER, "null or invalid file");
-
-    const int rc = _default_file_os_int()->seek(file->_handle, (long)offset, (int)origin);
-    if (rc != 0)
-        return X_ERR_EXT("file", "file_seek",
-            ERR_FAILED, "seek failure");
-
-    return X_ERR_OK;
-}
-
-/**
- * Reports the current cursor position of a file handle.
- * @param file Open file handle.
- * @returns Result containing the absolute byte offset or an error descriptor.
- */
-static inline ResultU64 file_tell(File *file)
-{
-    if (!file || !file->_valid)
-        return (ResultU64){
-            .value = 0,
-            .error = X_ERR_EXT("file", "file_tell",
-                ERR_INVALID_PARAMETER, "null or invalid file"),
-        };
-
-    const long pos = _default_file_os_int()->tell(file->_handle);
-    if (pos < 0)
-        return (ResultU64){
-            .value = 0,
-            .error = X_ERR_EXT("file", "file_tell",
-                ERR_FAILED, "tell failure"),
-        };
-
-    return (ResultU64){
-        .value = (u64)pos,
-        .error = X_ERR_OK,
-    };
-}
-
-/**
- * Repositions the file cursor to the beginning of the file.
- * @param file Open file handle.
- * @returns `ERR_OK` on success or the error returned by `file_seek`.
- */
-static inline Error file_rewind(File *file)
-{
-    const int seekSet = 0;
-    return file_seek(file, 0, seekSet);
 }

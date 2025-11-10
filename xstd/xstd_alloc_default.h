@@ -25,7 +25,7 @@
  * ```
  * @return Allocator
  */
-static Allocator* default_allocator(void) {
+static inline Allocator* default_allocator(void) {
     #ifdef _WIN32
         if (!_win32_alloc_state.procHeapHandle)
             _win32_alloc_state.procHeapHandle = GetProcessHeap();

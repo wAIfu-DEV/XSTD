@@ -3,8 +3,10 @@
 #include "xstd_core.h"
 #include "xstd_error.h"
 #include "xstd_alloc.h"
+#include "xstd_math.h"
 #include "xstd_result.h"
 #include "xstd_list.h"
+#include "xstd_utf8.h"
 
 typedef struct _string_builder
 {
@@ -298,6 +300,79 @@ static inline ResultOwnedStr string_dupe(Allocator *a, ConstStr source)
 }
 
 /**
+ * @brief Extracts a substring from a UTF-8 or ASCII string using codepoint indices.
+ * Memory is owned by the caller and must be released with the provided allocator.
+ * @warning `start` and `end` are counted in codepoints rather than raw bytes.
+ *
+ * ```c
+ * ConstStr src = "Cafe\xCC\x81 Gott";
+ * ResultOwnedStr res = string_substr(default_allocator(), src, 0, 5);
+ * if (res.error.code) // Handle error
+ * // res.value == "Cafe\xCC\x81"
+ * ```
+ * @param a Allocator that will own the resulting string
+ * @param s UTF-8 or ASCII encoded source string
+ * @param start Inclusive codepoint index
+ * @param end Exclusive codepoint index
+ * @return ResultOwnedStr
+ */
+static inline ResultOwnedStr string_substr(Allocator *a, ConstStr s, u64 start, u64 end)
+{
+    if (!a || !s)
+        return (ResultOwnedStr){
+            .error = X_ERR_EXT("string", "string_substr", ERR_INVALID_PARAMETER, "null arg"),
+        };
+
+    if (end < start)
+        return (ResultOwnedStr){
+            .error = X_ERR_EXT("string", "string_substr", ERR_INVALID_PARAMETER, "end smaller than start"),
+        };
+
+    ResultUtf8Iter iterRes = utf8_iter_str(s);
+    if (iterRes.error.code != ERR_OK)
+        return (ResultOwnedStr){
+            .error = iterRes.error,
+        };
+
+    Utf8Iter startIt = iterRes.value;
+
+    for (u64 i = 0; i < start; ++i)
+    {
+        ResultUtf8Codepoint cpRes = utf8_iter_next(&startIt);
+        if (cpRes.error.code != ERR_OK)
+            return (ResultOwnedStr){
+                .error = X_ERR_EXT("string", "string_substr", ERR_INVALID_PARAMETER, "start out of string bounds"),
+            };
+    }
+
+    Utf8Iter endIt = startIt;
+    for (u64 i = start; i < end; ++i)
+    {
+        ResultUtf8Codepoint cpRes = utf8_iter_next(&endIt);
+        if (cpRes.error.code != ERR_OK)
+            return (ResultOwnedStr){
+                .error = X_ERR_EXT("string", "string_substr", ERR_INVALID_PARAMETER, "end out of string bounds"),
+            };
+    }
+
+    u64 byteCount = (u64)(endIt.ptr - startIt.ptr);
+    HeapStr newStr = (HeapStr)a->alloc(a, byteCount + 1);
+
+    if (!newStr)
+        return (ResultOwnedStr){
+            .error = X_ERR_EXT("string", "string_substr", ERR_OUT_OF_MEMORY, "alloc failure"),
+        };
+
+    string_copy_n_unsafe(startIt.ptr, newStr, byteCount, false);
+    newStr[byteCount] = 0;
+
+    return (ResultOwnedStr){
+        .value = newStr,
+        .error = X_ERR_OK,
+    };
+}
+
+/**
  * @brief Allocates and creates a copy of `source` on the heap.
  *
  * Memory is owned by the caller and should be freed using the same allocator.
@@ -432,6 +507,90 @@ static inline ResultOwnedStr string_concat(Allocator *al, ConstStr a, ConstStr b
 }
 
 /**
+ * @brief Retrieves the UTF-8 codepoint at the given codepoint index. Works for both UTF-8 and ASCII strings.
+ * @warning call to string_at triggers a full traversal of the string up to
+ * the codepoint index, if you are using it in a loop, prefer using `Utf8Iter`
+ * and `utf8_iter_next()` from `xstd_utf8.h`
+ *
+ * ```c
+ * ConstStr text = "na\xC3\xAFve";
+ * ResultUtf8Codepoint cp = string_at(text, 2);
+ * if (cp.error.code) // Handle error
+ * // cp.value.codepoint == 0xEF
+ * ```
+ * @param s UTF-8 encoded string
+ * @param index Codepoint index to fetch
+ * @return ResultUtf8Codepoint
+ */
+static inline ResultUtf8Codepoint string_char_at(ConstStr s, u64 index)
+{
+    if (!s)
+        return (ResultUtf8Codepoint){
+            .error = X_ERR_EXT("string", "string_at", ERR_INVALID_PARAMETER, "null string"),
+        };
+
+    ResultUtf8Iter iterRes = utf8_iter_str(s);
+    if (iterRes.error.code != ERR_OK)
+        return (ResultUtf8Codepoint){
+            .value = {0},
+            .error = iterRes.error,
+        };
+
+    Utf8Iter it = iterRes.value;
+
+    for (u64 i = 0; i < index; ++i)
+    {
+        ResultUtf8Codepoint step = utf8_iter_next(&it);
+        if (step.error.code != ERR_OK)
+            return (ResultUtf8Codepoint){
+                .error = X_ERR_EXT("string", "string_at", ERR_RANGE_ERROR, "index out of bounds"),
+            };
+    }
+
+    ResultUtf8Codepoint cpRes = utf8_iter_peek(&it);
+    if (cpRes.error.code != ERR_OK)
+        return (ResultUtf8Codepoint){
+            .error = X_ERR_EXT("string", "string_at", ERR_RANGE_ERROR, "index out of bounds"),
+        };
+
+    return cpRes;
+}
+
+/**
+ * @brief Retrieves the ASCII character at the given byte index.
+ *
+ * ```c
+ * ConstStr text = "example";
+ * ResultByte ch = string_at_ascii(text, 3, 7);
+ * if (ch.error.code) // Handle error
+ * // ch.value == 'm'
+ * ```
+ * @param s ASCII string
+ * @param index Zero-based byte index
+ * @param stringSizeBytes Caller-provided string length in bytes
+ * @return ResultByte
+ */
+static inline ResultByte string_char_at_ascii(ConstStr s, u64 index, u64 stringSizeBytes)
+{
+    if (!s)
+        return (ResultByte){
+            .value = 0,
+            .error = X_ERR_EXT("string", "string_at_ascii", ERR_INVALID_PARAMETER, "null string"),
+        };
+
+    if (index >= stringSizeBytes)
+        return (ResultByte){
+            .value = 0,
+            .error = X_ERR_EXT("string", "string_at_ascii", ERR_RANGE_ERROR, "index out of bounds"),
+        };
+
+    return (ResultByte){
+        .value = s[index],
+        .error = X_ERR_OK,
+    };
+}
+
+/**
  * @brief Extracts a substring from another string.
  * `start` is inclusive and `end` is exclusive.
  *
@@ -439,7 +598,7 @@ static inline ResultOwnedStr string_concat(Allocator *al, ConstStr a, ConstStr b
  *
  * ```c
  * ConstStr myStr = "Hello, World!";
- * ResultOwnedStr subStr = string_substr(default_allocator(), myStr, 7, 12);
+ * ResultOwnedStr subStr = string_substr_ascii(default_allocator(), myStr, 7, 12);
  * if (subStr.error.code) // Error!
  * // subStr.value == "World"
  * ```
@@ -449,22 +608,22 @@ static inline ResultOwnedStr string_concat(Allocator *al, ConstStr a, ConstStr b
  * @param end
  * @return ResultOwnedStr
  */
-static inline ResultOwnedStr string_substr(Allocator *a, ConstStr s, u64 start, u64 end)
+static inline ResultOwnedStr string_substr_ascii(Allocator *a, ConstStr s, u64 start, u64 end)
 {
     if (!a || !s)
         return (ResultOwnedStr){
-            .error = X_ERR_EXT("string", "string_substr", ERR_INVALID_PARAMETER, "null arg"),
+            .error = X_ERR_EXT("string", "string_substr_ascii", ERR_INVALID_PARAMETER, "null arg"),
         };
 
     if (end < start)
         return (ResultOwnedStr){
-            .error = X_ERR_EXT("string", "string_substr", ERR_INVALID_PARAMETER, "end smaller than start"),
+            .error = X_ERR_EXT("string", "string_substr_ascii", ERR_INVALID_PARAMETER, "end smaller than start"),
         };
 
     u64 strSize = string_size(s);
     if (start > strSize || end > strSize)
         return (ResultOwnedStr){
-            .error = X_ERR_EXT("string", "string_substr", ERR_INVALID_PARAMETER, "start/end out of string bounds"),
+            .error = X_ERR_EXT("string", "string_substr_ascii", ERR_INVALID_PARAMETER, "start/end out of string bounds"),
         };
 
     u64 subSize = end - start;
@@ -472,7 +631,7 @@ static inline ResultOwnedStr string_substr(Allocator *a, ConstStr s, u64 start, 
 
     if (!newStr)
         return (ResultOwnedStr){
-            .error = X_ERR_EXT("string", "string_substr", ERR_OUT_OF_MEMORY, "alloc failure"),
+            .error = X_ERR_EXT("string", "string_substr_ascii", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
     string_copy_n_unsafe(s + start, newStr, subSize, false);
@@ -493,7 +652,7 @@ static inline ResultOwnedStr string_substr(Allocator *a, ConstStr s, u64 start, 
  *
  * ```c
  * ConstStr myStr = "Hello, World!";
- * OwnedStr subStr = string_substr_unsafe(default_allocator(), myStr, 7, 12);
+ * OwnedStr subStr = string_substr_ascii_unsafe(default_allocator(), myStr, 7, 12);
  * if (!subStr) // Error!
  * // subStr == "World"
  * ```
@@ -503,7 +662,7 @@ static inline ResultOwnedStr string_substr(Allocator *a, ConstStr s, u64 start, 
  * @param end
  * @return OwnedStr
  */
-static inline OwnedStr string_substr_unsafe(Allocator *a, ConstStr s, u64 start, u64 end)
+static inline OwnedStr string_substr_ascii_unsafe(Allocator *a, ConstStr s, u64 start, u64 end)
 {
     u64 subSize = end - start;
     HeapStr newStr = (HeapStr)a->alloc(a, subSize + 1);
@@ -517,13 +676,59 @@ static inline OwnedStr string_substr_unsafe(Allocator *a, ConstStr s, u64 start,
 }
 
 /**
+ * @brief Extracts a substring from a UTF-8 or ASCII string without bounds checks.
+ * Memory is owned by the caller and must be released with the same allocator.
+ * @warning Caller must guarantee that `start` and `end` are valid codepoint offsets.
+ *
+ * ```c
+ * ConstStr src = "Buenos d\xC3\xADas";
+ * OwnedStr sub = string_substr_unsafe(default_allocator(), src, 7, 11);
+ * if (!sub) // Handle allocation failure
+ * // sub == "d\xC3\xADas"
+ * ```
+ * @param a Allocator that will own the resulting string
+ * @param s UTF-8 encoded source string
+ * @param start Inclusive codepoint index
+ * @param end Exclusive codepoint index
+ * @return OwnedStr
+ */
+static inline OwnedStr string_substr_unsafe(Allocator *a, ConstStr s, u64 start, u64 end)
+{
+    if (!a || !s)
+        return NULL;
+
+    ResultUtf8Iter iterRes = utf8_iter_str(s);
+    if (iterRes.error.code != ERR_OK)
+        return NULL;
+
+    Utf8Iter it = iterRes.value;
+
+    for (u64 i = 0; i < start; ++i)
+        (void)utf8_iter_next(&it);
+
+    ConstStr startPtr = it.ptr;
+
+    for (u64 i = start; i < end; ++i)
+        (void)utf8_iter_next(&it);
+
+    u64 byteCount = (u64)(it.ptr - startPtr);
+    HeapStr newStr = (HeapStr)a->alloc(a, byteCount + 1);
+    if (!newStr)
+        return NULL;
+
+    string_copy_n_unsafe(startPtr, newStr, byteCount, false);
+    newStr[byteCount] = 0;
+    return newStr;
+}
+
+/**
  * @brief Splits a string on every occurrence of `delimiter`.
  *
  * Memory of both strings and the list is owned by the caller and should be freed using the same allocator.
  *
  * ```c
  * ConstStr myStr = "Hello, World!";
- * ResultList split = string_split_char(default_allocator(), myStr, ' ');
+ * ResultList split = string_split_char_ascii(default_allocator(), myStr, ' ');
  * if (split.error.code) // Error!
  * // split.value == List["Hello,", "World!"]
  * List l = res.value;
@@ -536,14 +741,13 @@ static inline OwnedStr string_substr_unsafe(Allocator *a, ConstStr s, u64 start,
  * @param delimiter
  * @return String
  */
-static inline ResultList string_split_char(Allocator *alloc, ConstStr s, i8 delimiter)
+static inline ResultList string_split_char_ascii(Allocator *alloc, ConstStr s, i8 delimiter)
 {
     // What a mess...
 
     if (!alloc || !s)
         return (ResultList){
-            .value = {0},
-            .error = X_ERR_EXT("string", "string_split_char", ERR_INVALID_PARAMETER, "null arg"),
+            .error = X_ERR_EXT("string", "string_split_char_ascii", ERR_INVALID_PARAMETER, "null arg"),
         };
 
     ResultList resList = ListInitT(HeapStr, alloc);
@@ -561,12 +765,11 @@ static inline ResultList string_split_char(Allocator *alloc, ConstStr s, i8 deli
     {
         if (s[i] == delimiter)
         {
-            HeapStr subStr = string_substr_unsafe(alloc, s, segStart, i);
+            HeapStr subStr = string_substr_ascii_unsafe(alloc, s, segStart, i);
 
             if (!subStr)
                 return (ResultList){
-                    .value = {0},
-                    .error = X_ERR_EXT("string", "string_split_char", ERR_OUT_OF_MEMORY, "alloc failure"),
+                    .error = X_ERR_EXT("string", "string_split_char_ascii", ERR_OUT_OF_MEMORY, "alloc failure"),
                 };
 
             list_push(&l, &subStr);
@@ -579,7 +782,91 @@ static inline ResultList string_split_char(Allocator *alloc, ConstStr s, i8 deli
         ++i;
     }
 
-    HeapStr subStr = string_substr_unsafe(alloc, s, segStart, bound);
+    HeapStr subStr = string_substr_ascii_unsafe(alloc, s, segStart, bound);
+    if (!subStr)
+        return (ResultList){
+            .error = X_ERR_EXT("string", "string_split_char_ascii", ERR_OUT_OF_MEMORY, "alloc failure"),
+        };
+
+    list_push(&l, &subStr);
+
+    return (ResultList){
+        .value = l,
+        .error = X_ERR_OK,
+    };
+}
+
+/**
+ * @brief Splits a UTF-8 string by a single-byte delimiter.
+ * Memory for both the list and the produced strings belongs to the caller.
+ *
+ * ```c
+ * ConstStr text = "emoji|\xF0\x9F\x98\x80";
+ * ResultList res = string_split_char(default_allocator(), text, '|');
+ * if (res.error.code) // Handle error
+ * // res.value == List["emoji", "\xF0\x9F\x98\x80"]
+ * ```
+ * @param alloc Allocator used for the resulting list and substrings
+ * @param s UTF-8 encoded source string
+ * @param delimiter ASCII delimiter byte
+ * @return ResultList
+ */
+static inline ResultList string_split_char(Allocator *alloc, ConstStr s, i8 delimiter)
+{
+    if (!alloc || !s)
+        return (ResultList){
+            .value = {0},
+            .error = X_ERR_EXT("string", "string_split_char", ERR_INVALID_PARAMETER, "null arg"),
+        };
+
+    ResultList resList = ListInitT(HeapStr, alloc);
+
+    if (resList.error.code != ERR_OK)
+        return resList;
+
+    List l = resList.value;
+
+    ResultUtf8Iter iterRes = utf8_iter_str(s);
+    if (iterRes.error.code != ERR_OK)
+        return (ResultList){
+            .value = {0},
+            .error = iterRes.error,
+        };
+
+    Utf8Iter it = iterRes.value;
+    ConstStr segmentStart = it.ptr;
+
+    while (utf8_iter_has_next(&it))
+    {
+        ConstStr current = it.ptr;
+        ResultUtf8Codepoint cpRes = utf8_iter_next(&it);
+
+        if (cpRes.error.code != ERR_OK)
+            return (ResultList){
+                .value = {0},
+                .error = cpRes.error,
+            };
+
+        if (cpRes.value.codepoint == (u32)(u8)delimiter)
+        {
+            u64 segLen = (u64)(current - segmentStart);
+            HeapStr subStr = (HeapStr)alloc->alloc(alloc, segLen + 1);
+
+            if (!subStr)
+                return (ResultList){
+                    .value = {0},
+                    .error = X_ERR_EXT("string", "string_split_char", ERR_OUT_OF_MEMORY, "alloc failure"),
+                };
+
+            string_copy_n_unsafe(segmentStart, subStr, segLen, false);
+            subStr[segLen] = 0;
+            list_push(&l, &subStr);
+            segmentStart = it.ptr;
+        }
+    }
+
+    u64 segLen = (u64)(it.ptr - segmentStart);
+    HeapStr subStr = (HeapStr)alloc->alloc(alloc, segLen + 1);
 
     if (!subStr)
         return (ResultList){
@@ -587,6 +874,8 @@ static inline ResultList string_split_char(Allocator *alloc, ConstStr s, i8 deli
             .error = X_ERR_EXT("string", "string_split_char", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
+    string_copy_n_unsafe(segmentStart, subStr, segLen, false);
+    subStr[segLen] = 0;
     list_push(&l, &subStr);
 
     return (ResultList){
@@ -602,7 +891,7 @@ static inline ResultList string_split_char(Allocator *alloc, ConstStr s, i8 deli
  *
  * ```c
  * ConstStr myStr = "Hello,\nWorld!";
- * ResultList split = string_split_lines(default_allocator(), myStr);
+ * ResultList split = string_split_lines_ascii(default_allocator(), myStr);
  * if (split.error.code) // Error!
  * // split.value == List["Hello,", "World!"]
  * List l = res.value;
@@ -614,14 +903,14 @@ static inline ResultList string_split_char(Allocator *alloc, ConstStr s, i8 deli
  * @param s
  * @return ResultList
  */
-static inline ResultList string_split_lines(Allocator *alloc, ConstStr s)
+static inline ResultList string_split_lines_ascii(Allocator *alloc, ConstStr s)
 {
     // What a mess...
 
     if (!alloc || !s)
         return (ResultList){
             .value = {0},
-            .error = X_ERR_EXT("string", "string_split_lines", ERR_INVALID_PARAMETER, "null arg"),
+            .error = X_ERR_EXT("string", "string_split_lines_ascii", ERR_INVALID_PARAMETER, "null arg"),
         };
 
     ResultList resList = ListInitT(HeapStr, alloc);
@@ -639,12 +928,12 @@ static inline ResultList string_split_lines(Allocator *alloc, ConstStr s)
     {
         if (s[i] == '\n' || (s[i] == '\r' && s[i + 1] == '\n'))
         {
-            HeapStr subStr = string_substr_unsafe(alloc, s, segStart, i);
+            HeapStr subStr = string_substr_ascii_unsafe(alloc, s, segStart, i);
 
             if (!subStr)
                 return (ResultList){
                     .value = {0},
-                    .error = X_ERR_EXT("string", "string_split_lines", ERR_OUT_OF_MEMORY, "alloc failure"),
+                    .error = X_ERR_EXT("string", "string_split_lines_ascii", ERR_OUT_OF_MEMORY, "alloc failure"),
                 };
 
             list_push(&l, &subStr);
@@ -660,7 +949,98 @@ static inline ResultList string_split_lines(Allocator *alloc, ConstStr s)
         ++i;
     }
 
-    HeapStr subStr = string_substr_unsafe(alloc, s, segStart, bound);
+    HeapStr subStr = string_substr_ascii_unsafe(alloc, s, segStart, bound);
+
+    if (!subStr)
+        return (ResultList){
+            .value = {0},
+            .error = X_ERR_EXT("string", "string_split_lines_ascii", ERR_OUT_OF_MEMORY, "alloc failure"),
+        };
+
+    list_push(&l, &subStr);
+
+    return (ResultList){
+        .value = l,
+        .error = X_ERR_OK,
+    };
+}
+
+/**
+ * @brief Splits a UTF-8 or ASCII string on newline sequences.
+ * Memory for both the list and the produced strings belongs to the caller.
+ *
+ * ```c
+ * ConstStr text = "line1\nline2\r\nline3";
+ * ResultList res = string_split_lines(default_allocator(), text);
+ * if (res.error.code) // Handle error
+ * // res.value == List["line1", "line2", "line3"]
+ * ```
+ * @param alloc Allocator used for the resulting list and substrings
+ * @param s UTF-8 or ASCII encoded source string
+ * @return ResultList
+ */
+static inline ResultList string_split_lines(Allocator *alloc, ConstStr s)
+{
+    if (!alloc || !s)
+        return (ResultList){
+            .value = {0},
+            .error = X_ERR_EXT("string", "string_split_lines", ERR_INVALID_PARAMETER, "null arg"),
+        };
+
+    ResultList resList = ListInitT(HeapStr, alloc);
+    if (resList.error.code != ERR_OK)
+        return resList;
+
+    List l = resList.value;
+
+    ResultUtf8Iter iterRes = utf8_iter_str(s);
+    if (iterRes.error.code != ERR_OK)
+        return (ResultList){
+            .value = {0},
+            .error = iterRes.error,
+        };
+
+    Utf8Iter it = iterRes.value;
+    ConstStr segmentStart = it.ptr;
+
+    while (utf8_iter_has_next(&it))
+    {
+        ConstStr current = it.ptr;
+        ResultUtf8Codepoint cpRes = utf8_iter_next(&it);
+
+        if (cpRes.error.code != ERR_OK)
+            return (ResultList){
+                .value = {0},
+                .error = cpRes.error,
+            };
+
+        if (cpRes.value.codepoint == '\n' || cpRes.value.codepoint == '\r')
+        {
+            if (cpRes.value.codepoint == '\r')
+            {
+                ResultUtf8Codepoint peekRes = utf8_iter_peek(&it);
+                if (peekRes.error.code == ERR_OK && peekRes.value.codepoint == '\n')
+                    utf8_iter_next(&it);
+            }
+
+            u64 segLen = (u64)(current - segmentStart);
+            HeapStr subStr = (HeapStr)alloc->alloc(alloc, segLen + 1);
+
+            if (!subStr)
+                return (ResultList){
+                    .value = {0},
+                    .error = X_ERR_EXT("string", "string_split_lines", ERR_OUT_OF_MEMORY, "alloc failure"),
+                };
+
+            string_copy_n_unsafe(segmentStart, subStr, segLen, false);
+            subStr[segLen] = 0;
+            list_push(&l, &subStr);
+            segmentStart = it.ptr;
+        }
+    }
+
+    u64 segLen = (u64)(it.ptr - segmentStart);
+    HeapStr subStr = (HeapStr)alloc->alloc(alloc, segLen + 1);
 
     if (!subStr)
         return (ResultList){
@@ -668,6 +1048,8 @@ static inline ResultList string_split_lines(Allocator *alloc, ConstStr s)
             .error = X_ERR_EXT("string", "string_split_lines", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
+    string_copy_n_unsafe(segmentStart, subStr, segLen, false);
+    subStr[segLen] = 0;
     list_push(&l, &subStr);
 
     return (ResultList){
@@ -684,7 +1066,7 @@ static inline ResultList string_split_lines(Allocator *alloc, ConstStr s)
  * @param needle
  * @return i64
  */
-static inline i64 string_find_char(ConstStr haystack, i8 needle)
+static inline i64 string_find_char_ascii(ConstStr haystack, i8 needle)
 {
     if (!haystack || !needle)
         return -1;
@@ -697,6 +1079,44 @@ static inline i64 string_find_char(ConstStr haystack, i8 needle)
 
         ++i;
     }
+    return -1;
+}
+
+/**
+ * @brief Finds the first occurrence of an ASCII byte in a UTF-8 string.
+ *
+ * ```c
+ * ConstStr text = "Cafe\xCC\x81 au lait";
+ * i64 idx = string_find_char(text, ' ');
+ * // idx == 5
+ * ```
+ * @param haystack UTF-8 encoded string to search
+ * @param needle ASCII byte to find
+ * @return i64
+ */
+static inline i64 string_find_char(ConstStr haystack, i8 needle)
+{
+    if (!haystack || !needle)
+        return -1;
+
+    ResultUtf8Iter iterRes = utf8_iter_str(haystack);
+    if (iterRes.error.code != ERR_OK)
+        return -1;
+
+    Utf8Iter it = iterRes.value;
+    ConstStr base = it.ptr;
+
+    while (utf8_iter_has_next(&it))
+    {
+        ConstStr current = it.ptr;
+        ResultUtf8Codepoint cpRes = utf8_iter_next(&it);
+        if (cpRes.error.code != ERR_OK)
+            return -1;
+
+        if (cpRes.value.codepoint == (u32)(u8)needle)
+            return (i64)(current - base);
+    }
+
     return -1;
 }
 
@@ -959,7 +1379,7 @@ static inline ResultOwnedStr string_replace(Allocator *alloc, ConstStr s, ConstS
     {
         while ((next = string_find(s + offset, what)) != -1)
         {
-            HeapStr chunk = string_substr_unsafe(alloc, s + offset, 0, (u64)next);
+            HeapStr chunk = string_substr_ascii_unsafe(alloc, s + offset, 0, (u64)next);
             if (!chunk)
                 return (ResultOwnedStr){
                     .value = NULL,
@@ -1072,7 +1492,7 @@ static inline ibool string_ends_with(ConstStr s, ConstStr what)
  * @param c character
  * @return ibool
  */
-static inline ibool char_is_alpha(const i8 c)
+static inline ibool char_is_alpha_ascii(const i8 c)
 {
     return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
 }
@@ -1083,7 +1503,7 @@ static inline ibool char_is_alpha(const i8 c)
  * @param c character
  * @return ibool
  */
-static inline ibool char_is_digit(const i8 c)
+static inline ibool char_is_digit_ascii(const i8 c)
 {
     return (c >= '0' && c <= '9');
 }
@@ -1094,9 +1514,9 @@ static inline ibool char_is_digit(const i8 c)
  * @param c
  * @return ibool
  */
-static inline ibool char_is_alphanum(const i8 c)
+static inline ibool char_is_alphanum_ascii(const i8 c)
 {
-    return (char_is_alpha(c) || char_is_digit(c));
+    return (char_is_alpha_ascii(c) || char_is_digit_ascii(c));
 }
 
 /**
@@ -1105,7 +1525,7 @@ static inline ibool char_is_alphanum(const i8 c)
  * @param c
  * @return ibool
  */
-static inline ibool char_is_whitespace(const i8 c)
+static inline ibool char_is_whitespace_ascii(const i8 c)
 {
     return (c == ' ' || c == '\t' || c == '\n' || c == '\r');
 }
@@ -1117,7 +1537,7 @@ static inline ibool char_is_whitespace(const i8 c)
  * @param c
  * @return i8
  */
-static inline i8 char_to_lower(const i8 c)
+static inline i8 char_to_lower_ascii(const i8 c)
 {
     if (c >= 'A' && c <= 'Z')
         return (i8)(c + ('a' - 'A'));
@@ -1131,11 +1551,55 @@ static inline i8 char_to_lower(const i8 c)
  * @param c
  * @return i8
  */
-static inline i8 char_to_upper(const i8 c)
+static inline i8 char_to_upper_ascii(const i8 c)
 {
     if (c >= 'a' && c <= 'z')
         return (i8)(c - ('a' - 'A'));
     return c;
+}
+
+static inline ibool _utf8_is_ascii_digit(u32 codepoint)
+{
+    return codepoint >= '0' && codepoint <= '9';
+}
+
+static inline ibool _utf8_is_whitespace_cp(u32 codepoint)
+{
+    switch (codepoint)
+    {
+    case 0x0009: // TAB
+    case 0x000A: // LF
+    case 0x000B: // VT
+    case 0x000C: // FF
+    case 0x000D: // CR
+    case 0x001C:
+    case 0x001D:
+    case 0x001E:
+    case 0x001F:
+    case 0x0020:
+    case 0x0085:
+    case 0x00A0:
+    case 0x1680:
+    case 0x2000:
+    case 0x2001:
+    case 0x2002:
+    case 0x2003:
+    case 0x2004:
+    case 0x2005:
+    case 0x2006:
+    case 0x2007:
+    case 0x2008:
+    case 0x2009:
+    case 0x200A:
+    case 0x2028:
+    case 0x2029:
+    case 0x202F:
+    case 0x205F:
+    case 0x3000:
+        return true;
+    default:
+        return false;
+    }
 }
 
 /**
@@ -1144,7 +1608,7 @@ static inline i8 char_to_upper(const i8 c)
  *
  * @param s
  */
-static inline void string_to_lower_inplace(HeapStr s)
+static inline void string_to_lower_inplace_ascii(HeapStr s)
 {
     if (!s)
         return;
@@ -1152,8 +1616,108 @@ static inline void string_to_lower_inplace(HeapStr s)
     u64 i = 0;
     while (s[i])
     {
-        s[i] = char_to_lower(s[i]);
+        s[i] = char_to_lower_ascii(s[i]);
         ++i;
+    }
+}
+
+static inline ibool char_is_alpha(const i8 c)
+{
+    return char_is_alpha_ascii(c);
+}
+
+static inline ibool char_is_digit(const i8 c)
+{
+    return char_is_digit_ascii(c);
+}
+
+static inline ibool char_is_alphanum(const i8 c)
+{
+    return char_is_alphanum_ascii(c);
+}
+
+static inline ibool char_is_whitespace(const i8 c)
+{
+    return char_is_whitespace_ascii(c);
+}
+
+static inline i8 char_to_lower(const i8 c)
+{
+    return char_to_lower_ascii(c);
+}
+
+static inline i8 char_to_upper(const i8 c)
+{
+    return char_to_upper_ascii(c);
+}
+
+/**
+ * @brief Converts a UTF-8 string to lowercase in place (ASCII only).
+ * Modifies the provided buffer directly.
+ *
+ * ```c
+ * HeapStr text = ConstToHeapStr(default_allocator(), "CAF\xC3\x89");
+ * string_to_lower_inplace(text);
+ * // text == "caf\xC3\xA9"
+ * ```
+ * @param s Mutable UTF-8 string buffer
+ */
+static inline void string_to_lower_inplace(HeapStr s)
+{
+    if (!s)
+        return;
+
+    ResultUtf8Iter iterRes = utf8_iter_str(s);
+    if (iterRes.error.code != ERR_OK)
+        return;
+
+    Utf8Iter it = iterRes.value;
+
+    while (utf8_iter_has_next(&it))
+    {
+        i8 *current = (i8 *)it.ptr;
+        ResultUtf8Codepoint cpRes = utf8_iter_next(&it);
+
+        if (cpRes.error.code != ERR_OK)
+            return;
+
+        if (cpRes.value.codepoint <= 0x7Fu)
+        current[0] = char_to_lower_ascii(current[0]);
+    }
+}
+
+/**
+ * @brief Converts a UTF-8 string to uppercase in place (ASCII only).
+ * Modifies the provided buffer directly.
+ *
+ * ```c
+ * HeapStr text = ConstToHeapStr(default_allocator(), "caf\xC3\xA9");
+ * string_to_upper_inplace(text);
+ * // text == "CAF\xC3\x89"
+ * ```
+ * @param s Mutable UTF-8 string buffer
+ */
+static inline void string_to_upper_inplace(HeapStr s)
+{
+    if (!s)
+        return;
+
+    ResultUtf8Iter iterRes = utf8_iter_str(s);
+    if (iterRes.error.code != ERR_OK)
+        return;
+
+    Utf8Iter it = iterRes.value;
+
+    while (utf8_iter_has_next(&it))
+    {
+        i8 *current = (i8 *)it.ptr;
+        ResultUtf8Codepoint cpRes = utf8_iter_next(&it);
+
+        if (cpRes.error.code != ERR_OK)
+            return;
+
+        if (cpRes.value.codepoint <= 0x7Fu)
+            current[0] = char_to_upper_ascii(current[0]);
     }
 }
 
@@ -1163,7 +1727,7 @@ static inline void string_to_lower_inplace(HeapStr s)
  *
  * @param s
  */
-static inline void string_to_upper_inplace(HeapStr s)
+static inline void string_to_upper_inplace_ascii(HeapStr s)
 {
     if (!s)
         return;
@@ -1171,7 +1735,7 @@ static inline void string_to_upper_inplace(HeapStr s)
     u64 i = 0;
     while (s[i])
     {
-        s[i] = char_to_upper(s[i]);
+        s[i] = char_to_upper_ascii(s[i]);
         ++i;
     }
 }
@@ -1183,12 +1747,12 @@ static inline void string_to_upper_inplace(HeapStr s)
  * @param s
  * @return ResultOwnedStr
  */
-static inline ResultOwnedStr string_lower(Allocator *a, ConstStr s)
+static inline ResultOwnedStr string_lower_ascii(Allocator *a, ConstStr s)
 {
     if (!a || !s)
         return (ResultOwnedStr){
             .value = NULL,
-            .error = X_ERR_EXT("string", "string_lower", ERR_INVALID_PARAMETER, "null arg"),
+            .error = X_ERR_EXT("string", "string_lower_ascii", ERR_INVALID_PARAMETER, "null arg"),
         };
 
     const u64 len = string_size(s);
@@ -1196,11 +1760,11 @@ static inline ResultOwnedStr string_lower(Allocator *a, ConstStr s)
     if (!copy)
         return (ResultOwnedStr){
             .value = NULL,
-            .error = X_ERR_EXT("string", "string_lower", ERR_OUT_OF_MEMORY, "alloc failure"),
+            .error = X_ERR_EXT("string", "string_lower_ascii", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
     for (u64 i = 0; i < len; ++i)
-        copy[i] = char_to_lower(s[i]);
+        copy[i] = char_to_lower_ascii(s[i]);
     copy[len] = 0;
 
     return (ResultOwnedStr){
@@ -1210,18 +1774,41 @@ static inline ResultOwnedStr string_lower(Allocator *a, ConstStr s)
 }
 
 /**
+ * @brief Creates a lowercase copy of a UTF-8 string (ASCII fold).
+ * Memory is owned by the caller and must be released with the same allocator.
+ *
+ * ```c
+ * ResultOwnedStr res = string_lower(default_allocator(), "CAF\xC3\x89");
+ * if (res.error.code) // Handle error
+ * // res.value == "caf\xC3\xA9"
+ * ```
+ * @param a Allocator for the resulting string
+ * @param s UTF-8 encoded source string
+ * @return ResultOwnedStr
+ */
+static inline ResultOwnedStr string_lower(Allocator *a, ConstStr s)
+{
+    ResultOwnedStr copyRes = string_dupe(a, s);
+    if (copyRes.error.code != ERR_OK)
+        return copyRes;
+
+    string_to_lower_inplace(copyRes.value);
+    return copyRes;
+}
+
+/**
  * @brief Returns a copy of `s` with all lowercase characters replaced with uppercase ones.
  *
  * @param alloc
  * @param s
  * @return ResultOwnedStr
  */
-static inline ResultOwnedStr string_upper(Allocator *a, ConstStr s)
+static inline ResultOwnedStr string_upper_ascii(Allocator *a, ConstStr s)
 {
     if (!a || !s)
         return (ResultOwnedStr){
             .value = NULL,
-            .error = X_ERR_EXT("string", "string_upper", ERR_INVALID_PARAMETER, "null arg"),
+            .error = X_ERR_EXT("string", "string_upper_ascii", ERR_INVALID_PARAMETER, "null arg"),
         };
 
     const u64 len = string_size(s);
@@ -1229,17 +1816,40 @@ static inline ResultOwnedStr string_upper(Allocator *a, ConstStr s)
     if (!copy)
         return (ResultOwnedStr){
             .value = NULL,
-            .error = X_ERR_EXT("string", "string_upper", ERR_OUT_OF_MEMORY, "alloc failure"),
+            .error = X_ERR_EXT("string", "string_upper_ascii", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
     for (u64 i = 0; i < len; ++i)
-        copy[i] = char_to_upper(s[i]);
+        copy[i] = char_to_upper_ascii(s[i]);
     copy[len] = 0;
 
     return (ResultOwnedStr){
         .value = copy,
         .error = X_ERR_OK,
     };
+}
+
+/**
+ * @brief Creates an uppercase copy of a UTF-8 string (ASCII fold).
+ * Memory is owned by the caller and must be released with the same allocator.
+ *
+ * ```c
+ * ResultOwnedStr res = string_upper(default_allocator(), "caf\xC3\xA9");
+ * if (res.error.code) // Handle error
+ * // res.value == "CAF\xC3\x89"
+ * ```
+ * @param a Allocator for the resulting string
+ * @param s UTF-8 encoded source string
+ * @return ResultOwnedStr
+ */
+static inline ResultOwnedStr string_upper(Allocator *a, ConstStr s)
+{
+    ResultOwnedStr copyRes = string_dupe(a, s);
+    if (copyRes.error.code != ERR_OK)
+        return copyRes;
+
+    string_to_upper_inplace(copyRes.value);
+    return copyRes;
 }
 
 /**
@@ -1250,12 +1860,12 @@ static inline ResultOwnedStr string_upper(Allocator *a, ConstStr s)
  *
  * ```c
  * ConstStr myStr = "  Hello, World!  ";
- * ResultOwnedStr trimmed = string_trim_whitespace(default_allocator(), myStr, true, true);
+ * ResultOwnedStr trimmed = string_trim_whitespace_ascii(default_allocator(), myStr, true, true);
  * if (trimmed.error.code) // Error!
  * // trimmed.value == "Hello, World!"
  *
  * ConstStr myStr2 = "  Hello, World!  ";
- * ResultOwnedStr trimStart = string_trim_whitespace(default_allocator(), myStr2, true, false);
+ * ResultOwnedStr trimStart = string_trim_whitespace_ascii(default_allocator(), myStr2, true, false);
  * if (trimStart.error.code) // Error!
  * // trimStart.value == "Hello, World!  "
  * ```
@@ -1266,11 +1876,11 @@ static inline ResultOwnedStr string_upper(Allocator *a, ConstStr s)
  * @param end If !0 (true), trim from the end of the string
  * @return ResultOwnedStr
  */
-static inline ResultOwnedStr string_trim_whitespace(Allocator *a, ConstStr s, ibool start, ibool end)
+static inline ResultOwnedStr string_trim_whitespace_ascii(Allocator *a, ConstStr s, ibool start, ibool end)
 {
     if (!a || !s)
         return (ResultOwnedStr){
-            .error = X_ERR_EXT("string", "string_trim_whitespace", ERR_INVALID_PARAMETER, "null arg"),
+            .error = X_ERR_EXT("string", "string_trim_whitespace_ascii", ERR_INVALID_PARAMETER, "null arg"),
         };
 
     u64 len = string_size(s);
@@ -1279,7 +1889,7 @@ static inline ResultOwnedStr string_trim_whitespace(Allocator *a, ConstStr s, ib
 
     if (start)
     {
-        while (startIdx < len && char_is_whitespace(s[startIdx]))
+        while (startIdx < len && char_is_whitespace_ascii(s[startIdx]))
         {
             ++startIdx;
         }
@@ -1287,7 +1897,7 @@ static inline ResultOwnedStr string_trim_whitespace(Allocator *a, ConstStr s, ib
 
     if (end)
     {
-        while (endIdx > startIdx && char_is_whitespace(s[endIdx - 1]))
+        while (endIdx > startIdx && char_is_whitespace_ascii(s[endIdx - 1]))
         {
             --endIdx;
         }
@@ -1299,7 +1909,7 @@ static inline ResultOwnedStr string_trim_whitespace(Allocator *a, ConstStr s, ib
 
         if (!newStr)
             return (ResultOwnedStr){
-                .error = X_ERR_EXT("string", "string_trim_whitespace", ERR_OUT_OF_MEMORY, "alloc failure"),
+                .error = X_ERR_EXT("string", "string_trim_whitespace_ascii", ERR_OUT_OF_MEMORY, "alloc failure"),
             };
 
         return (ResultOwnedStr){
@@ -1313,11 +1923,105 @@ static inline ResultOwnedStr string_trim_whitespace(Allocator *a, ConstStr s, ib
 
     if (!newStr)
         return (ResultOwnedStr){
-            .error = X_ERR_EXT("string", "string_trim_whitespace", ERR_OUT_OF_MEMORY, "alloc failure"),
+            .error = X_ERR_EXT("string", "string_trim_whitespace_ascii", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
     string_copy_n_unsafe(s + startIdx, newStr, newLen, false);
     newStr[newLen] = (i8)0;
+
+    return (ResultOwnedStr){
+        .value = newStr,
+        .error = X_ERR_OK,
+    };
+}
+
+/**
+ * @brief Trims Unicode whitespace from both ends of a UTF-8 string.
+ * Memory is owned by the caller and must be released with the same allocator.
+ *
+ * ```c
+ * ConstStr text = " \tHello! \xE2\x80\x83";
+ * ResultOwnedStr res = string_trim_whitespace(default_allocator(), text, true, true);
+ * if (res.error.code) // Handle error
+ * // res.value == "Hello!"
+ * ```
+ * @param a Allocator used for the resulting string
+ * @param s UTF-8 encoded source string
+ * @param start Trim leading whitespace if true
+ * @param end Trim trailing whitespace if true
+ * @return ResultOwnedStr
+ */
+static inline ResultOwnedStr string_trim_whitespace(Allocator *a, ConstStr s, ibool start, ibool end)
+{
+    if (!a || !s)
+        return (ResultOwnedStr){
+            .error = X_ERR_EXT("string", "string_trim_whitespace", ERR_INVALID_PARAMETER, "null arg"),
+        };
+
+    ResultUtf8Iter iterRes = utf8_iter_str(s);
+    if (iterRes.error.code != ERR_OK)
+        return (ResultOwnedStr){
+            .error = iterRes.error,
+        };
+
+    Utf8Iter startIt = iterRes.value;
+
+    if (start)
+    {
+        while (utf8_iter_has_next(&startIt))
+        {
+            ResultUtf8Codepoint cpRes = utf8_iter_peek(&startIt);
+            if (cpRes.error.code != ERR_OK)
+                return (ResultOwnedStr){
+                    .error = cpRes.error,
+                };
+
+            if (!_utf8_is_whitespace_cp(cpRes.value.codepoint))
+                break;
+
+            utf8_iter_next(&startIt);
+        }
+    }
+
+    Utf8Iter scanIt = startIt;
+    ConstStr endPtr = startIt.ptr;
+
+    while (utf8_iter_has_next(&scanIt))
+    {
+        ResultUtf8Codepoint cpRes = utf8_iter_next(&scanIt);
+        if (cpRes.error.code != ERR_OK)
+            return (ResultOwnedStr){
+                .error = cpRes.error,
+            };
+
+        if (!end || !_utf8_is_whitespace_cp(cpRes.value.codepoint))
+            endPtr = scanIt.ptr;
+    }
+
+    u64 byteLen = (u64)(endPtr - startIt.ptr);
+
+    if (byteLen == 0)
+    {
+        HeapStr newStr = string_dupe_noresult(a, "");
+        if (!newStr)
+            return (ResultOwnedStr){
+                .error = X_ERR_EXT("string", "string_trim_whitespace", ERR_OUT_OF_MEMORY, "alloc failure"),
+            };
+
+        return (ResultOwnedStr){
+            .value = newStr,
+            .error = X_ERR_OK,
+        };
+    }
+
+    HeapStr newStr = (HeapStr)a->alloc(a, byteLen + 1);
+    if (!newStr)
+        return (ResultOwnedStr){
+            .error = X_ERR_EXT("string", "string_trim_whitespace", ERR_OUT_OF_MEMORY, "alloc failure"),
+        };
+
+    string_copy_n_unsafe(startIt.ptr, newStr, byteLen, false);
+    newStr[byteLen] = 0;
 
     return (ResultOwnedStr){
         .value = newStr,
@@ -1465,67 +2169,79 @@ static inline ResultOwnedStr string_from_uint(Allocator *a, const u64 i)
  *
  * @param alloc
  * @param flt
- * @param precision
+ * @param precision Must be in range 0-18
  * @return ResultOwnedStr
  */
 static inline ResultOwnedStr string_from_float(Allocator *a, const f64 flt, const u64 precision)
 {
-    f64 d = flt;
+    if (precision == 0)
+        return string_from_int(a, (i64)flt);
+    
+    if (precision > 18)
+        return (ResultOwnedStr){
+            .error = X_ERR_EXT("string", "string_from_float",
+                ERR_INVALID_PARAMETER, "precision > 18"),
+        };
 
-    i64 intPart = (i64)d;
-    f64 fracPart = d - (f64)intPart;
+    f64 absVal = (flt >= 0.0) ? flt : -flt;
+    i64 intPart = (i64)absVal;
+    f64 fracPart = absVal - (f64)intPart;
 
-    ResultOwnedStr strIntPart = string_from_int(a, intPart);
+    f64 scale = math_f64_power(10.0, precision);
+    u64 fracInt = (u64)(fracPart * scale + 0.5); // rounding
 
-    if (precision <= 0 || strIntPart.error.code != ERR_OK)
+    if (fracInt >= (u64)scale)
     {
-        return strIntPart;
+        fracInt -= (u64)scale;
+        ++intPart;
     }
 
-    f64 scale = 1.0;
-    for (u64 i = 0; i < precision; ++i)
-        scale *= (f64)10.0;
+    i64 signedIntPart = (flt < 0.0) ? -intPart : intPart;
 
-    fracPart *= scale;
-    u64 fracInt = (u64)(fracPart + 0.5); // rounding
+    ResultOwnedStr intStrRes = string_from_int(a, signedIntPart);
+    if (intStrRes.error.code != ERR_OK)
+        return intStrRes;
 
-    // Ensure leading zeros in fractional part
-    u64 div = 1;
-    for (u64 i = 1; i < precision; ++i)
-        div *= 10;
-
-    u64 zeroes = 0;
-    while (div > fracInt && div > 1)
+    ResultOwnedStr fracStrRes = string_from_uint(a, fracInt);
+    if (fracStrRes.error.code != ERR_OK)
     {
-        ++zeroes;
-        div /= 10;
+        a->free(a, intStrRes.value);
+        return fracStrRes;
     }
 
-    ResultOwnedStr zeroesStr = string_alloc(a, zeroes, '0');
+    u64 intLen = string_size(intStrRes.value);
+    u64 fracLen = string_size(fracStrRes.value);
+    u64 padLen = (precision > fracLen) ? (precision - fracLen) : 0;
+    u64 totalLen = intLen + 1 + precision;
 
-    if (zeroesStr.error.code != ERR_OK)
-        return zeroesStr;
-
-    ResultOwnedStr strDecPart = string_from_uint(a, fracInt);
-
-    if (strDecPart.error.code != ERR_OK)
-        return strDecPart;
-
-    u64 intPartSize = string_size(strIntPart.value);
-    u64 decPartSize = string_size(strDecPart.value);
-
-    u64 totalSize = intPartSize + decPartSize + 2;
-    HeapStr finalStr = (HeapStr)a->alloc(a, totalSize);
-
-    if (finalStr == NULL)
+    HeapStr finalStr = (HeapStr)a->alloc(a, totalLen + 1);
+    if (!finalStr)
+    {
+        a->free(a, intStrRes.value);
+        a->free(a, fracStrRes.value);
         return (ResultOwnedStr){
             .value = NULL,
             .error = X_ERR_EXT("string", "string_from_float", ERR_OUT_OF_MEMORY, "alloc failure"),
         };
+    }
 
-    string_copy_n_unsafe(strIntPart.value, finalStr, intPartSize, false);
-    finalStr[intPartSize] = '.';
-    string_copy_n_unsafe(strDecPart.value, finalStr + intPartSize + 1, decPartSize, true);
+    string_copy_n_unsafe(intStrRes.value, finalStr, intLen, false);
+    finalStr[intLen] = '.';
+
+    u64 cursor = intLen + 1;
+    for (u64 i = 0; i < padLen; ++i)
+        finalStr[cursor++] = '0';
+
+    string_copy_n_unsafe(fracStrRes.value, finalStr + cursor, fracLen, false);
+    cursor += fracLen;
+
+    while (cursor < intLen + 1 + precision)
+        finalStr[cursor++] = '0';
+
+    finalStr[cursor] = 0;
+
+    a->free(a, intStrRes.value);
+    a->free(a, fracStrRes.value);
 
     return (ResultOwnedStr){
         .value = finalStr,
@@ -1539,19 +2255,19 @@ static inline ResultOwnedStr string_from_float(Allocator *a, const f64 flt, cons
  * @param s
  * @return ResultI64
  */
-static inline ResultI64 string_parse_int(ConstStr s)
+static inline ResultI64 string_parse_int_ascii(ConstStr s)
 {
     if (!s || *s == '\0')
         return (ResultI64){
             .value = 0,
-            .error = X_ERR_EXT("string", "string_parse_int", ERR_INVALID_PARAMETER, "null or empty str"),
+            .error = X_ERR_EXT("string", "string_parse_int_ascii", ERR_INVALID_PARAMETER, "null or empty str"),
         };
 
     const i8 *ptr = s;
     i64 result = 0;
     i64 sign = 1;
 
-    while (char_is_whitespace(*ptr))
+    while (char_is_whitespace_ascii(*ptr))
         ++ptr;
 
     if (*ptr == '-' || *ptr == '+')
@@ -1561,16 +2277,143 @@ static inline ResultI64 string_parse_int(ConstStr s)
         ++ptr;
     }
 
-    if (!char_is_digit(*ptr))
+    if (!char_is_digit_ascii(*ptr))
+        return (ResultI64){
+            .value = 0,
+            .error = X_ERR_EXT("string", "string_parse_int_ascii", ERR_UNEXPECTED_BYTE, "byte not digit"),
+        };
+
+    while (char_is_digit_ascii(*ptr))
+    {
+        i64 newVal = result * 10 + (*ptr - '0');
+
+        if (newVal < result)
+            return (ResultI64){
+                .value = 0,
+            .error = X_ERR_EXT("string", "string_parse_int_ascii", ERR_WOULD_OVERFLOW, "integer overflow"),
+            };
+
+        result = newVal;
+        ++ptr;
+    }
+
+    if (*ptr != '\0' && !char_is_whitespace_ascii(*ptr))
+        return (ResultI64){
+            .value = 0,
+            .error = X_ERR_EXT("string", "string_parse_int_ascii", ERR_UNEXPECTED_BYTE, "byte not digit"),
+        };
+
+    return (ResultI64){
+        .value = result * sign,
+        .error = X_ERR_OK,
+    };
+}
+
+/**
+ * @brief Parses a signed 64-bit integer from a UTF-8 string (ASCII digits only).
+ *
+ * ```c
+ * ResultI64 res = string_parse_int("  -42 ");
+ * if (res.error.code) // Handle error
+ * // res.value == -42
+ * ```
+ * @param s UTF-8 encoded numeric string
+ * @return ResultI64
+ */
+static inline ResultI64 string_parse_int(ConstStr s)
+{
+    if (!s || *s == '\0')
+        return (ResultI64){
+            .value = 0,
+            .error = X_ERR_EXT("string", "string_parse_int", ERR_INVALID_PARAMETER, "null or empty str"),
+        };
+
+    ResultUtf8Iter iterRes = utf8_iter_str(s);
+    if (iterRes.error.code != ERR_OK)
+        return (ResultI64){
+            .value = 0,
+            .error = iterRes.error,
+        };
+
+    Utf8Iter it = iterRes.value;
+
+    while (utf8_iter_has_next(&it))
+    {
+        ResultUtf8Codepoint peekRes = utf8_iter_peek(&it);
+        if (peekRes.error.code != ERR_OK)
+            return (ResultI64){
+                .value = 0,
+                .error = peekRes.error,
+            };
+
+        if (!_utf8_is_whitespace_cp(peekRes.value.codepoint))
+            break;
+
+        utf8_iter_next(&it);
+    }
+
+    if (!utf8_iter_has_next(&it))
         return (ResultI64){
             .value = 0,
             .error = X_ERR_EXT("string", "string_parse_int", ERR_UNEXPECTED_BYTE, "byte not digit"),
         };
 
-    while (char_is_digit(*ptr))
-    {
-        i64 newVal = result * 10 + (*ptr - '0');
+    i64 sign = 1;
+    ResultUtf8Codepoint cpRes = utf8_iter_peek(&it);
+    if (cpRes.error.code != ERR_OK)
+        return (ResultI64){
+            .value = 0,
+            .error = cpRes.error,
+        };
 
+    if (cpRes.value.codepoint == '-' || cpRes.value.codepoint == '+')
+    {
+        if (cpRes.value.codepoint == '-')
+            sign = -1;
+        utf8_iter_next(&it);
+    }
+
+    if (!utf8_iter_has_next(&it))
+        return (ResultI64){
+            .value = 0,
+            .error = X_ERR_EXT("string", "string_parse_int", ERR_UNEXPECTED_BYTE, "byte not digit"),
+        };
+
+    cpRes = utf8_iter_peek(&it);
+    if (cpRes.error.code != ERR_OK)
+        return (ResultI64){
+            .value = 0,
+            .error = cpRes.error,
+        };
+
+    if (!_utf8_is_ascii_digit(cpRes.value.codepoint))
+        return (ResultI64){
+            .value = 0,
+            .error = X_ERR_EXT("string", "string_parse_int", ERR_UNEXPECTED_BYTE, "byte not digit"),
+        };
+
+    i64 result = 0;
+
+    while (utf8_iter_has_next(&it))
+    {
+        ResultUtf8Codepoint digitRes = utf8_iter_peek(&it);
+        if (digitRes.error.code != ERR_OK)
+            return (ResultI64){
+                .value = 0,
+                .error = digitRes.error,
+            };
+
+        if (!_utf8_is_ascii_digit(digitRes.value.codepoint))
+            break;
+
+        ResultUtf8Codepoint advanceRes = utf8_iter_next(&it);
+        if (advanceRes.error.code != ERR_OK)
+            return (ResultI64){
+                .value = 0,
+                .error = advanceRes.error,
+            };
+
+        i64 newVal = result * 10 + (i64)(advanceRes.value.codepoint - '0');
         if (newVal < result)
             return (ResultI64){
                 .value = 0,
@@ -1578,14 +2421,25 @@ static inline ResultI64 string_parse_int(ConstStr s)
             };
 
         result = newVal;
-        ++ptr;
     }
 
-    if (*ptr != '\0' && !char_is_whitespace(*ptr))
-        return (ResultI64){
-            .value = 0,
-            .error = X_ERR_EXT("string", "string_parse_int", ERR_UNEXPECTED_BYTE, "byte not digit"),
-        };
+    while (utf8_iter_has_next(&it))
+    {
+        cpRes = utf8_iter_peek(&it);
+        if (cpRes.error.code != ERR_OK)
+            return (ResultI64){
+                .value = 0,
+                .error = cpRes.error,
+            };
+
+        if (!_utf8_is_whitespace_cp(cpRes.value.codepoint))
+            return (ResultI64){
+                .value = 0,
+                .error = X_ERR_EXT("string", "string_parse_int", ERR_UNEXPECTED_BYTE, "byte not digit"),
+            };
+
+        utf8_iter_next(&it);
+    }
 
     return (ResultI64){
         .value = result * sign,
@@ -1599,6 +2453,63 @@ static inline ResultI64 string_parse_int(ConstStr s)
  * @param s
  * @return ResultI64
  */
+static inline ResultU64 string_parse_uint_ascii(ConstStr s)
+{
+    if (!s || *s == '\0')
+        return (ResultU64){
+            .value = 0,
+            .error = X_ERR_EXT("string", "string_parse_uint_ascii", ERR_INVALID_PARAMETER, "null or empty str"),
+        };
+
+    const i8 *ptr = s;
+    u64 result = 0;
+
+    while (char_is_whitespace_ascii(*ptr))
+        ++ptr;
+
+    if (!char_is_digit_ascii(*ptr))
+        return (ResultU64){
+            .value = 0,
+            .error = X_ERR_EXT("string", "string_parse_uint_ascii", ERR_UNEXPECTED_BYTE, "byte not digit"),
+        };
+
+    while (char_is_digit_ascii(*ptr))
+    {
+        u64 newVal = result * 10 + (u64)(*ptr - '0');
+
+        if (newVal < result)
+            return (ResultU64){
+                .value = 0,
+            .error = X_ERR_EXT("string", "string_parse_uint_ascii", ERR_WOULD_OVERFLOW, "integer overflow"),
+            };
+
+        result = newVal;
+        ++ptr;
+    }
+
+    if (*ptr != '\0' && !char_is_whitespace_ascii(*ptr))
+        return (ResultU64){
+            .value = 0,
+            .error = X_ERR_EXT("string", "string_parse_uint_ascii", ERR_UNEXPECTED_BYTE, "byte not digit"),
+        };
+
+    return (ResultU64){
+        .value = result,
+        .error = X_ERR_OK,
+    };
+}
+
+/**
+ * @brief Parses an unsigned 64-bit integer from a UTF-8 string (ASCII digits only).
+ *
+ * ```c
+ * ResultU64 res = string_parse_uint(" 1024 ");
+ * if (res.error.code) // Handle error
+ * // res.value == 1024
+ * ```
+ * @param s UTF-8 encoded numeric string
+ * @return ResultU64
+ */
 static inline ResultU64 string_parse_uint(ConstStr s)
 {
     if (!s || *s == '\0')
@@ -1607,22 +2518,71 @@ static inline ResultU64 string_parse_uint(ConstStr s)
             .error = X_ERR_EXT("string", "string_parse_uint", ERR_INVALID_PARAMETER, "null or empty str"),
         };
 
-    const i8 *ptr = s;
-    u64 result = 0;
+    ResultUtf8Iter iterRes = utf8_iter_str(s);
+    if (iterRes.error.code != ERR_OK)
+        return (ResultU64){
+            .value = 0,
+            .error = iterRes.error,
+        };
 
-    while (char_is_whitespace(*ptr))
-        ++ptr;
+    Utf8Iter it = iterRes.value;
 
-    if (!char_is_digit(*ptr))
+    while (utf8_iter_has_next(&it))
+    {
+        ResultUtf8Codepoint peekRes = utf8_iter_peek(&it);
+        if (peekRes.error.code != ERR_OK)
+            return (ResultU64){
+                .value = 0,
+                .error = peekRes.error,
+            };
+
+        if (!_utf8_is_whitespace_cp(peekRes.value.codepoint))
+            break;
+
+        utf8_iter_next(&it);
+    }
+
+    if (!utf8_iter_has_next(&it))
         return (ResultU64){
             .value = 0,
             .error = X_ERR_EXT("string", "string_parse_uint", ERR_UNEXPECTED_BYTE, "byte not digit"),
         };
 
-    while (char_is_digit(*ptr))
-    {
-        u64 newVal = result * 10 + (u64)(*ptr - '0');
+    ResultUtf8Codepoint cpRes = utf8_iter_peek(&it);
+    if (cpRes.error.code != ERR_OK)
+        return (ResultU64){
+            .value = 0,
+            .error = cpRes.error,
+        };
 
+    if (!_utf8_is_ascii_digit(cpRes.value.codepoint))
+        return (ResultU64){
+            .value = 0,
+            .error = X_ERR_EXT("string", "string_parse_uint", ERR_UNEXPECTED_BYTE, "byte not digit"),
+        };
+
+    u64 result = 0;
+
+    while (utf8_iter_has_next(&it))
+    {
+        ResultUtf8Codepoint digitRes = utf8_iter_peek(&it);
+        if (digitRes.error.code != ERR_OK)
+            return (ResultU64){
+                .value = 0,
+                .error = digitRes.error,
+            };
+
+        if (!_utf8_is_ascii_digit(digitRes.value.codepoint))
+            break;
+
+        ResultUtf8Codepoint advanceRes = utf8_iter_next(&it);
+        if (advanceRes.error.code != ERR_OK)
+            return (ResultU64){
+                .value = 0,
+                .error = advanceRes.error,
+            };
+
+        u64 newVal = result * 10 + (u64)(advanceRes.value.codepoint - '0');
         if (newVal < result)
             return (ResultU64){
                 .value = 0,
@@ -1630,14 +2590,25 @@ static inline ResultU64 string_parse_uint(ConstStr s)
             };
 
         result = newVal;
-        ++ptr;
     }
 
-    if (*ptr != '\0' && !char_is_whitespace(*ptr))
-        return (ResultU64){
-            .value = 0,
-            .error = X_ERR_EXT("string", "string_parse_uint", ERR_UNEXPECTED_BYTE, "byte not digit"),
-        };
+    while (utf8_iter_has_next(&it))
+    {
+        cpRes = utf8_iter_peek(&it);
+        if (cpRes.error.code != ERR_OK)
+            return (ResultU64){
+                .value = 0,
+                .error = cpRes.error,
+            };
+
+        if (!_utf8_is_whitespace_cp(cpRes.value.codepoint))
+            return (ResultU64){
+                .value = 0,
+                .error = X_ERR_EXT("string", "string_parse_uint", ERR_UNEXPECTED_BYTE, "byte not digit"),
+            };
+
+        utf8_iter_next(&it);
+    }
 
     return (ResultU64){
         .value = result,
@@ -1651,19 +2622,19 @@ static inline ResultU64 string_parse_uint(ConstStr s)
  * @param s
  * @return ResultF64
  */
-static inline ResultF64 string_parse_float(ConstStr s)
+static inline ResultF64 string_parse_float_ascii(ConstStr s)
 {
     if (!s || *s == '\0')
         return (ResultF64){
             .value = 0.0,
-            .error = X_ERR_EXT("string", "string_parse_float", ERR_INVALID_PARAMETER, "null or empty str"),
+            .error = X_ERR_EXT("string", "string_parse_float_ascii", ERR_INVALID_PARAMETER, "null or empty str"),
         };
 
     const i8 *ptr = s;
     f64 result = 0.0;
     f64 sign = 1.0;
 
-    while (char_is_whitespace(*ptr))
+    while (char_is_whitespace_ascii(*ptr))
         ++ptr;
 
     if (*ptr == '-' || *ptr == '+')
@@ -1673,20 +2644,20 @@ static inline ResultF64 string_parse_float(ConstStr s)
         ++ptr;
     }
 
-    if (!char_is_digit(*ptr) && *ptr != '.')
+    if (!char_is_digit_ascii(*ptr) && *ptr != '.')
         return (ResultF64){
             .value = 0.0,
-            .error = X_ERR_EXT("string", "string_parse_float", ERR_UNEXPECTED_BYTE, "byte not digit"),
+            .error = X_ERR_EXT("string", "string_parse_float_ascii", ERR_UNEXPECTED_BYTE, "byte not digit"),
         };
 
-    while (char_is_digit(*ptr))
+    while (char_is_digit_ascii(*ptr))
     {
         f64 newVal = result * (f64)10.0 + (f64)(*ptr - '0');
 
         if (newVal < result)
             return (ResultF64){
                 .value = 0.0,
-                .error = X_ERR_EXT("string", "string_parse_float", ERR_WOULD_OVERFLOW, "integer overflow"),
+                .error = X_ERR_EXT("string", "string_parse_float_ascii", ERR_WOULD_OVERFLOW, "integer overflow"),
             };
 
         result = newVal;
@@ -1699,20 +2670,20 @@ static inline ResultF64 string_parse_float(ConstStr s)
         f64 fraction = 0.0;
         f64 divisor = 10.0;
 
-        if (!char_is_digit(*ptr))
+        if (!char_is_digit_ascii(*ptr))
             return (ResultF64){
                 .value = 0.0,
-                .error = X_ERR_EXT("string", "string_parse_uint", ERR_UNEXPECTED_BYTE, "byte not digit"),
+                .error = X_ERR_EXT("string", "string_parse_uint_ascii", ERR_UNEXPECTED_BYTE, "byte not digit"),
             };
 
-        while (char_is_digit(*ptr))
+        while (char_is_digit_ascii(*ptr))
         {
             f64 newFrac = fraction + (*ptr - '0') / divisor;
 
             if (newFrac < fraction)
                 return (ResultF64){
                     .value = 0.0,
-                    .error = X_ERR_EXT("string", "string_parse_float", ERR_WOULD_OVERFLOW, "integer overflow"),
+                    .error = X_ERR_EXT("string", "string_parse_float_ascii", ERR_WOULD_OVERFLOW, "integer overflow"),
                 };
 
             fraction = newFrac;
@@ -1722,11 +2693,202 @@ static inline ResultF64 string_parse_float(ConstStr s)
         result += fraction;
     }
 
-    if (*ptr != '\0' && !char_is_whitespace(*ptr))
+    if (*ptr != '\0' && !char_is_whitespace_ascii(*ptr))
         return (ResultF64){
             .value = 0.0,
-            .error = X_ERR_EXT("string", "string_parse_uint", ERR_UNEXPECTED_BYTE, "byte not digit"),
+            .error = X_ERR_EXT("string", "string_parse_uint_ascii", ERR_UNEXPECTED_BYTE, "byte not digit"),
         };
+
+    return (ResultF64){
+        .value = result * sign,
+        .error = X_ERR_OK,
+    };
+}
+
+/**
+ * @brief Parses a double-precision floating point number from a UTF-8 string (ASCII digits only).
+ *
+ * ```c
+ * ResultF64 res = string_parse_float("\t3.1415 ");
+ * if (res.error.code) // Handle error
+ * // res.value == 3.1415
+ * ```
+ * @param s UTF-8 encoded numeric string
+ * @return ResultF64
+ */
+static inline ResultF64 string_parse_float(ConstStr s)
+{
+    if (!s || *s == '\0')
+        return (ResultF64){
+            .value = 0.0,
+            .error = X_ERR_EXT("string", "string_parse_float", ERR_INVALID_PARAMETER, "null or empty str"),
+        };
+
+    ResultUtf8Iter iterRes = utf8_iter_str(s);
+    if (iterRes.error.code != ERR_OK)
+        return (ResultF64){
+            .value = 0.0,
+            .error = iterRes.error,
+        };
+
+    Utf8Iter it = iterRes.value;
+
+    while (utf8_iter_has_next(&it))
+    {
+        ResultUtf8Codepoint peekRes = utf8_iter_peek(&it);
+        if (peekRes.error.code != ERR_OK)
+            return (ResultF64){
+                .value = 0.0,
+                .error = peekRes.error,
+            };
+
+        if (!_utf8_is_whitespace_cp(peekRes.value.codepoint))
+            break;
+
+        utf8_iter_next(&it);
+    }
+
+    if (!utf8_iter_has_next(&it))
+        return (ResultF64){
+            .value = 0.0,
+            .error = X_ERR_EXT("string", "string_parse_float", ERR_UNEXPECTED_BYTE, "byte not digit"),
+        };
+
+    f64 sign = 1.0;
+    ResultUtf8Codepoint cpRes = utf8_iter_peek(&it);
+    if (cpRes.error.code != ERR_OK)
+        return (ResultF64){
+            .value = 0.0,
+            .error = cpRes.error,
+        };
+
+    if (cpRes.value.codepoint == '-' || cpRes.value.codepoint == '+')
+    {
+        if (cpRes.value.codepoint == '-')
+            sign = -1.0;
+        utf8_iter_next(&it);
+    }
+
+    f64 result = 0.0;
+    ibool sawDigit = false;
+
+    while (utf8_iter_has_next(&it))
+    {
+        cpRes = utf8_iter_peek(&it);
+        if (cpRes.error.code != ERR_OK)
+            return (ResultF64){
+                .value = 0.0,
+                .error = cpRes.error,
+            };
+
+        if (!_utf8_is_ascii_digit(cpRes.value.codepoint))
+            break;
+
+        ResultUtf8Codepoint advanceRes = utf8_iter_next(&it);
+        if (advanceRes.error.code != ERR_OK)
+            return (ResultF64){
+                .value = 0.0,
+                .error = advanceRes.error,
+            };
+
+        f64 newVal = result * 10.0 + (f64)(advanceRes.value.codepoint - '0');
+        if (newVal < result)
+            return (ResultF64){
+                .value = 0.0,
+                .error = X_ERR_EXT("string", "string_parse_float", ERR_WOULD_OVERFLOW, "integer overflow"),
+            };
+
+        result = newVal;
+        sawDigit = true;
+    }
+
+    if (utf8_iter_has_next(&it))
+    {
+        cpRes = utf8_iter_peek(&it);
+        if (cpRes.error.code != ERR_OK)
+            return (ResultF64){
+                .value = 0.0,
+                .error = cpRes.error,
+            };
+
+        if (cpRes.value.codepoint == '.')
+        {
+            utf8_iter_next(&it);
+
+            ResultUtf8Codepoint fracPeek = utf8_iter_peek(&it);
+            if (fracPeek.error.code != ERR_OK)
+                return (ResultF64){
+                    .value = 0.0,
+                    .error = fracPeek.error,
+                };
+
+            if (!_utf8_is_ascii_digit(fracPeek.value.codepoint))
+                return (ResultF64){
+                    .value = 0.0,
+                    .error = X_ERR_EXT("string", "string_parse_float", ERR_UNEXPECTED_BYTE, "byte not digit"),
+                };
+
+            f64 fraction = 0.0;
+            f64 divisor = 10.0;
+
+            while (utf8_iter_has_next(&it))
+            {
+                ResultUtf8Codepoint digitRes = utf8_iter_peek(&it);
+                if (digitRes.error.code != ERR_OK)
+                    return (ResultF64){
+                        .value = 0.0,
+                        .error = digitRes.error,
+                    };
+
+                if (!_utf8_is_ascii_digit(digitRes.value.codepoint))
+                    break;
+
+                ResultUtf8Codepoint advanceRes = utf8_iter_next(&it);
+                if (advanceRes.error.code != ERR_OK)
+                    return (ResultF64){
+                        .value = 0.0,
+                        .error = advanceRes.error,
+                    };
+
+                f64 newFrac = fraction + (advanceRes.value.codepoint - '0') / divisor;
+                if (newFrac < fraction)
+                    return (ResultF64){
+                        .value = 0.0,
+                        .error = X_ERR_EXT("string", "string_parse_float", ERR_WOULD_OVERFLOW, "integer overflow"),
+                    };
+
+                fraction = newFrac;
+                divisor *= 10.0;
+                sawDigit = true;
+            }
+
+            result += fraction;
+        }
+    }
+
+    if (!sawDigit)
+        return (ResultF64){
+            .value = 0.0,
+            .error = X_ERR_EXT("string", "string_parse_float", ERR_UNEXPECTED_BYTE, "byte not digit"),
+        };
+
+    while (utf8_iter_has_next(&it))
+    {
+        cpRes = utf8_iter_peek(&it);
+        if (cpRes.error.code != ERR_OK)
+            return (ResultF64){
+                .value = 0.0,
+                .error = cpRes.error,
+            };
+
+        if (!_utf8_is_whitespace_cp(cpRes.value.codepoint))
+            return (ResultF64){
+                .value = 0.0,
+                .error = X_ERR_EXT("string", "string_parse_float", ERR_UNEXPECTED_BYTE, "byte not digit"),
+            };
+
+        utf8_iter_next(&it);
+    }
 
     return (ResultF64){
         .value = result * sign,

@@ -2,9 +2,21 @@
 
 #include "../xstd/xstd_core.h"
 #include "../xstd/xstd_alloc.h"
+#include "../xstd/xstd_buffer.h"
+#include "../xstd/xstd_file.h"
 #include "../xstd/xstd_io.h"
 #include "../xstd/xstd_string.h"
+#include "../xstd/xstd_utf8.h"
 #include "../xstd/xstd_math.h"
+#include "../xstd/xstd_writer.h"
+
+/*
+// FOR DEBUGGING
+static void pause(void)
+{
+    io_println("[PAUSE] Press any key to continue");
+    io_read_line(default_allocator());
+}*/
 
 static void *_xstd_bad_alloc_alloc(Allocator *a, u64 s)
 {
@@ -37,18 +49,166 @@ static Allocator _xstd_bad_alloc(void)
     };
 }
 
+/*
 static void _xstd_print_strlist(void *itemPtr, u64 index)
 {
     io_print_uint(index);
     io_print(": ");
     io_println(*(HeapStr *)itemPtr);
-}
+}*/
 
 static void _xstd_foreach_test(void *itemPtr, u64 index, void* userArg)
 {
     (void)userArg;
+    (void)index;
     HeapStr itemStr = *(HeapStr *)itemPtr;
     itemStr[0] = ' ';
+}
+
+static void _xstd_file_tests(Allocator alloc)
+{
+    io_println("file_create");
+    {
+        ConstStr filePath = "xstd_file_test.tmp";
+        ResultFile createRes = file_create(filePath);
+        assert_ok(createRes.error, "file_create createRes.error.code != ERR_OK");
+
+        io_println("file_write_str");
+
+        File file = createRes.value;
+        Error err = file_write_str(&file, "hello_world");
+        assert_ok(err, "file_write_str err.code != ERR_OK");
+
+        io_println("file_write_char");
+
+        err = file_write_char(&file, '!');
+        assert_ok(err, "file_write_char err.code != ERR_OK");
+
+        io_println("file_size");
+
+        u64 writtenSize = file_size(&file);
+        assert_true(writtenSize == 12, "file_size writtenSize != 12");
+
+        io_println("file_rewind");
+
+        err = file_rewind(&file);
+        assert_ok(err, "file_rewind err.code != ERR_OK");
+
+        io_println("file_readall_str");
+
+        ResultOwnedStr readAll = file_readall_str(&alloc, &file);
+        assert_ok(readAll.error, "file_readall_str readAll.error.code != ERR_OK");
+
+        io_print("content: ");
+        io_println(readAll.value);
+
+        assert_str_eq(readAll.value, "hello_world!", "file_readall_str content != \"hello_world!\"");
+        alloc.free(&alloc, readAll.value);
+
+        io_println("file_rewind");
+
+        err = file_rewind(&file);
+        assert_ok(err, "file_rewind err.code != ERR_OK");
+
+        io_println("file_read_bytes");
+
+        ResultOwnedBuff readBytes = file_read_bytes(&alloc, &file, 5);
+        assert_ok(readBytes.error, "file_read_bytes readBytes.error.code != ERR_OK");
+        assert_true(readBytes.value.size == 5, "file_read_bytes size != 5");
+        assert_true(readBytes.value.bytes[0] == 'h', "file_read_bytes first byte != 'h'");
+        assert_true(readBytes.value.bytes[4] == 'o', "file_read_bytes fifth byte != 'o'");
+        buffer_free(&alloc, &readBytes.value);
+
+        io_println("file_rewind");
+
+        err = file_rewind(&file);
+        assert_ok(err, "file_rewind err.code != ERR_OK");
+
+        io_println("file_read_str partial");
+
+        ResultOwnedStr readPartial = file_read_str(&alloc, &file, 5);
+        assert_ok(readPartial.error, "file_read_str readPartial.error.code != ERR_OK");
+        assert_str_eq(readPartial.value, "hello", "file_read_str content != \"hello\"");
+        alloc.free(&alloc, readPartial.value);
+
+        io_println("file_seek");
+
+        err = file_seek(&file, 6, 0);
+        assert_ok(err, "file_seek err.code != ERR_OK");
+
+        io_println("file_tell");
+
+        ResultU64 tellRes = file_tell(&file);
+        assert_ok(tellRes.error, "file_tell tellRes.error.code != ERR_OK");
+        assert_true(tellRes.value == 6, "file_tell tellRes.value != 6");
+
+        io_println("file_read_str tail");
+
+        ResultOwnedStr readTail = file_read_str(&alloc, &file, 6);
+        assert_ok(readTail.error, "file_read_str readTail.error.code != ERR_OK");
+        assert_str_eq(readTail.value, "world!", "file_read_str readTail != \"world!\"");
+        alloc.free(&alloc, readTail.value);
+
+        io_println("file_rewind");
+
+        err = file_rewind(&file);
+        assert_ok(err, "file_rewind err.code != ERR_OK");
+
+        io_println("file_read_bytes from null");
+
+        ResultOwnedBuff nullAllocRead = file_read_bytes(NULL, &file, 1);
+        assert_true(nullAllocRead.error.code == ERR_INVALID_PARAMETER, "file_read_bytes NULL alloc error.code != ERR_INVALID_PARAMETER");
+
+        io_println("file_close");
+
+        file_close(&file);
+
+        io_println("file_read_bytes invalid");
+
+        ResultOwnedBuff invalidFileRead = file_read_bytes(&alloc, &file, 1);
+        assert_true(invalidFileRead.error.code == ERR_INVALID_PARAMETER, "file_read_bytes invalid file error.code != ERR_INVALID_PARAMETER");
+
+        io_println("file_write_char invalid");
+
+        Error invalidWrite = file_write_char(&file, 'X');
+        assert_true(invalidWrite.code == ERR_INVALID_PARAMETER, "file_write_char invalid file code != ERR_INVALID_PARAMETER");
+
+        io_println("file_exists");
+
+        ibool exists = file_exists(filePath);
+        assert_true(exists, "file_exists existing file == false");
+
+        io_println("file_exists missing");
+
+        ibool missing = file_exists("xstd_file_missing.tmp");
+        assert_true(!missing, "file_exists missing file != false");
+
+        io_println("file_open");
+
+        ResultFile reopenRes = file_open(filePath, FileOpenModes.READ);
+        assert_ok(reopenRes.error, "file_open reopenRes.error.code != ERR_OK");
+        File readFile = reopenRes.value;
+
+        io_println("file_tell");
+
+        ResultU64 tellStart = file_tell(&readFile);
+        assert_ok(tellStart.error, "file_tell tellStart.error.code != ERR_OK");
+        assert_true(tellStart.value == 0, "file_tell tellStart.value != 0");
+
+        io_println("file_readall_str again");
+
+        ResultOwnedStr readAllAgain = file_readall_str(&alloc, &readFile);
+        assert_ok(readAllAgain.error, "file_readall_str readAllAgain.error.code != ERR_OK");
+        assert_str_eq(readAllAgain.value, "hello_world!", "file_readall_str readAllAgain != \"hello_world!\"");
+        alloc.free(&alloc, readAllAgain.value);
+
+        io_println("file_close");
+
+        file_close(&readFile);
+
+        ResultFile openNullPath = file_open(NULL, FileOpenModes.READ);
+        assert_true(openNullPath.error.code == ERR_INVALID_PARAMETER, "file_open NULL path error.code != ERR_INVALID_PARAMETER");
+    }
 }
 
 static void _xstd_string_tests(Allocator alloc)
@@ -59,9 +219,13 @@ static void _xstd_string_tests(Allocator alloc)
     // =========================================================================
     // TEST string_size
     // =========================================================================
+    io_println("string_size");
     {
         ConstStr strLen22 = "This string is 22 long";
         assert_true(string_size(strLen22) == 22, "string_size 22 != 22");
+
+        ConstStr strLen27 = "This string is 27 long 😔";
+        assert_true(string_size(strLen27) == 27, "string_size 27 != 27");
 
         ConstStr strLen0 = "";
         assert_true(string_size(strLen0) == 0, "string_size 0 != 0");
@@ -72,6 +236,7 @@ static void _xstd_string_tests(Allocator alloc)
     // =========================================================================
     // TEST string_equals
     // =========================================================================
+    io_println("string_equals");
     {
         ConstStr strEq1 = "This is equal.";
         ConstStr strEq2 = "This is equal.";
@@ -101,6 +266,7 @@ static void _xstd_string_tests(Allocator alloc)
     // =========================================================================
     // TEST string_alloc
     // =========================================================================
+    io_println("string_alloc");
     {
         ResultOwnedStr strHeapRes1 = string_alloc(&alloc, 5, ' ');
         assert_true(strHeapRes1.error.code == ERR_OK, "string_alloc strHeapRes1.error.code != ERR_OK");
@@ -127,6 +293,7 @@ static void _xstd_string_tests(Allocator alloc)
     // =========================================================================
     // TEST string_copy_unsafe
     // =========================================================================
+    io_println("string_copy_unsafe");
     {
         ConstStr strCopyUn1 = "Copied.";
 
@@ -148,6 +315,7 @@ static void _xstd_string_tests(Allocator alloc)
     // =========================================================================
     // TEST string_copy_n_unsafe
     // =========================================================================
+    io_println("string_copy_n_unsafe");
     {
         ConstStr strCopyNUn1 = "Copied.";
 
@@ -185,6 +353,7 @@ static void _xstd_string_tests(Allocator alloc)
     // =========================================================================
     // TEST string_copy
     // =========================================================================
+    io_println("string_copy");
     {
         ConstStr strCopy1 = "Copied.";
 
@@ -220,6 +389,7 @@ static void _xstd_string_tests(Allocator alloc)
     // =========================================================================
     // TEST string_copy_n
     // =========================================================================
+    io_println("string_copy_n");
     {
         ConstStr strCopyN1 = "Copied.";
 
@@ -282,6 +452,7 @@ static void _xstd_string_tests(Allocator alloc)
     // =========================================================================
     // TEST string_dupe
     // =========================================================================
+    io_println("string_dupe");
     {
         ConstStr strDupe0 = "";
         ConstStr strDupe1 = "Copied.";
@@ -306,6 +477,7 @@ static void _xstd_string_tests(Allocator alloc)
     // =========================================================================
     // TEST string_dupe_noresult
     // =========================================================================
+    io_println("string_dupe_noresult");
     {
         ConstStr strDupeNr0 = "";
         ConstStr strDupeNr1 = "Copied.";
@@ -330,6 +502,7 @@ static void _xstd_string_tests(Allocator alloc)
     // =========================================================================
     // TEST string_resize
     // =========================================================================
+    io_println("string_resize");
     {
         ConstStr strRes1 = "Resized";
 
@@ -358,6 +531,7 @@ static void _xstd_string_tests(Allocator alloc)
     // =========================================================================
     // TEST string_concat
     // =========================================================================
+    io_println("string_concat");
     {
         ConstStr strConc1 = "Left ";
         ConstStr strConc2 = "Right";
@@ -381,6 +555,7 @@ static void _xstd_string_tests(Allocator alloc)
     // =========================================================================
     // TEST string_substr
     // =========================================================================
+    io_println("string_substr");
     {
         ConstStr strSub1 = "This is a substring";
 
@@ -408,6 +583,7 @@ static void _xstd_string_tests(Allocator alloc)
     // =========================================================================
     // TEST string_substr_unsafe
     // =========================================================================
+    io_println("string_substr_unsafe");
     {
         ConstStr strSub1 = "This is a substring";
 
@@ -429,6 +605,7 @@ static void _xstd_string_tests(Allocator alloc)
     // =========================================================================
     // TEST string_splitc
     // =========================================================================
+    io_println("string_splitc");
     {
         ConstStr strSpl0 = " This is a split string ";
         ConstStr strSpl1 = "This is a  split string";
@@ -496,6 +673,7 @@ static void _xstd_string_tests(Allocator alloc)
     // =========================================================================
     // TEST string_find
     // =========================================================================
+    io_println("string_find");
     {
         ConstStr strFin1 = "Thus is a test string";
 
@@ -526,6 +704,7 @@ static void _xstd_string_tests(Allocator alloc)
     // =========================================================================
     // TEST string_find_char
     // =========================================================================
+    io_println("string_find_char");
     {
         ConstStr strFin1 = "Thus is a test string";
 
@@ -550,6 +729,7 @@ static void _xstd_string_tests(Allocator alloc)
     // =========================================================================
     // TEST StringBuilder
     // =========================================================================
+    io_println("StringBuilder");
     {
         ResultStrBuilder resBld = strbuilder_init(&alloc);
         assert_ok(resBld.error, "StringBuilder resBld.error.code != ERR_OK");
@@ -590,6 +770,7 @@ static void _xstd_string_tests(Allocator alloc)
     // =========================================================================
     // TEST string_replace
     // =========================================================================
+    io_println("string_replace");
     {
         ConstStr strRep1 = "This is a test";
 
@@ -619,6 +800,7 @@ static void _xstd_string_tests(Allocator alloc)
     // =========================================================================
     // TEST string_starts_with
     // =========================================================================
+    io_println("string_starts_with");
     {
         ibool strStaWth1 = string_starts_with("This is a test", "This");
         assert_true(strStaWth1, "string_starts_with strStaWth1 != true");
@@ -641,6 +823,7 @@ static void _xstd_string_tests(Allocator alloc)
     // =========================================================================
     // TEST string_ends_with
     // =========================================================================
+    io_println("string_ends_with");
     {
         ibool strEndWth1 = string_ends_with("This is a test", "test");
         assert_true(strEndWth1, "string_ends_with strEndWth1 != true");
@@ -663,6 +846,7 @@ static void _xstd_string_tests(Allocator alloc)
     // =========================================================================
     // TEST char_is_alpha
     // =========================================================================
+    io_println("char_is_alpha");
     {
         assert_true(!char_is_alpha('a' - 1), "char_is_alpha invalid range <a");
 
@@ -689,6 +873,7 @@ static void _xstd_string_tests(Allocator alloc)
     // =========================================================================
     // TEST char_is_digit
     // =========================================================================
+    io_println("char_is_digit");
     {
         assert_true(!char_is_digit('0' - 1), "char_is_digit invalid range <0");
 
@@ -704,6 +889,7 @@ static void _xstd_string_tests(Allocator alloc)
     // =========================================================================
     // TEST char_is_alphanum
     // =========================================================================
+    io_println("char_is_alphanum");
     {
         assert_true(!char_is_alphanum('a' - 1), "char_is_alphanum invalid range <a");
 
@@ -741,6 +927,7 @@ static void _xstd_string_tests(Allocator alloc)
     // =========================================================================
     // TEST string_trim_whitespace
     // =========================================================================
+    io_println("string_trim_whitespace");
     {
         ResultOwnedStr strTrim1 = string_trim_whitespace(&alloc, "  \n  This is a test.", true, true);
         assert_ok(strTrim1.error, "string_trim_whitespace strTrim1 != OK");
@@ -756,6 +943,780 @@ static void _xstd_string_tests(Allocator alloc)
         alloc.free(&alloc, strTrim1.value);
         alloc.free(&alloc, strTrim2.value);
     }
+    // =========================================================================
+    // TEST string_char_at
+    // =========================================================================
+    io_println("string_char_at");
+    {
+        ConstStr utf8Sample = "naïve ☕";
+
+        ResultUtf8Codepoint cp0 = string_char_at(utf8Sample, 0);
+        assert_ok(cp0.error, "string_char_at cp0.error.code != ERR_OK");
+        assert_true(cp0.value.codepoint == 'n', "string_char_at cp0 != 'n'");
+
+        ResultUtf8Codepoint cp2 = string_char_at(utf8Sample, 2);
+        assert_ok(cp2.error, "string_char_at cp2.error.code != ERR_OK");
+        assert_true(cp2.value.codepoint == 0x00EF, "string_char_at cp2 != U+00EF");
+
+        ResultUtf8Codepoint cp6 = string_char_at(utf8Sample, 6);
+        assert_ok(cp6.error, "string_char_at cp6.error.code != ERR_OK");
+        assert_true(cp6.value.codepoint == 0x2615, "string_char_at cp6 != U+2615");
+
+        ResultUtf8Codepoint cpFail = string_char_at(utf8Sample, 99);
+        assert_true(cpFail.error.code != ERR_OK, "string_char_at cpFail == ERR_OK");
+
+        ResultUtf8Codepoint cpNull = string_char_at(NULL, 0);
+        assert_true(cpNull.error.code != ERR_OK, "string_char_at cpNull == ERR_OK");
+    }
+    // =========================================================================
+    // TEST string_char_at_ascii
+    // =========================================================================
+    io_println("string_char_at_ascii");
+    {
+        ConstStr asciiInput = "example";
+        u64 asciiLen = string_size(asciiInput);
+
+        ResultByte asciiRes = string_char_at_ascii(asciiInput, 3, asciiLen);
+        assert_ok(asciiRes.error, "string_char_at_ascii asciiRes.error.code != ERR_OK");
+        assert_true(asciiRes.value == 'm', "string_char_at_ascii asciiRes != 'm'");
+
+        ResultByte asciiOob = string_char_at_ascii(asciiInput, asciiLen, asciiLen);
+        assert_true(asciiOob.error.code != ERR_OK, "string_char_at_ascii asciiOob == ERR_OK");
+
+        ResultByte asciiNull = string_char_at_ascii(NULL, 0, 0);
+        assert_true(asciiNull.error.code != ERR_OK, "string_char_at_ascii asciiNull == ERR_OK");
+    }
+    // =========================================================================
+    // TEST string_substr_ascii
+    // =========================================================================
+    io_println("string_substr_ascii");
+    {
+        ConstStr asciiSrc = "Ascii substring sample";
+
+        ResultOwnedStr asciiSub = string_substr_ascii(&alloc, asciiSrc, 6, 15);
+        assert_ok(asciiSub.error, "string_substr_ascii asciiSub.error.code != ERR_OK");
+        assert_str_eq(asciiSub.value, "substring", "string_substr_ascii asciiSub != \"substring\"");
+
+        ResultOwnedStr asciiBadRange = string_substr_ascii(&alloc, asciiSrc, 10, 5);
+        assert_true(asciiBadRange.error.code != ERR_OK, "string_substr_ascii asciiBadRange == ERR_OK");
+
+        ResultOwnedStr asciiTooLarge = string_substr_ascii(&alloc, asciiSrc, 0, 100);
+        assert_true(asciiTooLarge.error.code != ERR_OK, "string_substr_ascii asciiTooLarge == ERR_OK");
+
+        alloc.free(&alloc, asciiSub.value);
+    }
+    // =========================================================================
+    // TEST string_substr_ascii_unsafe
+    // =========================================================================
+    io_println("string_substr_ascii_unsafe");
+    {
+        ConstStr unsafeSrc = "Unsafe ascii segment";
+
+        OwnedStr unsafeSub = string_substr_ascii_unsafe(&alloc, unsafeSrc, 7, 12);
+        assert_true(unsafeSub != NULL, "string_substr_ascii_unsafe unsafeSub == NULL");
+        assert_str_eq(unsafeSub, "ascii", "string_substr_ascii_unsafe unsafeSub != \"ascii\"");
+        alloc.free(&alloc, unsafeSub);
+
+        OwnedStr unsafeFail = string_substr_ascii_unsafe(&badAlloc, unsafeSrc, 0, 3);
+        assert_true(unsafeFail == NULL, "string_substr_ascii_unsafe unsafeFail != NULL");
+    }
+    // =========================================================================
+    // TEST string_split_char_ascii
+    // =========================================================================
+    io_println("string_split_char_ascii");
+    {
+        ConstStr splitAscii = "one,,two,three";
+
+        ResultList listRes = string_split_char_ascii(&alloc, splitAscii, ',');
+        assert_ok(listRes.error, "string_split_char_ascii listRes.error.code != ERR_OK");
+
+        List asciiList = listRes.value;
+        u64 asciiCount = list_size(&asciiList);
+        assert_true(asciiCount == 4, "string_split_char_ascii asciiCount != 4");
+
+        String token = NULL;
+        ListGetT(String, &asciiList, 0, &token);
+        assert_true(!!token, "string_split_char_ascii token0 == NULL");
+        assert_str_eq(token, "one", "string_split_char_ascii token0 != \"one\"");
+
+        ListGetT(String, &asciiList, 1, &token);
+        assert_true(!!token, "string_split_char_ascii token1 == NULL");
+        assert_str_eq(token, "", "string_split_char_ascii token1 != \"\"");
+
+        ListGetT(String, &asciiList, 2, &token);
+        assert_str_eq(token, "two", "string_split_char_ascii token2 != \"two\"");
+
+        ListGetT(String, &asciiList, 3, &token);
+        assert_str_eq(token, "three", "string_split_char_ascii token3 != \"three\"");
+
+        list_free_items(&alloc, &asciiList);
+        list_deinit(&asciiList);
+
+        ResultList listErr = string_split_char_ascii(&alloc, NULL, ',');
+        assert_true(listErr.error.code != ERR_OK, "string_split_char_ascii listErr == ERR_OK");
+    }
+    // =========================================================================
+    // TEST string_split_lines
+    // =========================================================================
+    io_println("string_split_lines");
+    {
+        ConstStr linesUtf8 = "line1\nlínea2\r\nline3 ☕\n";
+
+        ResultList linesRes = string_split_lines(&alloc, linesUtf8);
+        assert_ok(linesRes.error, "string_split_lines linesRes.error.code != ERR_OK");
+
+        List utf8Lines = linesRes.value;
+        u64 utf8Count = list_size(&utf8Lines);
+        assert_true(utf8Count == 4, "string_split_lines utf8Count != 4");
+
+        String line = NULL;
+        ListGetT(String, &utf8Lines, 0, &line);
+        assert_str_eq(line, "line1", "string_split_lines line0 != \"line1\"");
+
+        ListGetT(String, &utf8Lines, 1, &line);
+        assert_str_eq(line, "línea2", "string_split_lines line1 != \"línea2\"");
+
+        ListGetT(String, &utf8Lines, 2, &line);
+        assert_str_eq(line, "line3 ☕", "string_split_lines line2 != \"line3 ☕\"");
+
+        ListGetT(String, &utf8Lines, 3, &line);
+        assert_str_eq(line, "", "string_split_lines line3 != \"\"");
+
+        list_free_items(&alloc, &utf8Lines);
+        list_deinit(&utf8Lines);
+
+        ResultList linesErr = string_split_lines(&alloc, NULL);
+        assert_true(linesErr.error.code != ERR_OK, "string_split_lines linesErr == ERR_OK");
+    }
+    // =========================================================================
+    // TEST string_split_lines_ascii
+    // =========================================================================
+    io_println("string_split_lines_ascii");
+    {
+        ConstStr linesAscii = "first\r\nsecond\nthird";
+
+        ResultList asciiLinesRes = string_split_lines_ascii(&alloc, linesAscii);
+        assert_ok(asciiLinesRes.error, "string_split_lines_ascii asciiLinesRes.error.code != ERR_OK");
+
+        List asciiLines = asciiLinesRes.value;
+        u64 lineCount = list_size(&asciiLines);
+        assert_true(lineCount == 3, "string_split_lines_ascii lineCount != 3");
+
+        String asciiLine = NULL;
+        ListGetT(String, &asciiLines, 0, &asciiLine);
+        assert_str_eq(asciiLine, "first", "string_split_lines_ascii asciiLine0 != \"first\"");
+
+        ListGetT(String, &asciiLines, 1, &asciiLine);
+        assert_str_eq(asciiLine, "second", "string_split_lines_ascii asciiLine1 != \"second\"");
+
+        ListGetT(String, &asciiLines, 2, &asciiLine);
+        assert_str_eq(asciiLine, "third", "string_split_lines_ascii asciiLine2 != \"third\"");
+
+        list_free_items(&alloc, &asciiLines);
+        list_deinit(&asciiLines);
+
+        ResultList asciiLinesErr = string_split_lines_ascii(&alloc, NULL);
+        assert_true(asciiLinesErr.error.code != ERR_OK, "string_split_lines_ascii asciiLinesErr == ERR_OK");
+    }
+    // =========================================================================
+    // TEST string_lower
+    // =========================================================================
+    io_println("string_lower");
+    {
+        ResultOwnedStr lowerRes = string_lower(&alloc, "MiXeD Case CAFÉ");
+        assert_ok(lowerRes.error, "string_lower lowerRes.error.code != ERR_OK");
+        assert_str_eq(lowerRes.value, "mixed case cafÉ", "string_lower lowerRes != \"mixed case cafÉ\"");
+        alloc.free(&alloc, lowerRes.value);
+    }
+    // =========================================================================
+    // TEST string_upper
+    // =========================================================================
+    io_println("string_upper");
+    {
+        ResultOwnedStr upperRes = string_upper(&alloc, "mixed case café");
+        assert_ok(upperRes.error, "string_upper upperRes.error.code != ERR_OK");
+        assert_str_eq(upperRes.value, "MIXED CASE CAFé", "string_upper upperRes != \"MIXED CASE CAFé\"");
+        alloc.free(&alloc, upperRes.value);
+    }
+    // =========================================================================
+    // TEST string_lower_ascii
+    // =========================================================================
+    io_println("string_lower_ascii");
+    {
+        ResultOwnedStr lowerAscii = string_lower_ascii(&alloc, "HELLO ASCII");
+        assert_ok(lowerAscii.error, "string_lower_ascii lowerAscii.error.code != ERR_OK");
+        assert_str_eq(lowerAscii.value, "hello ascii", "string_lower_ascii lowerAscii != \"hello ascii\"");
+        alloc.free(&alloc, lowerAscii.value);
+    }
+    // =========================================================================
+    // TEST string_upper_ascii
+    // =========================================================================
+    io_println("string_upper_ascii");
+    {
+        ResultOwnedStr upperAscii = string_upper_ascii(&alloc, "hello ascii");
+        assert_ok(upperAscii.error, "string_upper_ascii upperAscii.error.code != ERR_OK");
+        assert_str_eq(upperAscii.value, "HELLO ASCII", "string_upper_ascii upperAscii != \"HELLO ASCII\"");
+        alloc.free(&alloc, upperAscii.value);
+    }
+    // =========================================================================
+    // TEST string_to_lower_inplace
+    // =========================================================================
+    io_println("string_to_lower_inplace");
+    {
+        HeapStr lowerBuff = ConstToHeapStr(&alloc, "ModIfY Me É");
+        assert_true(lowerBuff != NULL, "string_to_lower_inplace lowerBuff == NULL");
+        string_to_lower_inplace(lowerBuff);
+        assert_str_eq(lowerBuff, "modify me É", "string_to_lower_inplace lowerBuff != \"modify me É\"");
+        alloc.free(&alloc, lowerBuff);
+    }
+    // =========================================================================
+    // TEST string_to_upper_inplace
+    // =========================================================================
+    io_println("string_to_upper_inplace");
+    {
+        HeapStr upperBuff = ConstToHeapStr(&alloc, "modify me é");
+        assert_true(upperBuff != NULL, "string_to_upper_inplace upperBuff == NULL");
+        string_to_upper_inplace(upperBuff);
+        assert_str_eq(upperBuff, "MODIFY ME é", "string_to_upper_inplace upperBuff != \"MODIFY ME é\"");
+        alloc.free(&alloc, upperBuff);
+    }
+    // =========================================================================
+    // TEST string_from_int
+    // =========================================================================
+    io_println("string_from_int");
+    {
+        ResultOwnedStr intStr = string_from_int(&alloc, -12345);
+        assert_ok(intStr.error, "string_from_int intStr.error.code != ERR_OK");
+        assert_str_eq(intStr.value, "-12345", "string_from_int intStr != \"-12345\"");
+        alloc.free(&alloc, intStr.value);
+
+        ResultOwnedStr zeroStr = string_from_int(&alloc, 0);
+        assert_ok(zeroStr.error, "string_from_int zeroStr.error.code != ERR_OK");
+        assert_str_eq(zeroStr.value, "0", "string_from_int zeroStr != \"0\"");
+        alloc.free(&alloc, zeroStr.value);
+    }
+    // =========================================================================
+    // TEST string_from_uint
+    // =========================================================================
+    io_println("string_from_uint");
+    {
+        ResultOwnedStr uintStr = string_from_uint(&alloc, 9876543210ULL);
+        assert_ok(uintStr.error, "string_from_uint uintStr.error.code != ERR_OK");
+        assert_str_eq(uintStr.value, "9876543210", "string_from_uint uintStr != \"9876543210\"");
+        alloc.free(&alloc, uintStr.value);
+    }
+    // =========================================================================
+    // TEST string_from_float
+    // =========================================================================
+    io_println("string_from_float");
+    {
+        ResultOwnedStr floatStr = string_from_float(&alloc, -12.5, 1);
+        assert_ok(floatStr.error, "string_from_float floatStr.error.code != ERR_OK");
+        assert_str_eq(floatStr.value, "-12.5", "string_from_float floatStr != \"-12.5\"");
+        alloc.free(&alloc, floatStr.value);
+
+        ResultOwnedStr floatStr2 = string_from_float(&alloc, 3.125, 3);
+        assert_ok(floatStr2.error, "string_from_float floatStr2.error.code != ERR_OK");
+        assert_str_eq(floatStr2.value, "3.125", "string_from_float floatStr2 != \"3.125\"");
+        alloc.free(&alloc, floatStr2.value);
+
+        ResultOwnedStr bigFloat = string_from_float(&alloc, 123456789012345.75, 2);
+        assert_ok(bigFloat.error, "string_from_float bigFloat.error.code != ERR_OK");
+        assert_str_eq(bigFloat.value, "123456789012345.75", "string_from_float bigFloat != \"123456789012345.75\"");
+        alloc.free(&alloc, bigFloat.value);
+
+        ResultOwnedStr bigNegative = string_from_float(&alloc, -98765432109876.03125, 5);
+        assert_ok(bigNegative.error, "string_from_float bigNegative.error.code != ERR_OK");
+        assert_str_eq(bigNegative.value, "-98765432109876.03125", "string_from_float bigNegative != \"-98765432109876.03125\"");
+        alloc.free(&alloc, bigNegative.value);
+
+        ResultOwnedStr roundingCarry = string_from_float(&alloc, 99999999999.9996, 3);
+        assert_ok(roundingCarry.error, "string_from_float roundingCarry.error.code != ERR_OK");
+        assert_str_eq(roundingCarry.value, "100000000000.000", "string_from_float roundingCarry != \"100000000000.000\"");
+        alloc.free(&alloc, roundingCarry.value);
+    }
+    // =========================================================================
+    // TEST string_parse_int_ascii
+    // =========================================================================
+    io_println("string_parse_int_ascii");
+    {
+        ResultI64 parseInt = string_parse_int_ascii("  -42  ");
+        assert_ok(parseInt.error, "string_parse_int_ascii parseInt.error.code != ERR_OK");
+        assert_true(parseInt.value == -42, "string_parse_int_ascii parseInt != -42");
+
+        ResultI64 parseErr = string_parse_int_ascii("abc");
+        assert_true(parseErr.error.code != ERR_OK, "string_parse_int_ascii parseErr == ERR_OK");
+    }
+    // =========================================================================
+    // TEST string_parse_int
+    // =========================================================================
+    io_println("string_parse_int");
+    {
+        ConstStr utf8Int = " +256 ";
+        ResultI64 parseUtf8 = string_parse_int(utf8Int);
+        assert_ok(parseUtf8.error, "string_parse_int parseUtf8.error.code != ERR_OK");
+        assert_true(parseUtf8.value == 256, "string_parse_int parseUtf8 != 256");
+
+        ResultI64 parseUtf8Err = string_parse_int("12a");
+        assert_true(parseUtf8Err.error.code != ERR_OK, "string_parse_int parseUtf8Err == ERR_OK");
+    }
+    // =========================================================================
+    // TEST string_parse_uint_ascii
+    // =========================================================================
+    io_println("string_parse_uint_ascii");
+    {
+        ResultU64 parseUInt = string_parse_uint_ascii("  4096 ");
+        assert_ok(parseUInt.error, "string_parse_uint_ascii parseUInt.error.code != ERR_OK");
+        assert_true(parseUInt.value == 4096, "string_parse_uint_ascii parseUInt != 4096");
+
+        ResultU64 parseUIntErr = string_parse_uint_ascii("-1");
+        assert_true(parseUIntErr.error.code != ERR_OK, "string_parse_uint_ascii parseUIntErr == ERR_OK");
+    }
+    // =========================================================================
+    // TEST string_parse_uint
+    // =========================================================================
+    io_println("string_parse_uint");
+    {
+        ConstStr utf8UInt = " 1024 ";
+        ResultU64 parseUtf8UInt = string_parse_uint(utf8UInt);
+        assert_ok(parseUtf8UInt.error, "string_parse_uint parseUtf8UInt.error.code != ERR_OK");
+        assert_true(parseUtf8UInt.value == 1024, "string_parse_uint parseUtf8UInt != 1024");
+
+        ResultU64 parseUtf8UIntErr = string_parse_uint("++1");
+        assert_true(parseUtf8UIntErr.error.code != ERR_OK, "string_parse_uint parseUtf8UIntErr == ERR_OK");
+    }
+    // =========================================================================
+    // TEST string_parse_float_ascii
+    // =========================================================================
+    io_println("string_parse_float_ascii");
+    {
+        ResultF64 parseFloat = string_parse_float_ascii(" +3.25 ");
+        assert_ok(parseFloat.error, "string_parse_float_ascii parseFloat.error.code != ERR_OK");
+        assert_true(parseFloat.value == 3.25, "string_parse_float_ascii parseFloat != 3.25");
+
+        ResultF64 parseFloatErr = string_parse_float_ascii("3.");
+        assert_true(parseFloatErr.error.code != ERR_OK, "string_parse_float_ascii parseFloatErr == ERR_OK");
+    }
+    // =========================================================================
+    // TEST string_parse_float
+    // =========================================================================
+    io_println("string_parse_float");
+    {
+        ConstStr utf8Float = " -12.5 ";
+        ResultF64 parseUtf8Float = string_parse_float(utf8Float);
+        assert_ok(parseUtf8Float.error, "string_parse_float parseUtf8Float.error.code != ERR_OK");
+        assert_true(parseUtf8Float.value == -12.5, "string_parse_float parseUtf8Float != -12.5");
+
+        ResultF64 parseUtf8FloatErr = string_parse_float("nan");
+        assert_true(parseUtf8FloatErr.error.code != ERR_OK, "string_parse_float parseUtf8FloatErr == ERR_OK");
+    }
+    // =========================================================================
+    // TEST string_trim_whitespace_ascii
+    // =========================================================================
+    io_println("string_trim_whitespace_ascii");
+    {
+        ResultOwnedStr trimAscii = string_trim_whitespace_ascii(&alloc, "  padded ascii  ", true, true);
+        assert_ok(trimAscii.error, "string_trim_whitespace_ascii trimAscii.error.code != ERR_OK");
+        assert_str_eq(trimAscii.value, "padded ascii", "string_trim_whitespace_ascii trimAscii != \"padded ascii\"");
+        alloc.free(&alloc, trimAscii.value);
+
+        ResultOwnedStr trimStartOnly = string_trim_whitespace_ascii(&alloc, "\t spaced", true, false);
+        assert_ok(trimStartOnly.error, "string_trim_whitespace_ascii trimStartOnly.error.code != ERR_OK");
+        assert_str_eq(trimStartOnly.value, "spaced", "string_trim_whitespace_ascii trimStartOnly != \"spaced\"");
+        alloc.free(&alloc, trimStartOnly.value);
+
+        ResultOwnedStr trimNull = string_trim_whitespace_ascii(&alloc, NULL, true, true);
+        assert_true(trimNull.error.code != ERR_OK, "string_trim_whitespace_ascii trimNull == ERR_OK");
+    }
+}
+
+static void _xstd_writer_tests(Allocator alloc)
+{
+    Allocator badAlloc = _xstd_bad_alloc();
+    // =========================================================================
+    // TEST buffwriter_init
+    // =========================================================================
+    io_println("buffwriter_init");
+    {
+        i8 storage[8] = {0};
+        ResultBuffWriter res = buffwriter_init((Buffer){.bytes = storage, .size = sizeof(storage)});
+        assert_ok(res.error, "buffwriter_init res.error.code != ERR_OK");
+
+        BuffWriter bw = res.value;
+        Error err = writer_write_str((Writer *)&bw, "abc");
+        assert_ok(err, "buffwriter_init writer_write_str != ERR_OK");
+        assert_true(bw.writeHead == 3, "buffwriter_init writeHead != 3");
+        storage[bw.writeHead] = 0;
+        assert_str_eq(storage, "abc", "buffwriter_init storage != \"abc\"");
+
+        while (bw.writeHead < bw.writeEnd)
+        {
+            err = writer_write_byte((Writer *)&bw, 'x');
+            assert_ok(err, "buffwriter_init fill err.code != ERR_OK");
+        }
+
+        Error overflowErr = writer_write_byte((Writer *)&bw, 'y');
+        assert_true(overflowErr.code == ERR_WOULD_OVERFLOW, "buffwriter_init overflowErr.code != ERR_WOULD_OVERFLOW");
+
+        ResultBuffWriter errRes = buffwriter_init((Buffer){.bytes = NULL, .size = 4});
+        assert_true(errRes.error.code != ERR_OK, "buffwriter_init errRes.error.code == ERR_OK");
+    }
+    // =========================================================================
+    // TEST growbuffwriter_init
+    // =========================================================================
+    io_println("growbuffwriter_init");
+    {
+        ResultGrowBuffWriter res = growbuffwriter_init(alloc, 4);
+        assert_ok(res.error, "growbuffwriter_init res.error.code != ERR_OK");
+
+        GrowBuffWriter gbw = res.value;
+        const char *text = "abcdef";
+        const char *cursor = text;
+        while (*cursor)
+        {
+            Error err = writer_write_byte((Writer *)&gbw, *cursor++);
+            assert_ok(err, "growbuffwriter_init writer_write_byte != ERR_OK");
+        }
+        assert_true(gbw.writeHead == 6, "growbuffwriter_init writeHead != 6");
+        assert_true(gbw.buff.size >= 6, "growbuffwriter_init buff.size < 6");
+        assert_true(gbw.buff.bytes[0] == 'a', "growbuffwriter_init first byte != 'a'");
+        assert_true(gbw.buff.bytes[5] == 'f', "growbuffwriter_init last byte != 'f'");
+
+        gbw.writeHead = 0;
+        Error strErr = writer_write_str((Writer *)&gbw, "grow");
+        assert_ok(strErr, "growbuffwriter_init writer_write_str != ERR_OK");
+        gbw.buff.bytes[gbw.writeHead] = 0;
+        assert_str_eq(gbw.buff.bytes, "grow", "growbuffwriter_init writer_write_str output != \"grow\"");
+
+        alloc.free(&alloc, gbw.buff.bytes);
+
+        ResultGrowBuffWriter resErr = growbuffwriter_init(badAlloc, 8);
+        assert_true(resErr.error.code != ERR_OK, "growbuffwriter_init resErr.error.code == ERR_OK");
+    }
+    // =========================================================================
+    // TEST growbuffwriter_resize
+    // =========================================================================
+    io_println("growbuffwriter_resize");
+    {
+        ResultGrowBuffWriter res = growbuffwriter_init(alloc, 8);
+        assert_ok(res.error, "growbuffwriter_resize res.error.code != ERR_OK");
+
+        GrowBuffWriter gbw = res.value;
+        const char *value = "12345678";
+        const char *ptr = value;
+        while (*ptr)
+        {
+            Error err = writer_write_byte((Writer *)&gbw, *ptr++);
+            assert_ok(err, "growbuffwriter_resize writer_write_byte != ERR_OK");
+        }
+
+        Error err = growbuffwriter_resize(&gbw, 4);
+        assert_ok(err, "growbuffwriter_resize resize != ERR_OK");
+        assert_true(gbw.writeHead == 4, "growbuffwriter_resize writeHead != 4");
+        assert_true(gbw.buff.size == 4, "growbuffwriter_resize buff.size != 4");
+        assert_true(gbw.buff.bytes[0] == '1' && gbw.buff.bytes[3] == '4', "growbuffwriter_resize content incorrect");
+
+        Error invalid = growbuffwriter_resize(NULL, 4);
+        assert_true(invalid.code == ERR_INVALID_PARAMETER, "growbuffwriter_resize invalid.code != ERR_INVALID_PARAMETER");
+
+        alloc.free(&alloc, gbw.buff.bytes);
+    }
+    // =========================================================================
+    // TEST growstrwriter_init
+    // =========================================================================
+    io_println("growstrwriter_init");
+    {
+        ResultGrowStrWriter res = growstrwriter_init(alloc, 4);
+        assert_ok(res.error, "growstrwriter_init res.error.code != ERR_OK");
+
+        GrowStrWriter gsw = res.value;
+        const char *text = "hello";
+        const char *cursor = text;
+        while (*cursor)
+        {
+            Error err = writer_write_byte((Writer *)&gsw, *cursor++);
+            assert_ok(err, "growstrwriter_init writer_write_byte != ERR_OK");
+        }
+        assert_true(gsw.writeHead == 5, "growstrwriter_init writeHead != 5");
+        assert_str_eq(gsw.str, "hello", "growstrwriter_init str != \"hello\"");
+
+        gsw.writeHead = 0;
+        gsw.str[0] = 0;
+        Error strErr = writer_write_str((Writer *)&gsw, "str");
+        assert_ok(strErr, "growstrwriter_init writer_write_str != ERR_OK");
+        assert_str_eq(gsw.str, "str", "growstrwriter_init writer_write_str output != \"str\"");
+
+        alloc.free(&alloc, gsw.str);
+
+        ResultGrowStrWriter resErr = growstrwriter_init(badAlloc, 4);
+        assert_true(resErr.error.code != ERR_OK, "growstrwriter_init resErr.error.code == ERR_OK");
+    }
+    // =========================================================================
+    // TEST growstrwriter_resize
+    // =========================================================================
+    io_println("growstrwriter_resize");
+    {
+        ResultGrowStrWriter res = growstrwriter_init(alloc, 8);
+        assert_ok(res.error, "growstrwriter_resize res.error.code != ERR_OK");
+
+        GrowStrWriter gsw = res.value;
+        const char *text = "ABCDEFG";
+        const char *cursor = text;
+        while (*cursor)
+        {
+            Error err = writer_write_byte((Writer *)&gsw, *cursor++);
+            assert_ok(err, "growstrwriter_resize writer_write_byte != ERR_OK");
+        }
+
+        Error err = growstrwriter_resize(&gsw, 4);
+        assert_ok(err, "growstrwriter_resize resize != ERR_OK");
+        gsw.str[gsw.writeHead] = 0;
+        assert_true(gsw.writeHead == 4, "growstrwriter_resize writeHead != 4");
+        assert_str_eq(gsw.str, "ABCD", "growstrwriter_resize str != \"ABCD\"");
+
+        Error invalid = growstrwriter_resize(NULL, 4);
+        assert_true(invalid.code == ERR_INVALID_PARAMETER, "growstrwriter_resize invalid.code != ERR_INVALID_PARAMETER");
+
+        alloc.free(&alloc, gsw.str);
+    }
+    // =========================================================================
+    // TEST writer_write_bytes
+    // =========================================================================
+    io_println("writer_write_bytes");
+    {
+        i8 storage[6] = {0};
+        ResultBuffWriter res = buffwriter_init((Buffer){.bytes = storage, .size = sizeof(storage)});
+        assert_ok(res.error, "writer_write_bytes res.error.code != ERR_OK");
+
+        BuffWriter bw = res.value;
+        ConstBuff data = {
+            .bytes = "ABCD",
+            .size = 4,
+        };
+        Error err = writer_write_bytes((Writer *)&bw, data);
+        assert_ok(err, "writer_write_bytes err.code != ERR_OK");
+        storage[bw.writeHead] = 0;
+        assert_str_eq(storage, "ABCD", "writer_write_bytes storage != \"ABCD\"");
+    }
+    // =========================================================================
+    // TEST writer_write_str
+    // =========================================================================
+    io_println("writer_write_str");
+    {
+        i8 storage[12] = {0};
+        ResultBuffWriter res = buffwriter_init((Buffer){.bytes = storage, .size = sizeof(storage)});
+        assert_ok(res.error, "writer_write_str res.error.code != ERR_OK");
+
+        BuffWriter bw = res.value;
+        Error err = writer_write_str((Writer *)&bw, "text");
+        assert_ok(err, "writer_write_str err.code != ERR_OK");
+        storage[bw.writeHead] = 0;
+        assert_str_eq(storage, "text", "writer_write_str storage != \"text\"");
+
+        BuffWriter nullBw = res.value;
+        nullBw.writeHead = 0;
+        Error nullErr = writer_write_str((Writer *)&nullBw, NULL);
+        assert_ok(nullErr, "writer_write_str nullErr.code != ERR_OK");
+        nullBw.buff.bytes[nullBw.writeHead] = 0;
+        assert_str_eq(nullBw.buff.bytes, "(null)", "writer_write_str null output != \"(null)\"");
+    }
+    // =========================================================================
+    // TEST writer_write_int
+    // =========================================================================
+    io_println("writer_write_int");
+    {
+        ResultGrowStrWriter res = growstrwriter_init(alloc, 8);
+        assert_ok(res.error, "writer_write_int res.error.code != ERR_OK");
+
+        GrowStrWriter gsw = res.value;
+        Error err = writer_write_int((Writer *)&gsw, -12345);
+        assert_ok(err, "writer_write_int err.code != ERR_OK");
+        assert_str_eq(gsw.str, "-12345", "writer_write_int str != \"-12345\"");
+
+        alloc.free(&alloc, gsw.str);
+    }
+    // =========================================================================
+    // TEST writer_write_uint
+    // =========================================================================
+    io_println("writer_write_uint");
+    {
+        ResultGrowStrWriter res = growstrwriter_init(alloc, 8);
+        assert_ok(res.error, "writer_write_uint res.error.code != ERR_OK");
+
+        GrowStrWriter gsw = res.value;
+        Error err = writer_write_uint((Writer *)&gsw, 0);
+        assert_ok(err, "writer_write_uint zero err.code != ERR_OK");
+        assert_str_eq(gsw.str, "0", "writer_write_uint zero != \"0\"");
+
+        gsw.writeHead = 0;
+        gsw.str[0] = 0;
+        err = writer_write_uint((Writer *)&gsw, 9876543210ULL);
+        assert_ok(err, "writer_write_uint err.code != ERR_OK");
+        assert_str_eq(gsw.str, "9876543210", "writer_write_uint str != \"9876543210\"");
+
+        alloc.free(&alloc, gsw.str);
+    }
+    // =========================================================================
+    // TEST writer_write_float
+    // =========================================================================
+    io_println("writer_write_float");
+    {
+        ResultGrowStrWriter res1 = growstrwriter_init(alloc, 16);
+        assert_ok(res1.error, "writer_write_float res1.error.code != ERR_OK");
+        GrowStrWriter gsw1 = res1.value;
+        Error err = writer_write_float((Writer *)&gsw1, -12.5, 1);
+        assert_ok(err, "writer_write_float err.code != ERR_OK");
+        assert_str_eq(gsw1.str, "-12.5", "writer_write_float str != \"-12.5\"");
+        alloc.free(&alloc, gsw1.str);
+
+        ResultGrowStrWriter res2 = growstrwriter_init(alloc, 16);
+        assert_ok(res2.error, "writer_write_float res2.error.code != ERR_OK");
+        GrowStrWriter gsw2 = res2.value;
+        err = writer_write_float((Writer *)&gsw2, 0.005, 2);
+        assert_ok(err, "writer_write_float small err.code != ERR_OK");
+        assert_str_eq(gsw2.str, "0.01", "writer_write_float str != \"0.01\"");
+        alloc.free(&alloc, gsw2.str);
+
+        ResultGrowStrWriter res3 = growstrwriter_init(alloc, 16);
+        assert_ok(res3.error, "writer_write_float res3.error.code != ERR_OK");
+        GrowStrWriter gsw3 = res3.value;
+        err = writer_write_float((Writer *)&gsw3, 9.9996, 3);
+        assert_ok(err, "writer_write_float rounding err.code != ERR_OK");
+        assert_str_eq(gsw3.str, "10.000", "writer_write_float str != \"10.000\"");
+        alloc.free(&alloc, gsw3.str);
+    }
+}
+
+static void _xstd_utf8_tests(Allocator alloc)
+{
+    (void)alloc;
+    // =========================================================================
+    // TEST utf8_iter_str
+    // =========================================================================
+    io_println("utf8_iter_str");
+    {
+        ConstStr sample = "hé";
+        ResultUtf8Iter iterRes = utf8_iter_str(sample);
+        assert_ok(iterRes.error, "utf8_iter_str iterRes != ERR_OK");
+        assert_true(iterRes.value.ptr == sample, "utf8_iter_str ptr != sample");
+        assert_true(iterRes.value.end == NULL, "utf8_iter_str end != NULL");
+
+        ResultUtf8Iter iterNull = utf8_iter_str(NULL);
+        assert_true(iterNull.error.code != ERR_OK, "utf8_iter_str iterNull == ERR_OK");
+    }
+    // =========================================================================
+    // TEST utf8_iter_buff
+    // =========================================================================
+    io_println("utf8_iter_buff");
+    {
+        const i8 *emoji = "😀";
+        ConstBuff buff = {
+            .bytes = emoji,
+            .size = (u64)(sizeof("😀") - 1),
+        };
+        ResultUtf8Iter buffRes = utf8_iter_buff(buff);
+        assert_ok(buffRes.error, "utf8_iter_buff buffRes != ERR_OK");
+        assert_true(buffRes.value.ptr == emoji, "utf8_iter_buff ptr != emoji");
+        assert_true(buffRes.value.end == emoji + (sizeof("😀") - 1), "utf8_iter_buff end != emoji + size");
+
+        ConstBuff badBuff = {
+            .bytes = NULL,
+            .size = 4,
+        };
+        ResultUtf8Iter buffErr = utf8_iter_buff(badBuff);
+        assert_true(buffErr.error.code != ERR_OK, "utf8_iter_buff buffErr == ERR_OK");
+    }
+    // =========================================================================
+    // TEST utf8_iter_has_next
+    // =========================================================================
+    io_println("utf8_iter_has_next");
+    {
+        ResultUtf8Iter iterRes = utf8_iter_str("A");
+        assert_ok(iterRes.error, "utf8_iter_has_next iterRes != ERR_OK");
+        Utf8Iter it = iterRes.value;
+        assert_true(utf8_iter_has_next(&it), "utf8_iter_has_next first != true");
+        utf8_iter_next(&it);
+        assert_true(!utf8_iter_has_next(&it), "utf8_iter_has_next end == true");
+        assert_true(!utf8_iter_has_next(NULL), "utf8_iter_has_next NULL != false");
+    }
+    // =========================================================================
+    // TEST utf8_iter_peek_next
+    // =========================================================================
+    io_println("utf8_iter_peek_next");
+    {
+        ConstStr sample = "A☕";
+        ResultUtf8Iter iterRes = utf8_iter_str(sample);
+        assert_ok(iterRes.error, "utf8_iter_peek_next iterRes != ERR_OK");
+
+        Utf8Iter it = iterRes.value;
+        ResultUtf8Codepoint peekA = utf8_iter_peek(&it);
+        assert_ok(peekA.error, "utf8_iter_peek peekA != ERR_OK");
+        assert_true(peekA.value.codepoint == 'A', "utf8_iter_peek peekA codepoint != 'A'");
+        assert_true(peekA.value.width == 1, "utf8_iter_peek peekA width != 1");
+
+        ResultUtf8Codepoint nextA = utf8_iter_next(&it);
+        assert_ok(nextA.error, "utf8_iter_next nextA != ERR_OK");
+        assert_true(nextA.value.codepoint == 'A', "utf8_iter_next nextA codepoint != 'A'");
+        assert_true(it.ptr == sample + 1, "utf8_iter_next pointer not advanced to second codepoint");
+
+        ResultUtf8Codepoint peekCoffee = utf8_iter_peek(&it);
+        assert_ok(peekCoffee.error, "utf8_iter_peek peekCoffee != ERR_OK");
+        assert_true(peekCoffee.value.codepoint == 0x2615, "utf8_iter_peek peekCoffee codepoint != ☕");
+        assert_true(peekCoffee.value.width == 3, "utf8_iter_peek peekCoffee width != 3");
+
+        ResultUtf8Codepoint nextCoffee = utf8_iter_next(&it);
+        assert_ok(nextCoffee.error, "utf8_iter_next nextCoffee != ERR_OK");
+        assert_true(nextCoffee.value.codepoint == 0x2615, "utf8_iter_next nextCoffee codepoint != ☕");
+        assert_true(!utf8_iter_has_next(&it), "utf8_iter_peek_next has_next after end");
+    }
+    // =========================================================================
+    // TEST utf8_iter_next_invalid
+    // =========================================================================
+    io_println("utf8_iter_next_invalid");
+    {
+        i8 invalidSeq[] = {(i8)0xE2, 0x28, (i8)0xA1, 0};
+        ResultUtf8Iter iterRes = utf8_iter_str(invalidSeq);
+        assert_ok(iterRes.error, "utf8_iter_next_invalid iterRes != ERR_OK");
+
+        Utf8Iter it = iterRes.value;
+        ResultUtf8Codepoint invalidCp = utf8_iter_next(&it);
+        assert_true(invalidCp.error.code != ERR_OK, "utf8_iter_next_invalid invalidCp == ERR_OK");
+    }
+    // =========================================================================
+    // TEST utf8_iter_next_truncated
+    // =========================================================================
+    io_println("utf8_iter_next_truncated");
+    {
+        const i8 *euro = "€";
+        ConstBuff truncatedBuff = {
+            .bytes = euro,
+            .size = 2,
+        };
+        ResultUtf8Iter iterRes = utf8_iter_buff(truncatedBuff);
+        assert_ok(iterRes.error, "utf8_iter_next_truncated iterRes != ERR_OK");
+
+        Utf8Iter it = iterRes.value;
+        ResultUtf8Codepoint truncated = utf8_iter_next(&it);
+        assert_true(truncated.error.code != ERR_OK, "utf8_iter_next_truncated truncated == ERR_OK");
+    }
+    // =========================================================================
+    // TEST utf8_iter_advance_bytes
+    // =========================================================================
+    io_println("utf8_iter_advance_bytes");
+    {
+        ConstStr sample = "ab☕";
+        ResultUtf8Iter iterRes = utf8_iter_str(sample);
+        assert_ok(iterRes.error, "utf8_iter_advance_bytes iterRes != ERR_OK");
+
+        Utf8Iter it = iterRes.value;
+        utf8_iter_advance_bytes(&it, 2);
+        ResultUtf8Codepoint cp = utf8_iter_peek(&it);
+        assert_ok(cp.error, "utf8_iter_advance_bytes cp != ERR_OK");
+        assert_true(cp.value.codepoint == 0x2615, "utf8_iter_advance_bytes codepoint != ☕");
+
+        utf8_iter_advance_bytes(&it, 10);
+        assert_true(!utf8_iter_has_next(&it), "utf8_iter_advance_bytes still has next");
+    }
 }
 
 static void _xstd_list_tests(Allocator alloc)
@@ -766,6 +1727,7 @@ static void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     // TEST list_init
     // =========================================================================
+    io_println("list_init");
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
         assert_ok(res.error, "list_init res.error.code != ERR_OK");
@@ -786,6 +1748,7 @@ static void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     // TEST list_push
     // =========================================================================
+    io_println("list_push");
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
         assert_ok(res.error, "list_push res.error.code != ERR_OK");
@@ -812,6 +1775,7 @@ static void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     // TEST list_pop
     // =========================================================================
+    io_println("list_pop");
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
         assert_ok(res.error, "list_pop res.error.code != ERR_OK");
@@ -849,6 +1813,7 @@ static void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     // TEST list_get
     // =========================================================================
+    io_println("list_get");
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
         assert_ok(res.error, "list_get res.error.code != ERR_OK");
@@ -879,6 +1844,7 @@ static void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     // TEST list_set
     // =========================================================================
+    io_println("list_set");
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
         assert_ok(res.error, "list_set res.error.code != ERR_OK");
@@ -901,6 +1867,7 @@ static void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     // TEST list_getref
     // =========================================================================
+    io_println("list_getref");
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
         assert_ok(res.error, "list_getref res.error.code != ERR_OK");
@@ -925,6 +1892,7 @@ static void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     // TEST list_get_unsafe
     // =========================================================================
+    io_println("list_get_unsafe");
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
         assert_ok(res.error, "list_get_unsafe res.error.code != ERR_OK");
@@ -943,6 +1911,7 @@ static void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     // TEST list_set_unsafe
     // =========================================================================
+    io_println("list_set_unsafe");
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
         assert_ok(res.error, "list_set_unsafe res.error.code != ERR_OK");
@@ -965,6 +1934,7 @@ static void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     // TEST list_getref_unsafe
     // =========================================================================
+    io_println("list_getref_unsafe");
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
         assert_ok(res.error, "list_getref_unsafe res.error.code != ERR_OK");
@@ -983,6 +1953,7 @@ static void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     // TEST list_free_items
     // =========================================================================
+    io_println("list_free_items");
     {
         ResultList res = ListInitT(HeapStr, &alloc);
         assert_ok(res.error, "list_free_items res.error.code != ERR_OK");
@@ -1001,6 +1972,7 @@ static void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     // TEST list_clear
     // =========================================================================
+    io_println("list_clear");
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
         assert_ok(res.error, "list_clear res.error.code != ERR_OK");
@@ -1019,6 +1991,7 @@ static void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     // TEST list_clear_nofree
     // =========================================================================
+    io_println("list_clear_nofree");
     {
         ResultList res = list_init(&alloc, sizeof(u64), 16);
         assert_ok(res.error, "list_clear_nofree res.error.code != ERR_OK");
@@ -1037,6 +2010,7 @@ static void _xstd_list_tests(Allocator alloc)
     // =========================================================================
     // TEST list_for_each
     // =========================================================================
+    io_println("list_for_each");
     {
         ResultList res = ListInitT(HeapStr, &alloc);
         assert_ok(res.error, "list_for_each res.error.code != ERR_OK");
@@ -1065,14 +2039,16 @@ static void _xstd_list_tests(Allocator alloc)
 static void _xstd_math_tests(Allocator alloc)
 {
     (void)alloc;
+
     // =========================================================================
     // TEST add
     // =========================================================================
+    io_println("add");
     {
         u8 addRes1 = math_u8_add(0, 1);
         assert_true(addRes1 == 1, "math_u8_add addRes1 != 1");
 
-        i8 addResI1 = math_i8_add(0, 1);
+        i8 addResI1 = math_i8_add(-2, 3);
         assert_true(addResI1 == 1, "math_i8_add addResI1 != 1");
 
         u8 addRes2 = math_u8_add(U8_MAXVAL, 1);
@@ -1084,21 +2060,38 @@ static void _xstd_math_tests(Allocator alloc)
         u16 addRes4 = math_u16_add(U16_MAXVAL, 1);
         assert_true(addRes4 == 0, "math_u16_add addRes4 != 0");
 
-        u16 addRes5 = math_u32_add(0, 1);
+        i16 addResI16 = math_i16_add(-10, 5);
+        assert_true(addResI16 == -5, "math_i16_add addResI16 != -5");
+
+        u32 addRes5 = math_u32_add(0, 1);
         assert_true(addRes5 == 1, "math_u32_add addRes5 != 1");
 
-        u16 addRes6 = math_u32_add(U32_MAXVAL, 1);
+        u32 addRes6 = math_u32_add(U32_MAXVAL, 1);
         assert_true(addRes6 == 0, "math_u32_add addRes6 != 0");
 
-        u16 addRes7 = math_u64_add(0, 1);
+        i32 addResI32 = math_i32_add(-3, -7);
+        assert_true(addResI32 == -10, "math_i32_add addResI32 != -10");
+
+        u64 addRes7 = math_u64_add(0, 1);
         assert_true(addRes7 == 1, "math_u64_add addRes7 != 1");
 
-        u16 addRes8 = math_u64_add(U64_MAXVAL, 1);
+        u64 addRes8 = math_u64_add(U64_MAXVAL, 1);
         assert_true(addRes8 == 0, "math_u64_add addRes8 != 0");
+
+        i64 addResI64 = math_i64_add(-5, 10);
+        assert_true(addResI64 == 5, "math_i64_add addResI64 != 5");
+
+        f32 addResF32 = math_f32_add(1.5f, 2.0f);
+        assert_true(addResF32 == 3.5f, "math_f32_add addResF32 != 3.5f");
+
+        f64 addResF64 = math_f64_add(1.0, 2.5);
+        assert_true(addResF64 == 3.5, "math_f64_add addResF64 != 3.5");
     }
+
     // =========================================================================
     // TEST add_nooverflow
     // =========================================================================
+    io_println("add_nooverflow");
     {
         ResultU8 addResNo1 = math_u8_add_nooverflow(0, 1);
         assert_ok(addResNo1.error, "math_u8_add_nooverflow addResNo1 != OK");
@@ -1107,25 +2100,320 @@ static void _xstd_math_tests(Allocator alloc)
         ResultU8 addResNo2 = math_u8_add_nooverflow(U8_MAXVAL, 1);
         assert_true(addResNo2.error.code != ERR_OK, "math_u8_add_nooverflow addResNo2 == OK");
 
-        ResultU16 addResNo3 = math_u16_add_nooverflow(0, 1);
-        assert_ok(addResNo3.error, "math_u16_add_nooverflow addResNo3 != OK");
-        assert_true(addResNo3.value == 1, "math_u16_add_nooverflow addResNo3 != 1");
+        ResultI8 addResNo3 = math_i8_add_nooverflow(-5, 3);
+        assert_ok(addResNo3.error, "math_i8_add_nooverflow addResNo3 != OK");
+        assert_true(addResNo3.value == -2, "math_i8_add_nooverflow addResNo3 != -2");
 
-        ResultU16 addResNo4 = math_u16_add_nooverflow(U16_MAXVAL, 1);
-        assert_true(addResNo4.error.code != ERR_OK, "math_u16_add_nooverflow addResNo4 == OK");
+        ResultI8 addResNo4 = math_i8_add_nooverflow(I8_MAXVAL, 1);
+        assert_true(addResNo4.error.code != ERR_OK, "math_i8_add_nooverflow addResNo4 == OK");
 
-        ResultU32 addResNo5 = math_u32_add_nooverflow(0, 1);
-        assert_ok(addResNo5.error, "math_u32_add_nooverflow addResNo5 != OK");
-        assert_true(addResNo5.value == 1, "math_u32_add_nooverflow addResNo5 != 1");
+        ResultU16 addResNo5 = math_u16_add_nooverflow(0, 1);
+        assert_ok(addResNo5.error, "math_u16_add_nooverflow addResNo5 != OK");
+        assert_true(addResNo5.value == 1, "math_u16_add_nooverflow addResNo5 != 1");
 
-        ResultU32 addResNo6 = math_u32_add_nooverflow(U32_MAXVAL, 1);
-        assert_true(addResNo6.error.code != ERR_OK, "math_u32_add_nooverflow addResNo6 == OK");
+        ResultU16 addResNo6 = math_u16_add_nooverflow(U16_MAXVAL, 1);
+        assert_true(addResNo6.error.code != ERR_OK, "math_u16_add_nooverflow addResNo6 == OK");
 
-        ResultU64 addResNo7 = math_u64_add_nooverflow(0, 1);
-        assert_ok(addResNo7.error, "math_u32_add_nooverflow addResNo7 != OK");
-        assert_true(addResNo7.value == 1, "math_u32_add_nooverflow addResNo7 != 1");
+        ResultI32 addResNo7 = math_i32_add_nooverflow(-100, 50);
+        assert_ok(addResNo7.error, "math_i32_add_nooverflow addResNo7 != OK");
+        assert_true(addResNo7.value == -50, "math_i32_add_nooverflow addResNo7 != -50");
 
-        ResultU64 addResNo8 = math_u64_add_nooverflow(U64_MAXVAL, 1);
-        assert_true(addResNo8.error.code != ERR_OK, "math_u32_add_nooverflow addResNo8 == OK");
+        ResultI32 addResNo8 = math_i32_add_nooverflow(I32_MAXVAL, 1);
+        assert_true(addResNo8.error.code != ERR_OK, "math_i32_add_nooverflow addResNo8 == OK");
+
+        ResultU64 addResNo9 = math_u64_add_nooverflow(0, 1);
+        assert_ok(addResNo9.error, "math_u64_add_nooverflow addResNo9 != OK");
+        assert_true(addResNo9.value == 1, "math_u64_add_nooverflow addResNo9 != 1");
+
+        ResultU64 addResNo10 = math_u64_add_nooverflow(U64_MAXVAL, 1);
+        assert_true(addResNo10.error.code != ERR_OK, "math_u64_add_nooverflow addResNo10 == OK");
+
+        ResultI64 addResNo11 = math_i64_add_nooverflow(-5, 10);
+        assert_ok(addResNo11.error, "math_i64_add_nooverflow addResNo11 != OK");
+        assert_true(addResNo11.value == 5, "math_i64_add_nooverflow addResNo11 != 5");
+
+        ResultI64 addResNo12 = math_i64_add_nooverflow(I64_MAXVAL, 1);
+        assert_true(addResNo12.error.code != ERR_OK, "math_i64_add_nooverflow addResNo12 == OK");
+
+        ResultI64 addResNo13 = math_i64_add_nooverflow(I64_MINVAL, -1);
+        assert_true(addResNo13.error.code != ERR_OK, "math_i64_add_nooverflow addResNo13 == OK");
+    }
+
+    // =========================================================================
+    // TEST substract
+    // =========================================================================
+    io_println("substract");
+    {
+        u8 subRes1 = math_u8_substract(5, 2);
+        assert_true(subRes1 == 3, "math_u8_substract subRes1 != 3");
+
+        u8 subResWrap = math_u8_substract(0, 1);
+        assert_true(subResWrap == U8_MAXVAL, "math_u8_substract subResWrap != U8_MAXVAL");
+
+        i16 subResI = math_i16_substract(-5, 10);
+        assert_true(subResI == -15, "math_i16_substract subResI != -15");
+
+        u32 subRes2 = math_u32_substract(100, 100);
+        assert_true(subRes2 == 0, "math_u32_substract subRes2 != 0");
+
+        f32 subResF = math_f32_substract(5.5f, 2.0f);
+        assert_true(subResF == 3.5f, "math_f32_substract subResF != 3.5f");
+    }
+
+    // =========================================================================
+    // TEST substract_nooverflow
+    // =========================================================================
+    io_println("substract_nooverflow");
+    {
+        ResultU8 subNo1 = math_u8_substract_nooverflow(5, 3);
+        assert_ok(subNo1.error, "math_u8_substract_nooverflow subNo1 != OK");
+        assert_true(subNo1.value == 2, "math_u8_substract_nooverflow subNo1 != 2");
+
+        ResultU8 subNo2 = math_u8_substract_nooverflow(0, 1);
+        assert_true(subNo2.error.code != ERR_OK, "math_u8_substract_nooverflow subNo2 == OK");
+
+        ResultI16 subNo3 = math_i16_substract_nooverflow(10, -5);
+        assert_ok(subNo3.error, "math_i16_substract_nooverflow subNo3 != OK");
+        assert_true(subNo3.value == 15, "math_i16_substract_nooverflow subNo3 != 15");
+
+        ResultI16 subNo4 = math_i16_substract_nooverflow(I16_MINVAL, 1);
+        assert_true(subNo4.error.code != ERR_OK, "math_i16_substract_nooverflow subNo4 == OK");
+
+        ResultU64 subNo5 = math_u64_substract_nooverflow(10, 1);
+        assert_ok(subNo5.error, "math_u64_substract_nooverflow subNo5 != OK");
+        assert_true(subNo5.value == 9, "math_u64_substract_nooverflow subNo5 != 9");
+
+        ResultU64 subNo6 = math_u64_substract_nooverflow(0, 1);
+        assert_true(subNo6.error.code != ERR_OK, "math_u64_substract_nooverflow subNo6 == OK");
+
+        ResultI64 subNo7 = math_i64_substract_nooverflow(25, -5);
+        assert_ok(subNo7.error, "math_i64_substract_nooverflow subNo7 != OK");
+        assert_true(subNo7.value == 30, "math_i64_substract_nooverflow subNo7 != 30");
+
+        ResultI64 subNo8 = math_i64_substract_nooverflow(I64_MINVAL, 1);
+        assert_true(subNo8.error.code != ERR_OK, "math_i64_substract_nooverflow subNo8 == OK");
+    }
+
+    // =========================================================================
+    // TEST multiply
+    // =========================================================================
+    io_println("multiply");
+    {
+        u16 mulRes1 = math_u16_multiply(4, 5);
+        assert_true(mulRes1 == 20, "math_u16_multiply mulRes1 != 20");
+
+        i32 mulRes2 = math_i32_multiply(-6, 3);
+        assert_true(mulRes2 == -18, "math_i32_multiply mulRes2 != -18");
+
+        f32 mulRes3 = math_f32_multiply(2.5f, 4.0f);
+        assert_true(mulRes3 == 10.0f, "math_f32_multiply mulRes3 != 10.0f");
+
+        f64 mulRes4 = math_f64_multiply(1.5, 2.0);
+        assert_true(mulRes4 == 3.0, "math_f64_multiply mulRes4 != 3.0");
+    }
+
+    // =========================================================================
+    // TEST multiply_nooverflow
+    // =========================================================================
+    io_println("multiply_nooverflow");
+    {
+        ResultU16 mulNo1 = math_u16_multiply_nooverflow(4, 5);
+        assert_ok(mulNo1.error, "math_u16_multiply_nooverflow mulNo1 != OK");
+        assert_true(mulNo1.value == 20, "math_u16_multiply_nooverflow mulNo1 != 20");
+
+        ResultU16 mulNo2 = math_u16_multiply_nooverflow(U16_MAXVAL, 2);
+        assert_true(mulNo2.error.code != ERR_OK, "math_u16_multiply_nooverflow mulNo2 == OK");
+
+        ResultI32 mulNo3 = math_i32_multiply_nooverflow(-10, -4);
+        assert_ok(mulNo3.error, "math_i32_multiply_nooverflow mulNo3 != OK");
+        assert_true(mulNo3.value == 40, "math_i32_multiply_nooverflow mulNo3 != 40");
+
+        ResultI32 mulNo4 = math_i32_multiply_nooverflow(I32_MAXVAL, 2);
+        assert_true(mulNo4.error.code != ERR_OK, "math_i32_multiply_nooverflow mulNo4 == OK");
+
+        ResultU64 mulNo5 = math_u64_multiply_nooverflow(2, U64_MAXVAL);
+        assert_true(mulNo5.error.code != ERR_OK, "math_u64_multiply_nooverflow mulNo5 == OK");
+
+        ResultI64 mulNo6 = math_i64_multiply_nooverflow(-12, 3);
+        assert_ok(mulNo6.error, "math_i64_multiply_nooverflow mulNo6 != OK");
+        assert_true(mulNo6.value == -36, "math_i64_multiply_nooverflow mulNo6 != -36");
+
+        ResultI64 mulNo7 = math_i64_multiply_nooverflow(I64_MINVAL, -1);
+        assert_true(mulNo7.error.code != ERR_OK, "math_i64_multiply_nooverflow mulNo7 == OK");
+    }
+
+    // =========================================================================
+    // TEST divide
+    // =========================================================================
+    io_println("divide");
+    {
+        ResultU8 divRes0 = math_u8_divide(9, 3);
+        assert_ok(divRes0.error, "math_u8_divide divRes0 != OK");
+        assert_true(divRes0.value == 3, "math_u8_divide divRes0 != 3");
+
+        ResultU8 divRes0Err = math_u8_divide(9, 0);
+        assert_true(divRes0Err.error.code == ERR_INVALID_PARAMETER, "math_u8_divide divRes0Err != ERR_INVALID_PARAMETER");
+
+        ResultU32 divRes1 = math_u32_divide(10, 2);
+        assert_ok(divRes1.error, "math_u32_divide divRes1 != OK");
+        assert_true(divRes1.value == 5, "math_u32_divide divRes1 != 5");
+
+        ResultU32 divRes2 = math_u32_divide(10, 0);
+        assert_true(divRes2.error.code == ERR_INVALID_PARAMETER, "math_u32_divide divRes2 != ERR_INVALID_PARAMETER");
+
+        ResultI32 divRes3 = math_i32_divide(-12, 3);
+        assert_ok(divRes3.error, "math_i32_divide divRes3 != OK");
+        assert_true(divRes3.value == -4, "math_i32_divide divRes3 != -4");
+
+        ResultF32 divRes4 = math_f32_divide(5.0f, 2.0f);
+        assert_ok(divRes4.error, "math_f32_divide divRes4 != OK");
+        assert_true(divRes4.value == 2.5f, "math_f32_divide divRes4 != 2.5f");
+
+        ResultF32 divRes5 = math_f32_divide(1.0f, 0.0f);
+        assert_true(divRes5.error.code == ERR_INVALID_PARAMETER, "math_f32_divide divRes5 != ERR_INVALID_PARAMETER");
+
+        ResultF64 divRes6 = math_f64_divide(6.0, 2.0);
+        assert_ok(divRes6.error, "math_f64_divide divRes6 != OK");
+        assert_true(divRes6.value == 3.0, "math_f64_divide divRes6 != 3.0");
+
+        ResultF64 divRes7 = math_f64_divide(1.0, 0.0);
+        assert_true(divRes7.error.code == ERR_INVALID_PARAMETER, "math_f64_divide divRes7 != ERR_INVALID_PARAMETER");
+    }
+
+    // =========================================================================
+    // TEST divide_nooverflow
+    // =========================================================================
+    io_println("divide_nooverflow");
+    {
+        ResultU32 divNo1 = math_u32_divide_nooverflow(9, 3);
+        assert_ok(divNo1.error, "math_u32_divide_nooverflow divNo1 != OK");
+        assert_true(divNo1.value == 3, "math_u32_divide_nooverflow divNo1 != 3");
+
+        ResultU32 divNo2 = math_u32_divide_nooverflow(9, 0);
+        assert_true(divNo2.error.code == ERR_INVALID_PARAMETER, "math_u32_divide_nooverflow divNo2 != ERR_INVALID_PARAMETER");
+
+        ResultI32 divNo3 = math_i32_divide_nooverflow(-12, 3);
+        assert_ok(divNo3.error, "math_i32_divide_nooverflow divNo3 != OK");
+        assert_true(divNo3.value == -4, "math_i32_divide_nooverflow divNo3 != -4");
+
+        ResultI32 divNo4 = math_i32_divide_nooverflow(I32_MINVAL, -1);
+        assert_true(divNo4.error.code != ERR_OK, "math_i32_divide_nooverflow divNo4 == OK");
+
+        ResultU64 divNo5 = math_u64_divide_nooverflow(16, 4);
+        assert_ok(divNo5.error, "math_u64_divide_nooverflow divNo5 != OK");
+        assert_true(divNo5.value == 4, "math_u64_divide_nooverflow divNo5 != 4");
+
+        ResultU64 divNo6 = math_u64_divide_nooverflow(16, 0);
+        assert_true(divNo6.error.code == ERR_INVALID_PARAMETER, "math_u64_divide_nooverflow divNo6 != ERR_INVALID_PARAMETER");
+
+        ResultI64 divNo7 = math_i64_divide_nooverflow(-64, 8);
+        assert_ok(divNo7.error, "math_i64_divide_nooverflow divNo7 != OK");
+        assert_true(divNo7.value == -8, "math_i64_divide_nooverflow divNo7 != -8");
+
+        ResultI64 divNo8 = math_i64_divide_nooverflow(I64_MINVAL, -1);
+        assert_true(divNo8.error.code != ERR_OK, "math_i64_divide_nooverflow divNo8 == OK");
+    }
+
+    // =========================================================================
+    // TEST abs
+    // =========================================================================
+    io_println("abs");
+    {
+        i8 absRes1 = math_i8_abs(-5);
+        assert_true(absRes1 == 5, "math_i8_abs absRes1 != 5");
+
+        i32 absRes2 = math_i32_abs(-1234);
+        assert_true(absRes2 == 1234, "math_i32_abs absRes2 != 1234");
+
+        i64 absRes3 = math_i64_abs(-9876543210LL);
+        assert_true(absRes3 == 9876543210LL, "math_i64_abs absRes3 != 9876543210");
+
+        f32 absRes4 = math_f32_abs(-2.5f);
+        assert_true(absRes4 == 2.5f, "math_f32_abs absRes4 != 2.5f");
+
+        f64 absRes5 = math_f64_abs(-3.5);
+        assert_true(absRes5 == 3.5, "math_f64_abs absRes5 != 3.5");
+    }
+
+    // =========================================================================
+    // TEST power
+    // =========================================================================
+    io_println("power");
+    {
+        u8 powRes1 = math_u8_power(2, 4);
+        assert_true(powRes1 == 16, "math_u8_power powRes1 != 16");
+
+        i8 powRes2 = math_i8_power(-2, 3);
+        assert_true(powRes2 == -8, "math_i8_power powRes2 != -8");
+
+        u64 powRes3 = math_u64_power(2, 10);
+        assert_true(powRes3 == 1024, "math_u64_power powRes3 != 1024");
+
+        f32 powRes4 = math_f32_power(2.0f, 3.0f);
+        assert_true(powRes4 == 8.0f, "math_f32_power powRes4 != 8.0f");
+
+        f64 powRes5 = math_f64_power(4.0, -1.0);
+        assert_true(powRes5 == 0.25, "math_f64_power powRes5 != 0.25");
+    }
+
+    // =========================================================================
+    // TEST power_nooverflow
+    // =========================================================================
+    io_println("power_nooverflow");
+    {
+        ResultU8 powNo1 = math_u8_power_nooverflow(2, 4);
+        assert_ok(powNo1.error, "math_u8_power_nooverflow powNo1 != OK");
+        assert_true(powNo1.value == 16, "math_u8_power_nooverflow powNo1 != 16");
+
+        ResultU8 powNo2 = math_u8_power_nooverflow(4, 5);
+        assert_true(powNo2.error.code != ERR_OK, "math_u8_power_nooverflow powNo2 == OK");
+
+        ResultI8 powNo3 = math_i8_power_nooverflow(-2, 3);
+        assert_ok(powNo3.error, "math_i8_power_nooverflow powNo3 != OK");
+        assert_true(powNo3.value == -8, "math_i8_power_nooverflow powNo3 != -8");
+
+        ResultI8 powNo4 = math_i8_power_nooverflow(4, 4);
+        assert_true(powNo4.error.code != ERR_OK, "math_i8_power_nooverflow powNo4 == OK");
+
+        ResultU64 powNo5 = math_u64_power_nooverflow(2, 20);
+        assert_ok(powNo5.error, "math_u64_power_nooverflow powNo5 != OK");
+        assert_true(powNo5.value == ((u64)1 << 20), "math_u64_power_nooverflow powNo5 != (1 << 20)");
+
+        ResultU64 powNo6 = math_u64_power_nooverflow(2, 64);
+        assert_true(powNo6.error.code != ERR_OK, "math_u64_power_nooverflow powNo6 == OK");
+
+        ResultI64 powNo7 = math_i64_power_nooverflow(0, 0);
+        assert_ok(powNo7.error, "math_i64_power_nooverflow powNo7 != OK");
+        assert_true(powNo7.value == 1, "math_i64_power_nooverflow powNo7 != 1");
+
+        ResultI64 powNo8 = math_i64_power_nooverflow(-2, 3);
+        assert_ok(powNo8.error, "math_i64_power_nooverflow powNo8 != OK");
+
+        ResultI64 powNo9 = math_i64_power_nooverflow(2, -1);
+        assert_true(powNo9.error.code == ERR_INVALID_PARAMETER, "math_i64_power_nooverflow powNo9 != ERR_INVALID_PARAMETER");
+
+        ResultI64 powNo10 = math_i64_power_nooverflow(2, 63);
+        assert_true(powNo10.error.code != ERR_OK, "math_i64_power_nooverflow powNo10 == OK");
+    }
+
+    // =========================================================================
+    // TEST round
+    // =========================================================================
+    io_println("round");
+    {
+        f32 roundRes1 = math_f32_round(2.6f);
+        assert_true(roundRes1 == 3.0f, "math_f32_round roundRes1 != 3.0f");
+
+        f32 roundRes2 = math_f32_round(-2.4f);
+        assert_true(roundRes2 == -2.0f, "math_f32_round roundRes2 != -2.0f");
+
+        f64 roundRes3 = math_f64_round(1.49);
+        assert_true(roundRes3 == 1.0, "math_f64_round roundRes3 != 1.0");
+
+        f64 roundRes4 = math_f64_round(1.5);
+        assert_true(roundRes4 == 2.0, "math_f64_round roundRes4 != 2.0");
+
+        f64 roundRes5 = math_f64_round(-1.6);
+        assert_true(roundRes5 == -2.0, "math_f64_round roundRes5 != -2.0");
     }
 }

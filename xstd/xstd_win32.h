@@ -5,6 +5,7 @@
 typedef void* _w32_handle;
 typedef void* _w32_lpvoid;
 typedef unsigned long _w32_dword;
+typedef unsigned int _w32_uint;
 typedef unsigned long long _w32_size_t;
 typedef int _w32_bool;
 
@@ -18,6 +19,7 @@ __declspec(dllimport) _w32_lpvoid __stdcall HeapReAlloc(_w32_handle, _w32_dword,
 __declspec(dllimport) _w32_bool   __stdcall HeapFree(_w32_handle, _w32_dword, _w32_lpvoid);
 
 typedef const char* _w32_lpcstr;
+typedef const int* _w32_lpwstr;
 typedef unsigned long long _w32_ulong64;
 
 #define _WIN_32_GENERIC_READ  (0x80000000L)
@@ -35,7 +37,7 @@ typedef unsigned long long _w32_ulong64;
 #define _WIN_32_INVALID_HANDLE_VALUE ((_w32_handle)(long long)-1)
 
 __declspec(dllimport) _w32_handle __stdcall GetStdHandle(_w32_dword);
-__declspec(dllimport) _w32_handle __stdcall CreateFileA(_w32_lpcstr, _w32_dword, _w32_dword, void*, _w32_dword, _w32_dword, _w32_handle);
+__declspec(dllimport) _w32_handle __stdcall CreateFileW(short*, _w32_dword, _w32_dword, void*, _w32_dword, _w32_dword, _w32_handle);
 __declspec(dllimport) _w32_bool   __stdcall CloseHandle(_w32_handle);
 __declspec(dllimport) _w32_bool   __stdcall ReadFile(_w32_handle, void*, _w32_dword, _w32_dword*, void*);
 __declspec(dllimport) _w32_bool   __stdcall WriteFile(_w32_handle, const void*, _w32_dword, _w32_dword*, void*);
