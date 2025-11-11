@@ -383,7 +383,7 @@ static inline ResultU64 math_u64_multiply_nooverflow(u64 a, u64 b)
         };
     }
 
-    if (a > U64_MAXVAL / b)
+    if (a > MaxVals.U64 / b)
     {
         return (ResultU64){
             .value = 0,
@@ -422,7 +422,7 @@ static inline ResultU64 math_u64_power_nooverflow(u64 x, u64 exponent)
     u64 r = 1;
     for (u64 i = 0; i < exponent; ++i)
     {
-        if (x != 0 && r > U64_MAXVAL / x)
+        if (x != 0 && r > MaxVals.U64 / x)
             return (ResultU64){
                 .value = 0,
                 .error = X_ERR_EXT("math", "math_u64_power_nooverflow", ERR_WOULD_OVERFLOW, "integer overflow"),
@@ -441,8 +441,8 @@ _addT(i64)
 
 static inline ResultI64 math_i64_add_nooverflow(i64 a, i64 b)
 {
-    if (((b > 0) && (a > I64_MAXVAL - b)) ||
-        ((b < 0) && (a < I64_MINVAL - b)))
+    if (((b > 0) && (a > MaxVals.I64_MAX - b)) ||
+        ((b < 0) && (a < MaxVals.I64_MIN - b)))
     {
         return (ResultI64){
             .value = 0,
@@ -460,8 +460,8 @@ _substractT(i64)
 
 static inline ResultI64 math_i64_substract_nooverflow(i64 a, i64 b)
 {
-    if (((b < 0) && (a > I64_MAXVAL + b)) ||
-        ((b > 0) && (a < I64_MINVAL + b)))
+    if (((b < 0) && (a > MaxVals.I64_MAX + b)) ||
+        ((b > 0) && (a < MaxVals.I64_MIN + b)))
     {
         return (ResultI64){
             .value = 0,
@@ -491,7 +491,7 @@ static inline ResultI64 math_i64_multiply_nooverflow(i64 a, i64 b)
     {
         if (b > 0)
         {
-            if (a > I64_MAXVAL / b)
+            if (a > MaxVals.I64_MAX / b)
                 return (ResultI64){
                     .value = 0,
                     .error = X_ERR_EXT("math", "math_i64_multiply_nooverflow", ERR_WOULD_OVERFLOW, "integer overflow"),
@@ -499,7 +499,7 @@ static inline ResultI64 math_i64_multiply_nooverflow(i64 a, i64 b)
         }
         else
         {
-            if (b < I64_MINVAL / a)
+            if (b < MaxVals.I64_MIN / a)
                 return (ResultI64){
                     .value = 0,
                     .error = X_ERR_EXT("math", "math_i64_multiply_nooverflow", ERR_WOULD_OVERFLOW, "integer overflow"),
@@ -510,7 +510,7 @@ static inline ResultI64 math_i64_multiply_nooverflow(i64 a, i64 b)
     {
         if (b > 0)
         {
-            if (a < I64_MINVAL / b)
+            if (a < MaxVals.I64_MIN / b)
                 return (ResultI64){
                     .value = 0,
                     .error = X_ERR_EXT("math", "math_i64_multiply_nooverflow", ERR_WOULD_OVERFLOW, "integer overflow"),
@@ -518,7 +518,7 @@ static inline ResultI64 math_i64_multiply_nooverflow(i64 a, i64 b)
         }
         else
         {
-            if (a != 0 && b < I64_MAXVAL / a)
+            if (a != 0 && b < MaxVals.I64_MAX / a)
                 return (ResultI64){
                     .value = 0,
                     .error = X_ERR_EXT("math", "math_i64_multiply_nooverflow", ERR_WOULD_OVERFLOW, "integer overflow"),
@@ -542,7 +542,7 @@ static inline ResultI64 math_i64_divide_nooverflow(i64 a, i64 b)
             .error = X_ERR_EXT("math", "math_i64_divide_nooverflow", ERR_INVALID_PARAMETER, "division by 0"),
         };
 
-    if (a == I64_MINVAL && b == -1)
+    if (a == MaxVals.I64_MIN && b == -1)
         return (ResultI64){
             .value = 0,
             .error = X_ERR_EXT("math", "math_i64_divide_nooverflow", ERR_WOULD_OVERFLOW, "integer overflow"),

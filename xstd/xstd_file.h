@@ -598,17 +598,26 @@ static inline ResultOwnedBuff file_readall_bytes(Allocator *alloc, File *file)
     return file_read_bytes(alloc, file, file_size(file));
 }
 
-static inline Error _file_append_line(Allocator *alloc, List *lines, GrowBuffWriter *builder)
+static inline Error _file_append_line(Allocator *alloc, List *lines, Writer *w)
 {
-    if (!lines || !alloc || !builder)
-        return X_ERR_EXT("file", "_file_append_line", ERR_INVALID_PARAMETER, "null arg");
+    if (!lines || !alloc || !w)
+        return X_ERR_EXT("file", "_file_append_line",
+            ERR_INVALID_PARAMETER, "null arg");
 
-    u64 lineLen = builder->writeHead;
+    ResultOwnedBuff dataRes = growbuffwriter_data(w);
+    if (dataRes.error.code != ERR_OK)
+        return dataRes.error;
+
+    Buffer segment = dataRes.value;
+
+    u64 lineLen = segment.size;
     OwnedStr line = (OwnedStr)alloc->alloc(alloc, lineLen + 1);
     if (!line)
-        return X_ERR_EXT("file", "_file_append_line", ERR_OUT_OF_MEMORY, "alloc failure");
+        return X_ERR_EXT("file", "_file_append_line",
+            ERR_OUT_OF_MEMORY, "alloc failure");
 
-    mem_copy(line, builder->buff.bytes, lineLen);
+    if (lineLen && segment.bytes)
+        mem_copy(line, segment.bytes, lineLen);
     line[lineLen] = 0;
 
     String stored = line;
@@ -619,9 +628,12 @@ static inline Error _file_append_line(Allocator *alloc, List *lines, GrowBuffWri
         return pushErr;
     }
 
-    builder->writeHead = 0;
-    if (builder->buff.bytes && builder->buff.size)
-        builder->buff.bytes[0] = 0;
+    Error resetErr = growbuffwriter_reset(w, 128);
+    if (resetErr.code != ERR_OK)
+    {
+        alloc->free(alloc, line);
+        return resetErr;
+    }
 
     return X_ERR_OK;
 }
@@ -665,7 +677,7 @@ static inline ResultList file_read_lines(Allocator *a, File *file)
 
     List lines = listRes.value;
 
-    ResultGrowBuffWriter writerRes = growbuffwriter_init(*a, 128);
+    ResultWriter writerRes = growbuffwriter_init(*a, 128);
     if (writerRes.error.code != ERR_OK)
     {
         list_deinit(&lines);
@@ -675,7 +687,7 @@ static inline ResultList file_read_lines(Allocator *a, File *file)
         };
     }
 
-    GrowBuffWriter writer = writerRes.value;
+    Writer writer = writerRes.value;
     const _FileOsInterface *foi = _default_file_os_int();
     int pending = -2;
     Error err = X_ERR_OK;
@@ -716,7 +728,7 @@ static inline ResultList file_read_lines(Allocator *a, File *file)
             continue;
         }
 
-        err = growbuffwriter_write_byte(&writer, (i8)ch);
+        err = writer_write_byte(&writer, (i8)ch);
         if (err.code != ERR_OK)
             goto _file_read_lines_cleanup;
     }

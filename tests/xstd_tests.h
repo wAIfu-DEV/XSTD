@@ -1306,227 +1306,240 @@ static void _xstd_string_tests(Allocator alloc)
 static void _xstd_writer_tests(Allocator alloc)
 {
     Allocator badAlloc = _xstd_bad_alloc();
+
     io_println("buffwriter_init");
     {
         i8 storage[8] = {0};
-        ResultBuffWriter res = buffwriter_init((Buffer){.bytes = storage, .size = sizeof(storage)});
+        Buffer buff = (Buffer){.bytes = storage, .size = sizeof(storage)};
+
+        ResultWriter res = buffwriter_init(&alloc, &buff);
         assert_ok(res.error, "buffwriter_init res.error.code != ERR_OK");
 
-        BuffWriter bw = res.value;
-        Error err = writer_write_str((Writer *)&bw, "abc");
+        Writer writer = res.value;
+        Error err = writer_write_str(&writer, "abc");
         assert_ok(err, "buffwriter_init writer_write_str != ERR_OK");
-        assert_true(bw.writeHead == 3, "buffwriter_init writeHead != 3");
-        storage[bw.writeHead] = 0;
+        storage[3] = 0;
         assert_str_eq(storage, "abc", "buffwriter_init storage != \"abc\"");
 
-        while (bw.writeHead < bw.writeEnd)
+        for (i32 i = 3; i < 8; ++i)
         {
-            err = writer_write_byte((Writer *)&bw, 'x');
+            err = writer_write_byte(&writer, 'x');
             assert_ok(err, "buffwriter_init fill err.code != ERR_OK");
         }
 
-        Error overflowErr = writer_write_byte((Writer *)&bw, 'y');
+        Error overflowErr = writer_write_byte(&writer, 'y');
         assert_true(overflowErr.code == ERR_WOULD_OVERFLOW, "buffwriter_init overflowErr.code != ERR_WOULD_OVERFLOW");
 
-        ResultBuffWriter errRes = buffwriter_init((Buffer){.bytes = NULL, .size = 4});
+        buff = (Buffer){.bytes = NULL, .size = 4};
+        ResultWriter errRes = buffwriter_init(&alloc, &buff);
         assert_true(errRes.error.code != ERR_OK, "buffwriter_init errRes.error.code == ERR_OK");
+
+        buffwriter_deinit(&writer);
     }
+
     io_println("growbuffwriter_init");
     {
-        ResultGrowBuffWriter res = growbuffwriter_init(alloc, 4);
+        ResultWriter res = growbuffwriter_init(alloc, 4);
         assert_ok(res.error, "growbuffwriter_init res.error.code != ERR_OK");
 
-        GrowBuffWriter gbw = res.value;
+        Writer writer = res.value;
         const char *text = "abcdef";
-        const char *cursor = text;
-        while (*cursor)
+        for (const char *cursor = text; *cursor; ++cursor)
         {
-            Error err = writer_write_byte((Writer *)&gbw, *cursor++);
+            Error err = writer_write_byte(&writer, *cursor);
             assert_ok(err, "growbuffwriter_init writer_write_byte != ERR_OK");
         }
-        assert_true(gbw.writeHead == 6, "growbuffwriter_init writeHead != 6");
-        assert_true(gbw.buff.size >= 6, "growbuffwriter_init buff.size < 6");
-        assert_true(gbw.buff.bytes[0] == 'a', "growbuffwriter_init first byte != 'a'");
-        assert_true(gbw.buff.bytes[5] == 'f', "growbuffwriter_init last byte != 'f'");
 
-        gbw.writeHead = 0;
-        Error strErr = writer_write_str((Writer *)&gbw, "grow");
+        ResultOwnedBuff resData = growbuffwriter_data_copy(&writer);
+        assert_ok(resData.error, "growbuffwriter_init growbuffwriter_buffer != ERR_OK");
+        assert_true(resData.value.size >= 6, "growbuffwriter_init buff.size < 6");
+
+        resData = growbuffwriter_data(&writer);
+        assert_ok(resData.error, "growbuffwriter_init growbuffwriter_data != ERR_OK");
+
+        HeapBuff dataBuff = resData.value;
+        assert_true(dataBuff.size == 6, "growbuffwriter_init used.size != 6");
+        assert_true(dataBuff.bytes[0] == 'a', "growbuffwriter_init first byte != 'a'");
+        assert_true(dataBuff.bytes[5] == 'f', "growbuffwriter_init last byte != 'f'");
+
+        Error resetErr = growbuffwriter_reset(&writer, 16);
+        assert_ok(resetErr, "growbuffwriter_init growbuffwriter_reset != ERR_OK");
+
+        Error strErr = writer_write_str(&writer, "grow");
         assert_ok(strErr, "growbuffwriter_init writer_write_str != ERR_OK");
-        gbw.buff.bytes[gbw.writeHead] = 0;
-        assert_str_eq(gbw.buff.bytes, "grow", "growbuffwriter_init writer_write_str output != \"grow\"");
 
-        growbuffwriter_deinit(&gbw);
+        resData = growbuffwriter_data(&writer);
+        assert_ok(resData.error, "growbuffwriter_init data after reset != ERR_OK");
 
-        ResultGrowBuffWriter resErr = growbuffwriter_init(badAlloc, 8);
+        dataBuff = resData.value;
+        assert_true(dataBuff.size == 4, "growbuffwriter_init used.size after reset != 4");
+        assert_true(dataBuff.bytes[0] == 'g' && dataBuff.bytes[3] == 'w', "growbuffwriter_init writer_write_str output != \"grow\"");
+
+        growbuffwriter_deinit(&writer);
+
+        ResultWriter resErr = growbuffwriter_init(badAlloc, 8);
         assert_true(resErr.error.code != ERR_OK, "growbuffwriter_init resErr.error.code == ERR_OK");
     }
-    io_println("growbuffwriter_resize");
-    {
-        ResultGrowBuffWriter res = growbuffwriter_init(alloc, 8);
-        assert_ok(res.error, "growbuffwriter_resize res.error.code != ERR_OK");
 
-        GrowBuffWriter gbw = res.value;
-        const char *value = "12345678";
-        const char *ptr = value;
-        while (*ptr)
-        {
-            Error err = writer_write_byte((Writer *)&gbw, *ptr++);
-            assert_ok(err, "growbuffwriter_resize writer_write_byte != ERR_OK");
-        }
-
-        Error err = growbuffwriter_resize(&gbw, 4);
-        assert_ok(err, "growbuffwriter_resize resize != ERR_OK");
-        assert_true(gbw.writeHead == 4, "growbuffwriter_resize writeHead != 4");
-        assert_true(gbw.buff.size == 4, "growbuffwriter_resize buff.size != 4");
-        assert_true(gbw.buff.bytes[0] == '1' && gbw.buff.bytes[3] == '4', "growbuffwriter_resize content incorrect");
-
-        Error invalid = growbuffwriter_resize(NULL, 4);
-        assert_true(invalid.code == ERR_INVALID_PARAMETER, "growbuffwriter_resize invalid.code != ERR_INVALID_PARAMETER");
-
-        growbuffwriter_deinit(&gbw);
-    }
     io_println("growstrwriter_init");
     {
-        ResultGrowStrWriter res = growstrwriter_init(alloc, 4);
+        ResultWriter res = growstrwriter_init(alloc, 4);
         assert_ok(res.error, "growstrwriter_init res.error.code != ERR_OK");
 
-        GrowStrWriter gsw = res.value;
+        Writer writer = res.value;
         const char *text = "hello";
-        const char *cursor = text;
-        while (*cursor)
+        for (const char *cursor = text; *cursor; ++cursor)
         {
-            Error err = writer_write_byte((Writer *)&gsw, *cursor++);
+            Error err = writer_write_byte(&writer, *cursor);
             assert_ok(err, "growstrwriter_init writer_write_byte != ERR_OK");
         }
-        assert_true(gsw.writeHead == 5, "growstrwriter_init writeHead != 5");
-        assert_str_eq(gsw.str, "hello", "growstrwriter_init str != \"hello\"");
 
-        gsw.writeHead = 0;
-        gsw.str[0] = 0;
-        Error strErr = writer_write_str((Writer *)&gsw, "str");
+        ResultOwnedStr resData = growstrwriter_data(&writer);
+        assert_ok(resData.error, "growstrwriter_init growstrwriter_data != ERR_OK");
+        assert_str_eq(resData.value, "hello", "growstrwriter_init str != \"hello\"");
+
+        Error resetErr = growstrwriter_reset(&writer, 16);
+        assert_ok(resetErr, "growstrwriter_init growstrwriter_reset != ERR_OK");
+
+        Error strErr = writer_write_str(&writer, "str");
         assert_ok(strErr, "growstrwriter_init writer_write_str != ERR_OK");
-        assert_str_eq(gsw.str, "str", "growstrwriter_init writer_write_str output != \"str\"");
 
-        alloc.free(&alloc, gsw.str);
+        resData  = growstrwriter_data(&writer);
+        assert_ok(resData.error, "growstrwriter_init data after reset != ERR_OK");
+        assert_str_eq(resData.value, "str", "growstrwriter_init writer_write_str output != \"str\"");
 
-        ResultGrowStrWriter resErr = growstrwriter_init(badAlloc, 4);
+        growstrwriter_deinit(&writer);
+
+        ResultWriter resErr = growstrwriter_init(badAlloc, 4);
         assert_true(resErr.error.code != ERR_OK, "growstrwriter_init resErr.error.code == ERR_OK");
     }
-    io_println("growstrwriter_resize");
-    {
-        ResultGrowStrWriter res = growstrwriter_init(alloc, 8);
-        assert_ok(res.error, "growstrwriter_resize res.error.code != ERR_OK");
 
-        GrowStrWriter gsw = res.value;
-        const char *text = "ABCDEFG";
-        const char *cursor = text;
-        while (*cursor)
-        {
-            Error err = writer_write_byte((Writer *)&gsw, *cursor++);
-            assert_ok(err, "growstrwriter_resize writer_write_byte != ERR_OK");
-        }
-
-        Error err = growstrwriter_resize(&gsw, 4);
-        assert_ok(err, "growstrwriter_resize resize != ERR_OK");
-        gsw.str[gsw.writeHead] = 0;
-        assert_true(gsw.writeHead == 4, "growstrwriter_resize writeHead != 4");
-        assert_str_eq(gsw.str, "ABCD", "growstrwriter_resize str != \"ABCD\"");
-
-        Error invalid = growstrwriter_resize(NULL, 4);
-        assert_true(invalid.code == ERR_INVALID_PARAMETER, "growstrwriter_resize invalid.code != ERR_INVALID_PARAMETER");
-
-        alloc.free(&alloc, gsw.str);
-    }
     io_println("writer_write_bytes");
     {
         i8 storage[6] = {0};
-        ResultBuffWriter res = buffwriter_init((Buffer){.bytes = storage, .size = sizeof(storage)});
+        Buffer buff = (Buffer){.bytes = storage, .size = sizeof(storage)};
+
+        ResultWriter res = buffwriter_init(&alloc, &buff);
         assert_ok(res.error, "writer_write_bytes res.error.code != ERR_OK");
 
-        BuffWriter bw = res.value;
+        Writer writer = res.value;
         ConstBuff data = {
             .bytes = "ABCD",
             .size = 4,
         };
-        Error err = writer_write_bytes((Writer *)&bw, data);
+        Error err = writer_write_bytes(&writer, data);
         assert_ok(err, "writer_write_bytes err.code != ERR_OK");
-        storage[bw.writeHead] = 0;
+
+        storage[4] = 0;
         assert_str_eq(storage, "ABCD", "writer_write_bytes storage != \"ABCD\"");
+
+        buffwriter_deinit(&writer);
     }
+
     io_println("writer_write_str");
     {
         i8 storage[12] = {0};
-        ResultBuffWriter res = buffwriter_init((Buffer){.bytes = storage, .size = sizeof(storage)});
+        Buffer buff = (Buffer){.bytes = storage, .size = sizeof(storage)};
+        
+        ResultWriter res = buffwriter_init(&alloc, &buff);
         assert_ok(res.error, "writer_write_str res.error.code != ERR_OK");
 
-        BuffWriter bw = res.value;
-        Error err = writer_write_str((Writer *)&bw, "text");
+        Writer writer = res.value;
+        Error err = writer_write_str(&writer, "text");
         assert_ok(err, "writer_write_str err.code != ERR_OK");
-        storage[bw.writeHead] = 0;
+
+        storage[4] = 0;
         assert_str_eq(storage, "text", "writer_write_str storage != \"text\"");
 
-        BuffWriter nullBw = res.value;
-        nullBw.writeHead = 0;
-        Error nullErr = writer_write_str((Writer *)&nullBw, NULL);
+        Error resetErr = buffwriter_reset(&writer);
+        assert_ok(resetErr, "writer_write_str resetErr.code != ERR_OK");
+        storage[0] = 0;
+
+        Error nullErr = writer_write_str(&writer, NULL);
         assert_ok(nullErr, "writer_write_str nullErr.code != ERR_OK");
-        nullBw.buff.bytes[nullBw.writeHead] = 0;
-        assert_str_eq(nullBw.buff.bytes, "(null)", "writer_write_str null output != \"(null)\"");
+
+        storage[6] = 0;
+        assert_str_eq(storage, "(null)", "writer_write_str null output != \"(null)\"");
+
+        buffwriter_deinit(&writer);
     }
+
     io_println("writer_write_int");
     {
-        ResultGrowStrWriter res = growstrwriter_init(alloc, 8);
+        ResultWriter res = growstrwriter_init(alloc, 8);
         assert_ok(res.error, "writer_write_int res.error.code != ERR_OK");
 
-        GrowStrWriter gsw = res.value;
-        Error err = writer_write_int((Writer *)&gsw, -12345);
+        Writer writer = res.value;
+        Error err = writer_write_int(&writer, -12345);
         assert_ok(err, "writer_write_int err.code != ERR_OK");
-        assert_str_eq(gsw.str, "-12345", "writer_write_int str != \"-12345\"");
 
-        alloc.free(&alloc, gsw.str);
+        ResultOwnedStr resData = growstrwriter_data(&writer);
+        assert_ok(resData.error, "writer_write_int growstrwriter_data != ERR_OK");
+        assert_str_eq(resData.value, "-12345", "writer_write_int str != \"-12345\"");
+
+        growstrwriter_deinit(&writer);
     }
+
     io_println("writer_write_uint");
     {
-        ResultGrowStrWriter res = growstrwriter_init(alloc, 8);
+        ResultWriter res = growstrwriter_init(alloc, 8);
         assert_ok(res.error, "writer_write_uint res.error.code != ERR_OK");
 
-        GrowStrWriter gsw = res.value;
-        Error err = writer_write_uint((Writer *)&gsw, 0);
+        Writer writer = res.value;
+        Error err = writer_write_uint(&writer, 0);
         assert_ok(err, "writer_write_uint zero err.code != ERR_OK");
-        assert_str_eq(gsw.str, "0", "writer_write_uint zero != \"0\"");
 
-        gsw.writeHead = 0;
-        gsw.str[0] = 0;
-        err = writer_write_uint((Writer *)&gsw, 9876543210ULL);
+        ResultOwnedStr resData = growstrwriter_data(&writer);
+        assert_ok(resData.error, "writer_write_uint growstrwriter_data != ERR_OK");
+        assert_str_eq(resData.value, "0", "writer_write_uint zero != \"0\"");
+
+        Error resetErr = growstrwriter_reset(&writer, 16);
+        assert_ok(resetErr, "writer_write_uint resetErr.code != ERR_OK");
+
+        err = writer_write_uint(&writer, 9876543210ULL);
         assert_ok(err, "writer_write_uint err.code != ERR_OK");
-        assert_str_eq(gsw.str, "9876543210", "writer_write_uint str != \"9876543210\"");
 
-        alloc.free(&alloc, gsw.str);
+        resData = growstrwriter_data(&writer);
+        assert_ok(resData.error, "writer_write_uint growstrwriter_data second != ERR_OK");
+        assert_str_eq(resData.value, "9876543210", "writer_write_uint str != \"9876543210\"");
+
+        growstrwriter_deinit(&writer);
     }
+
     io_println("writer_write_float");
     {
-        ResultGrowStrWriter res1 = growstrwriter_init(alloc, 16);
+        ResultWriter res1 = growstrwriter_init(alloc, 16);
         assert_ok(res1.error, "writer_write_float res1.error.code != ERR_OK");
-        GrowStrWriter gsw1 = res1.value;
-        Error err = writer_write_float((Writer *)&gsw1, -12.5, 1);
+        Writer writer1 = res1.value;
+        Error err = writer_write_float(&writer1, -12.5, 1);
         assert_ok(err, "writer_write_float err.code != ERR_OK");
-        assert_str_eq(gsw1.str, "-12.5", "writer_write_float str != \"-12.5\"");
-        alloc.free(&alloc, gsw1.str);
+        
+        ResultOwnedStr resData = growstrwriter_data(&writer1);
+        assert_ok(resData.error, "writer_write_float growstrwriter_data res1 != ERR_OK");
+        assert_str_eq(resData.value, "-12.5", "writer_write_float str != \"-12.5\"");
+        growstrwriter_deinit(&writer1);
 
-        ResultGrowStrWriter res2 = growstrwriter_init(alloc, 16);
+        ResultWriter res2 = growstrwriter_init(alloc, 16);
         assert_ok(res2.error, "writer_write_float res2.error.code != ERR_OK");
-        GrowStrWriter gsw2 = res2.value;
-        err = writer_write_float((Writer *)&gsw2, 0.005, 2);
+        Writer writer2 = res2.value;
+        err = writer_write_float(&writer2, 0.005, 2);
         assert_ok(err, "writer_write_float small err.code != ERR_OK");
-        assert_str_eq(gsw2.str, "0.01", "writer_write_float str != \"0.01\"");
-        alloc.free(&alloc, gsw2.str);
 
-        ResultGrowStrWriter res3 = growstrwriter_init(alloc, 16);
+        resData = growstrwriter_data(&writer2);
+        assert_ok(resData.error, "writer_write_float growstrwriter_data res2 != ERR_OK");
+        assert_str_eq(resData.value, "0.01", "writer_write_float str != \"0.01\"");
+        growstrwriter_deinit(&writer2);
+
+        ResultWriter res3 = growstrwriter_init(alloc, 16);
         assert_ok(res3.error, "writer_write_float res3.error.code != ERR_OK");
-        GrowStrWriter gsw3 = res3.value;
-        err = writer_write_float((Writer *)&gsw3, 9.9996, 3);
+        Writer writer3 = res3.value;
+        err = writer_write_float(&writer3, 9.9996, 3);
         assert_ok(err, "writer_write_float rounding err.code != ERR_OK");
-        assert_str_eq(gsw3.str, "10.000", "writer_write_float str != \"10.000\"");
-        alloc.free(&alloc, gsw3.str);
+
+        resData = growstrwriter_data(&writer3);
+        assert_ok(resData.error, "writer_write_float growstrwriter_data res3 != ERR_OK");
+        assert_str_eq(resData.value, "10.000", "writer_write_float str != \"10.000\"");
+        growstrwriter_deinit(&writer3);
     }
 }
 
@@ -1931,13 +1944,13 @@ static void _xstd_math_tests(Allocator alloc)
         i8 addResI1 = math_i8_add(-2, 3);
         assert_true(addResI1 == 1, "math_i8_add addResI1 != 1");
 
-        u8 addRes2 = math_u8_add(U8_MAXVAL, 1);
+        u8 addRes2 = math_u8_add(MaxVals.U8, 1);
         assert_true(addRes2 == 0, "math_u8_add addRes2 != 0");
 
         u16 addRes3 = math_u16_add(0, 1);
         assert_true(addRes3 == 1, "math_u16_add addRes3 != 1");
 
-        u16 addRes4 = math_u16_add(U16_MAXVAL, 1);
+        u16 addRes4 = math_u16_add(MaxVals.U16, 1);
         assert_true(addRes4 == 0, "math_u16_add addRes4 != 0");
 
         i16 addResI16 = math_i16_add(-10, 5);
@@ -1946,7 +1959,7 @@ static void _xstd_math_tests(Allocator alloc)
         u32 addRes5 = math_u32_add(0, 1);
         assert_true(addRes5 == 1, "math_u32_add addRes5 != 1");
 
-        u32 addRes6 = math_u32_add(U32_MAXVAL, 1);
+        u32 addRes6 = math_u32_add(MaxVals.U32, 1);
         assert_true(addRes6 == 0, "math_u32_add addRes6 != 0");
 
         i32 addResI32 = math_i32_add(-3, -7);
@@ -1955,7 +1968,7 @@ static void _xstd_math_tests(Allocator alloc)
         u64 addRes7 = math_u64_add(0, 1);
         assert_true(addRes7 == 1, "math_u64_add addRes7 != 1");
 
-        u64 addRes8 = math_u64_add(U64_MAXVAL, 1);
+        u64 addRes8 = math_u64_add(MaxVals.U64, 1);
         assert_true(addRes8 == 0, "math_u64_add addRes8 != 0");
 
         i64 addResI64 = math_i64_add(-5, 10);
@@ -1974,45 +1987,45 @@ static void _xstd_math_tests(Allocator alloc)
         assert_ok(addResNo1.error, "math_u8_add_nooverflow addResNo1 != OK");
         assert_true(addResNo1.value == 1, "math_u8_add_nooverflow addResNo1 != 1");
 
-        ResultU8 addResNo2 = math_u8_add_nooverflow(U8_MAXVAL, 1);
+        ResultU8 addResNo2 = math_u8_add_nooverflow(MaxVals.U8, 1);
         assert_true(addResNo2.error.code != ERR_OK, "math_u8_add_nooverflow addResNo2 == OK");
 
         ResultI8 addResNo3 = math_i8_add_nooverflow(-5, 3);
         assert_ok(addResNo3.error, "math_i8_add_nooverflow addResNo3 != OK");
         assert_true(addResNo3.value == -2, "math_i8_add_nooverflow addResNo3 != -2");
 
-        ResultI8 addResNo4 = math_i8_add_nooverflow(I8_MAXVAL, 1);
+        ResultI8 addResNo4 = math_i8_add_nooverflow(MaxVals.I8_MAX, 1);
         assert_true(addResNo4.error.code != ERR_OK, "math_i8_add_nooverflow addResNo4 == OK");
 
         ResultU16 addResNo5 = math_u16_add_nooverflow(0, 1);
         assert_ok(addResNo5.error, "math_u16_add_nooverflow addResNo5 != OK");
         assert_true(addResNo5.value == 1, "math_u16_add_nooverflow addResNo5 != 1");
 
-        ResultU16 addResNo6 = math_u16_add_nooverflow(U16_MAXVAL, 1);
+        ResultU16 addResNo6 = math_u16_add_nooverflow(MaxVals.U16, 1);
         assert_true(addResNo6.error.code != ERR_OK, "math_u16_add_nooverflow addResNo6 == OK");
 
         ResultI32 addResNo7 = math_i32_add_nooverflow(-100, 50);
         assert_ok(addResNo7.error, "math_i32_add_nooverflow addResNo7 != OK");
         assert_true(addResNo7.value == -50, "math_i32_add_nooverflow addResNo7 != -50");
 
-        ResultI32 addResNo8 = math_i32_add_nooverflow(I32_MAXVAL, 1);
+        ResultI32 addResNo8 = math_i32_add_nooverflow(MaxVals.I32_MAX, 1);
         assert_true(addResNo8.error.code != ERR_OK, "math_i32_add_nooverflow addResNo8 == OK");
 
         ResultU64 addResNo9 = math_u64_add_nooverflow(0, 1);
         assert_ok(addResNo9.error, "math_u64_add_nooverflow addResNo9 != OK");
         assert_true(addResNo9.value == 1, "math_u64_add_nooverflow addResNo9 != 1");
 
-        ResultU64 addResNo10 = math_u64_add_nooverflow(U64_MAXVAL, 1);
+        ResultU64 addResNo10 = math_u64_add_nooverflow(MaxVals.U64, 1);
         assert_true(addResNo10.error.code != ERR_OK, "math_u64_add_nooverflow addResNo10 == OK");
 
         ResultI64 addResNo11 = math_i64_add_nooverflow(-5, 10);
         assert_ok(addResNo11.error, "math_i64_add_nooverflow addResNo11 != OK");
         assert_true(addResNo11.value == 5, "math_i64_add_nooverflow addResNo11 != 5");
 
-        ResultI64 addResNo12 = math_i64_add_nooverflow(I64_MAXVAL, 1);
+        ResultI64 addResNo12 = math_i64_add_nooverflow(MaxVals.I64_MAX, 1);
         assert_true(addResNo12.error.code != ERR_OK, "math_i64_add_nooverflow addResNo12 == OK");
 
-        ResultI64 addResNo13 = math_i64_add_nooverflow(I64_MINVAL, -1);
+        ResultI64 addResNo13 = math_i64_add_nooverflow(MaxVals.I64_MIN, -1);
         assert_true(addResNo13.error.code != ERR_OK, "math_i64_add_nooverflow addResNo13 == OK");
     }
 
@@ -2022,7 +2035,7 @@ static void _xstd_math_tests(Allocator alloc)
         assert_true(subRes1 == 3, "math_u8_substract subRes1 != 3");
 
         u8 subResWrap = math_u8_substract(0, 1);
-        assert_true(subResWrap == U8_MAXVAL, "math_u8_substract subResWrap != U8_MAXVAL");
+        assert_true(subResWrap == MaxVals.U8, "math_u8_substract subResWrap != MaxVals.U8");
 
         i16 subResI = math_i16_substract(-5, 10);
         assert_true(subResI == -15, "math_i16_substract subResI != -15");
@@ -2047,7 +2060,7 @@ static void _xstd_math_tests(Allocator alloc)
         assert_ok(subNo3.error, "math_i16_substract_nooverflow subNo3 != OK");
         assert_true(subNo3.value == 15, "math_i16_substract_nooverflow subNo3 != 15");
 
-        ResultI16 subNo4 = math_i16_substract_nooverflow(I16_MINVAL, 1);
+        ResultI16 subNo4 = math_i16_substract_nooverflow(MaxVals.I16_MIN, 1);
         assert_true(subNo4.error.code != ERR_OK, "math_i16_substract_nooverflow subNo4 == OK");
 
         ResultU64 subNo5 = math_u64_substract_nooverflow(10, 1);
@@ -2061,7 +2074,7 @@ static void _xstd_math_tests(Allocator alloc)
         assert_ok(subNo7.error, "math_i64_substract_nooverflow subNo7 != OK");
         assert_true(subNo7.value == 30, "math_i64_substract_nooverflow subNo7 != 30");
 
-        ResultI64 subNo8 = math_i64_substract_nooverflow(I64_MINVAL, 1);
+        ResultI64 subNo8 = math_i64_substract_nooverflow(MaxVals.I64_MIN, 1);
         assert_true(subNo8.error.code != ERR_OK, "math_i64_substract_nooverflow subNo8 == OK");
     }
 
@@ -2086,24 +2099,24 @@ static void _xstd_math_tests(Allocator alloc)
         assert_ok(mulNo1.error, "math_u16_multiply_nooverflow mulNo1 != OK");
         assert_true(mulNo1.value == 20, "math_u16_multiply_nooverflow mulNo1 != 20");
 
-        ResultU16 mulNo2 = math_u16_multiply_nooverflow(U16_MAXVAL, 2);
+        ResultU16 mulNo2 = math_u16_multiply_nooverflow(MaxVals.U16, 2);
         assert_true(mulNo2.error.code != ERR_OK, "math_u16_multiply_nooverflow mulNo2 == OK");
 
         ResultI32 mulNo3 = math_i32_multiply_nooverflow(-10, -4);
         assert_ok(mulNo3.error, "math_i32_multiply_nooverflow mulNo3 != OK");
         assert_true(mulNo3.value == 40, "math_i32_multiply_nooverflow mulNo3 != 40");
 
-        ResultI32 mulNo4 = math_i32_multiply_nooverflow(I32_MAXVAL, 2);
+        ResultI32 mulNo4 = math_i32_multiply_nooverflow(MaxVals.I32_MAX, 2);
         assert_true(mulNo4.error.code != ERR_OK, "math_i32_multiply_nooverflow mulNo4 == OK");
 
-        ResultU64 mulNo5 = math_u64_multiply_nooverflow(2, U64_MAXVAL);
+        ResultU64 mulNo5 = math_u64_multiply_nooverflow(2, MaxVals.U64);
         assert_true(mulNo5.error.code != ERR_OK, "math_u64_multiply_nooverflow mulNo5 == OK");
 
         ResultI64 mulNo6 = math_i64_multiply_nooverflow(-12, 3);
         assert_ok(mulNo6.error, "math_i64_multiply_nooverflow mulNo6 != OK");
         assert_true(mulNo6.value == -36, "math_i64_multiply_nooverflow mulNo6 != -36");
 
-        ResultI64 mulNo7 = math_i64_multiply_nooverflow(I64_MINVAL, -1);
+        ResultI64 mulNo7 = math_i64_multiply_nooverflow(MaxVals.I64_MIN, -1);
         assert_true(mulNo7.error.code != ERR_OK, "math_i64_multiply_nooverflow mulNo7 == OK");
     }
 
@@ -2155,7 +2168,7 @@ static void _xstd_math_tests(Allocator alloc)
         assert_ok(divNo3.error, "math_i32_divide_nooverflow divNo3 != OK");
         assert_true(divNo3.value == -4, "math_i32_divide_nooverflow divNo3 != -4");
 
-        ResultI32 divNo4 = math_i32_divide_nooverflow(I32_MINVAL, -1);
+        ResultI32 divNo4 = math_i32_divide_nooverflow(MaxVals.I32_MIN, -1);
         assert_true(divNo4.error.code != ERR_OK, "math_i32_divide_nooverflow divNo4 == OK");
 
         ResultU64 divNo5 = math_u64_divide_nooverflow(16, 4);
@@ -2169,7 +2182,7 @@ static void _xstd_math_tests(Allocator alloc)
         assert_ok(divNo7.error, "math_i64_divide_nooverflow divNo7 != OK");
         assert_true(divNo7.value == -8, "math_i64_divide_nooverflow divNo7 != -8");
 
-        ResultI64 divNo8 = math_i64_divide_nooverflow(I64_MINVAL, -1);
+        ResultI64 divNo8 = math_i64_divide_nooverflow(MaxVals.I64_MIN, -1);
         assert_true(divNo8.error.code != ERR_OK, "math_i64_divide_nooverflow divNo8 == OK");
     }
 

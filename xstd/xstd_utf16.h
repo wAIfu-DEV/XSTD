@@ -293,7 +293,7 @@ static inline ResultUtf16OwnedStr utf8_buff_to_utf16(Allocator *a, ConstBuff buf
 
         u64 add = (cpRes.value.codepoint >= 0x10000u) ? 2u : 1u;
 
-        if (unitsNeeded > U64_MAXVAL - add - 1u)
+        if (unitsNeeded > MaxVals.U64 - add - 1u)
             return (ResultUtf16OwnedStr){
                 .value = NULL,
                 .error = X_ERR_EXT("utf16", "utf8_buff_to_utf16",
@@ -305,7 +305,7 @@ static inline ResultUtf16OwnedStr utf8_buff_to_utf16(Allocator *a, ConstBuff buf
 
     u64 totalUnits = unitsNeeded + 1u;
 
-    if (totalUnits > U64_MAXVAL / (u64)sizeof(i16))
+    if (totalUnits > MaxVals.U64 / (u64)sizeof(i16))
         return (ResultUtf16OwnedStr){
             .value = NULL,
             .error = X_ERR_EXT("utf16", "utf8_buff_to_utf16",

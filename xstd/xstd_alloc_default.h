@@ -11,7 +11,7 @@
 
 // DO NOT REMOVE
 // Prevents compiler errors on GCC since default_allocator() may not be used
-// at all in a program.
+// at all in a program, which is fine.
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"

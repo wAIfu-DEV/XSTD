@@ -412,7 +412,7 @@ static inline ResultOwnedStr utf16_buff_to_utf8(Allocator *a, Utf16Buff buff)
             add = 3;
         }
 
-        if (bytesNeeded > U64_MAXVAL - add)
+        if (bytesNeeded > MaxVals.U64 - add)
             return (ResultOwnedStr){
                 .value = NULL,
                 .error = X_ERR_EXT("utf8", "utf16_buff_to_utf8",
@@ -422,7 +422,7 @@ static inline ResultOwnedStr utf16_buff_to_utf8(Allocator *a, Utf16Buff buff)
         bytesNeeded += add;
     }
 
-    if (bytesNeeded == U64_MAXVAL)
+    if (bytesNeeded == MaxVals.U64)
         return (ResultOwnedStr){
             .value = NULL,
             .error = X_ERR_EXT("utf8", "utf16_buff_to_utf8",
