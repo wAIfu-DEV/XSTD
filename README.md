@@ -137,7 +137,7 @@ i32 main() {
 
     // You do not have to compare the code to ERR_OK for it to achieve the same thing
     if (builtRes.error.code) {
-        io_printerrln(r.error.msg);
+        io_printerrln(builtRes.error.msg);
         return 1;
     }
 
