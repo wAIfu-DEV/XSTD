@@ -118,13 +118,13 @@ i32 main() {
     // Check for errors by comparing error code against 0
     // Error code of 0 (ERR_OK) means success and a defined value,
     // But error code != 0 means failure, and a very likely undefined value.
-    if (r.error.code != ERR_OK) {
-        io_printerrln(ErrorToString(r.error.code)) // All standard error codes have string representations
-        io_printerrln(r.error.msg); // All xstd library errors will also have a descriptive error message!
+    if (builderRes.error.code != ERR_OK) {
+        io_printerrln(ErrorToString(builderRes.error.code)) // All standard error codes have string representations
+        io_printerrln(builderRes.error.msg); // All xstd library errors will also have a descriptive error message!
         return 1;
     }
 
-    StringBuilder builder = r.value; // Extract valid value out of result after error handling
+    StringBuilder builder = builderRes.value; // Extract valid value out of result after error handling
 
     // Push strings to the builder
     strbuilder_push_copy(&builder, "Yes! "); // `strbuilder_push_owned` can be used for owned strings you want to push without copy.
@@ -137,7 +137,7 @@ i32 main() {
 
     // You do not have to compare the code to ERR_OK for it to achieve the same thing
     if (builtRes.error.code) {
-        io_printerrln(r.error.msg);
+        io_printerrln(builtRes.error.msg);
         return 1;
     }
 
