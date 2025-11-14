@@ -1,15 +1,15 @@
 #pragma once
 
-#include "../xstd/xstd_core.h"
-#include "../xstd/xstd_alloc.h"
-#include "../xstd/xstd_buffer.h"
-#include "../xstd/xstd_file.h"
-#include "../xstd/xstd_io.h"
-#include "../xstd/xstd_string.h"
-#include "../xstd/xstd_utf8.h"
-#include "../xstd/xstd_math.h"
-#include "../xstd/xstd_writer.h"
-#include "../xstd/xstd_mem.h"
+#include "../../xstd/xstd_core.h"
+#include "../../xstd/xstd_alloc.h"
+#include "../../xstd/xstd_buffer.h"
+#include "../../xstd/xstd_file.h"
+#include "../../xstd/xstd_io.h"
+#include "../../xstd/xstd_string.h"
+#include "../../xstd/xstd_utf8.h"
+#include "../../xstd/xstd_math.h"
+#include "../../xstd/xstd_writer.h"
+#include "../../xstd/xstd_mem.h"
 
 /*
 // FOR DEBUGGING

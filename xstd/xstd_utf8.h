@@ -193,7 +193,6 @@ static inline ResultUtf8Codepoint _utf8_decode(ConstStr ptr, ConstStr end)
                     ERR_UNEXPECTED_BYTE, "invalid utf8 continuation"),
             };
         }
-
         codepoint = (codepoint << 6) | (u32)(cont & 0x3Fu);
     }
 

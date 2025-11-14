@@ -11,5 +11,6 @@
 #include "xstd/xstd_string.h"
 #include "xstd/xstd_file.h"
 #include "xstd/xstd_io.h"
+#include "xstd/xstd_time.h"
 #include "xstd/xstd_alloc_arena.h"
 #include "xstd/xstd_alloc_debug.h"

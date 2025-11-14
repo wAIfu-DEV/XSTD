@@ -4,7 +4,7 @@
 
 #include "xstd_file_os_int.h"
 
-#ifdef _WIN32
+#ifdef _X_PLAT_WIN
     #include "xstd_file_os_int_win32.h"
 #else
     #include "xstd_file_os_int_stdlib.h"
@@ -24,7 +24,7 @@
  * This function is meant to be used by XSTD.
  */
 static inline const _FileOsInterface* _default_file_os_int(void) {
-    #ifdef _WIN32
+    #ifdef _X_PLAT_WIN
         return &_file_os_int_win32;
     #else
         return &_file_os_int_stdlib;

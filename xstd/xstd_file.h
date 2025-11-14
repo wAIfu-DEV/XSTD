@@ -659,7 +659,8 @@ static inline ResultList file_read_lines(Allocator *a, File *file)
     if (!a || !file || !file->_valid)
         return (ResultList){
             .value = {0},
-            .error = X_ERR_EXT("file", "file_read_lines", ERR_INVALID_PARAMETER, "null allocator or file"),
+            .error = X_ERR_EXT("file", "file_read_lines",
+                ERR_INVALID_PARAMETER, "null allocator or file"),
         };
 
     ResultU64 tellRes = file_tell(file);
@@ -754,7 +755,8 @@ _file_read_lines_cleanup:
     file_seek(file, tellRes.value, 0);
 
     if (err.code == ERR_OK)
-        err = X_ERR_EXT("file", "file_read_lines", ERR_FAILED, "read failure");
+        err = X_ERR_EXT("file", "file_read_lines",
+            ERR_FAILED, "read failure");
 
     return (ResultList){
         .value = (List){0},

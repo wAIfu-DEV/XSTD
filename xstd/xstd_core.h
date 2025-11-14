@@ -20,6 +20,10 @@
     #define NULL 0
 #endif
 
+#if _WIN32 // || __MINGW32__ || __CYGWIN__
+    #define _X_PLAT_WIN 1
+#endif
+
 typedef char ibool; // 8bit value representing two states: 0 (false) | not 0 (true)
 
 typedef char i8;       // 8bit value representing an integer number or character.

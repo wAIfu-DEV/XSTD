@@ -5,18 +5,40 @@
 #include "xstd_proc_os_int.h"
 #include "xstd_proc_os_int_default.h"
 #include "xstd_file_os_int_default.h"
-#ifdef _WIN32
-    #include "xstd_win32.h"
-#endif
 
-#define IoStdout ((File){._handle = _default_file_os_int()->fstdout(), ._valid = true})
-#define IoStderr ((File){._handle = _default_file_os_int()->fstderr(), ._valid = true})
-#define IoStdin ((File){._handle = _default_file_os_int()->fstdin(), ._valid = true})
+static inline File* io_stdout(void)
+{
+    static File f = {0};
+    if (!f._valid) {
+        f._handle = _default_file_os_int()->fstdout();
+        f._valid = true;
+    }
+    return &f;
+}
+
+static inline File* io_stderr(void)
+{
+    static File f = {0};
+    if (!f._valid) {
+        f._handle = _default_file_os_int()->fstderr();
+        f._valid = true;
+    }
+    return &f;
+}
+
+static inline File* io_stdin(void)
+{
+    static File f = {0};
+    if (!f._valid) {
+        f._handle = _default_file_os_int()->fstderr();
+        f._valid = true;
+    }
+    return &f;
+}
 
 static inline void io_print_char(const char c)
 {
-    File f = IoStdout;
-    file_write_char(&f, c);
+    file_write_char(io_stdout(), c);
 }
 
 /**
@@ -26,37 +48,30 @@ static inline void io_print_char(const char c)
  */
 static inline void io_print(ConstStr text)
 {
-    File f = IoStdout;
+    File* f = io_stdout();
 
     if (!text)
     {
-        file_write_null(&f);
+        file_write_null(f);
         return;
     }
 
-    while (*text)
-    {
-        file_write_char(&f, *text);
-        ++text;
-    }
+    file_write_str(f, text);
 }
 
 static inline void io_print_int(const i64 i)
 {
-    File f = IoStdout;
-    file_write_int(&f, i);
+    file_write_int(io_stdout(), i);
 }
 
 static inline void io_print_uint(const u64 i)
 {
-    File f = IoStdout;
-    file_write_uint(&f, i);
+    file_write_uint(io_stdout(), i);
 }
 
 static inline void io_print_float(const f64 flt, const u64 precision)
 {
-    File f = IoStdout;
-    file_write_f64(&f, flt, precision);
+    file_write_f64(io_stdout(), flt, precision);
 }
 
 /**
@@ -66,21 +81,17 @@ static inline void io_print_float(const f64 flt, const u64 precision)
  */
 static inline void io_println(ConstStr text)
 {
-    File f = IoStdout;
+    File* f = io_stdout();
 
     if (!text)
     {
-        file_write_null(&f);
-        file_write_char(&f, '\n');
+        file_write_null(f);
+        file_write_char(f, '\n');
         return;
     }
 
-    while (*text)
-    {
-        file_write_char(&f, *text);
-        ++text;
-    }
-    file_write_char(&f, '\n');
+    file_write_str(f, text);
+    file_write_char(f, '\n');
 }
 
 /**
@@ -90,24 +101,19 @@ static inline void io_println(ConstStr text)
  */
 static inline void io_printerr(ConstStr text)
 {
-    File f = IoStderr;
+    File *f = io_stderr();
 
-    file_write_str(&f, "\x1b[1;31m");
+    file_write_str(f, "\x1b[1;31m");
 
     if (!text)
     {
-        file_write_null(&f);
+        file_write_null(f);
         return;
     }
 
-    while (*text)
-    {
-        file_write_char(&f, *text);
-        ++text;
-    }
-
-    file_write_str(&f, "\x1b[0m");
-    file_flush(&f);
+    file_write_str(f, text);
+    file_write_str(f, "\x1b[0m");
+    file_flush(f);
 }
 
 /**
@@ -117,26 +123,20 @@ static inline void io_printerr(ConstStr text)
  */
 static inline void io_printerrln(ConstStr text)
 {
-    File f = IoStderr;
+    File *f = io_stderr();
 
-    file_write_str(&f, "\x1b[1;31m");
+    file_write_str(f, "\x1b[1;31m");
 
     if (!text)
     {
-        file_write_null(&f);
-        file_write_char(&f, '\n');
+        file_write_null(f);
+        file_write_str(f, "\n\x1b[0m");
         return;
     }
 
-    while (*text)
-    {
-        file_write_char(&f, *text);
-        ++text;
-    }
-
-    file_write_char(&f, '\n');
-    file_write_str(&f, "\x1b[0m");
-    file_flush(&f);
+    file_write_str(f, text);
+    file_write_str(f, "\n\x1b[0m");
+    file_flush(f);
 }
 
 /**
@@ -159,7 +159,7 @@ static inline ResultOwnedStr io_read_line(Allocator *a)
         };
 
     const _FileOsInterface* foi = _default_file_os_int();
-    File f = IoStdin;
+    File *f = io_stdin();
 
     u64 buffSize = 32;
     i8 *buffer = (i8*)a->alloc(a, buffSize);
@@ -175,7 +175,7 @@ static inline ResultOwnedStr io_read_line(Allocator *a)
 
     while (true)
     {
-        int ch = foi->getc(f._handle);
+        int ch = foi->getc(f->_handle);
         if (ch == -1 /* EOF */ || ch == '\n' || ch == '\r')
             break;
 
@@ -198,7 +198,7 @@ static inline ResultOwnedStr io_read_line(Allocator *a)
         buffer[len++] = (i8)ch;
     }
 
-    if (len == 0 && foi->eof(f._handle))
+    if (len == 0 && foi->eof(f->_handle))
     {
         a->free(a, buffer);
         return (ResultOwnedStr){
@@ -224,26 +224,28 @@ static inline void crash(i16 code)
 
 static inline void crash_print(ConstStr errMsg, i16 code)
 {
-    File f = IoStderr;
+    File *f = io_stderr();
 
     // We use file_write here to not spam file_flush
-    file_write_str(&f, "\x1b[1;31m");
-    file_write_str(&f, "[CRASH]: ");
-    io_printerrln(errMsg);
+    file_write_str(f, "\x1b[1;31m");
+    file_write_str(f, "[CRASH]: ");
+    file_write_str(f, errMsg);
+    file_write_str(f, "\n\x1b[0m");
 
     crash(code);
 }
 
 static inline void crash_print_error(Error err, ConstStr errMsg, i16 code)
 {
-    File f = IoStderr;
+    File *f = io_stderr();
 
     // We use file_write here to not spam file_flush
-    file_write_str(&f, "\x1b[1;31m");
-    file_write_str(&f, "[CRASH]\n- code: ");
-    file_write_str(&f, ErrorToString(err.code));
-    file_write_str(&f, "\n- desc: ");
-    io_printerrln(errMsg);
+    file_write_str(f, "\x1b[1;31m");
+    file_write_str(f, "[CRASH]\n- code: ");
+    file_write_str(f, ErrorToString(err.code));
+    file_write_str(f, "\n- desc: ");
+    file_write_str(f, errMsg);
+    file_write_str(f, "\n\x1b[0m");
 
     crash(code);
 }
@@ -261,11 +263,12 @@ static inline void assert_true(const ibool condition, ConstStr falseMessage)
     if (condition)
         return;
 
-    File f = IoStderr;
+    File *f = io_stderr();
 
-    file_write_str(&f, "\x1b[1;31m");
-    file_write_str(&f, "[ASSERT FAILURE]: ");
-    io_printerrln(falseMessage);
+    file_write_str(f, "\x1b[1;31m");
+    file_write_str(f, "[ASSERT FAILURE]: ");
+    file_write_str(f, falseMessage);
+    file_write_str(f, "\n\x1b[0m");
 
     crash(1);
 }
@@ -284,16 +287,17 @@ static inline void assert_ok(const Error err, ConstStr isErrMessage)
     if (err.code == ERR_OK)
         return;
 
-    File f = IoStderr;
+    File *f = io_stderr();
 
     // We use file_write here to not spam file_flush
-    file_write_str(&f, "\x1b[1;31m");
-    file_write_str(&f, "[ASSERT ERR FAILURE]\n- code: ");
-    file_write_str(&f, ErrorToString(err.code));
-    file_write_str(&f, "\n- msg: ");
-    file_write_str(&f, err.msg);
-    file_write_str(&f, "\n- desc: ");
-    io_printerrln(isErrMessage);
+    file_write_str(f, "\x1b[1;31m");
+    file_write_str(f, "[ASSERT ERR FAILURE]\n- code: ");
+    file_write_str(f, ErrorToString(err.code));
+    file_write_str(f, "\n- msg: ");
+    file_write_str(f, err.msg);
+    file_write_str(f, "\n- desc: ");
+    file_write_str(f, isErrMessage);
+    file_write_str(f, "\n\x1b[0m");
 
     crash(1);
 }
@@ -311,11 +315,24 @@ static inline void assert_str_eq(ConstStr a, ConstStr b, ConstStr falseMessage)
     if (string_equals(a, b))
         return;
 
-    File f = IoStderr;
+    File *f = io_stderr();
 
-    file_write_str(&f, "\x1b[1;31m");
-    file_write_str(&f, "[ASSERT STR EQ FAILURE]: ");
-    io_printerrln(falseMessage);
+    file_write_str(f, "\x1b[1;31m");
+    file_write_str(f, "[ASSERT STR EQ FAILURE]: ");
+    file_write_str(f, falseMessage);
+    file_write_str(f, "\n\x1b[0m");
 
     crash(1);
+}
+
+__attribute__((constructor))
+static inline void _io_setmode_utf8(void)
+{
+    // Depending on OS may need to explicitly set console to utf8 mode
+    _default_proc_os_int()->console_set_utf8();
+}
+
+static inline String* io_args_utf8(i32 argc, String* argv)
+{
+    return _default_proc_os_int()->console_get_args_utf8(argc, argv);
 }

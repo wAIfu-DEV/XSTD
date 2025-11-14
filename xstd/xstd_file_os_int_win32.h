@@ -91,7 +91,8 @@ static int _fosint_win32_open(void** stream, const char* fileName, const char* m
     }
 
     _Win32File* f = (_Win32File*)HeapAlloc(GetProcessHeap(), 0, sizeof(_Win32File));
-    f->h = h; f->eof = 0;
+    f->h = h;
+    f->eof = 0;
 
     if (mode[0] == 'a') {
         SetFilePointerEx(f->h, 0, 0, _WIN_32_FILE_END);

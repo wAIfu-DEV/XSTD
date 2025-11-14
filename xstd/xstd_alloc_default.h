@@ -2,7 +2,7 @@
 
 // Implementation of Allocator using the OS's implementation
 
-#if _WIN32
+#if _X_PLAT_WIN
     #include "xstd_alloc_win32.h"
 #else
     #include "xstd_alloc_stdlib.h"
@@ -26,7 +26,7 @@
  * @return Allocator
  */
 static inline Allocator* default_allocator(void) {
-    #ifdef _WIN32
+    #ifdef _X_PLAT_WIN
         if (!_win32_alloc_state.procHeapHandle)
             _win32_alloc_state.procHeapHandle = GetProcessHeap();
 
