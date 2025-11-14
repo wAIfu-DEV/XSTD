@@ -7,7 +7,8 @@ i32 main(i32 argc, String* argv)
     // This functions ensures the args are UTF-8 encoded regardless of platform.
     String* args = io_args_utf8(argc, argv);
 
-    if (argc != 2) {
+    if (argc != 2)
+    {
         crash_print("More or less than 1 argument.", 1);
         return 1;
     }
@@ -19,7 +20,6 @@ i32 main(i32 argc, String* argv)
     if (!file_exists(filePath))
     {
         ResultOwnedStr res = string_concat(a, "File does not exist: ", filePath);
-
         crash_print(res.error.code ? "File does not exist." : res.value, 1);
         return 1;
     }

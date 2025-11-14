@@ -52,6 +52,7 @@ __declspec(dllimport) _w32_lpvoid  __stdcall HeapReAlloc(_w32_handle, _w32_dword
 __declspec(dllimport) _w32_bool    __stdcall HeapFree(_w32_handle, _w32_dword, _w32_lpvoid);
 
 __declspec(dllimport) _w32_handle  __stdcall GetStdHandle(_w32_dword);
+__declspec(dllimport) _w32_bool    __stdcall FlushFileBuffers(_w32_handle);
 __declspec(dllimport) _w32_handle  __stdcall CreateFileW(short*, _w32_dword, _w32_dword, void*, _w32_dword, _w32_dword, _w32_handle);
 __declspec(dllimport) _w32_bool    __stdcall CloseHandle(_w32_handle);
 __declspec(dllimport) _w32_bool    __stdcall ReadFile(_w32_handle, void*, _w32_dword, _w32_dword*, void*);

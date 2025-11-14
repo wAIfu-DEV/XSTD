@@ -214,9 +214,8 @@ static long _fosint_win32_tell(void* stream) {
 }
 
 static int _fosint_win32_fflush(void* stream) {
-    (void)stream;
-    // Win32 WriteFile is unbuffered at this level, so nothing to flush
-    return 0;
+    _Win32File* f = (_Win32File*)stream;
+    return FlushFileBuffers(f->h);
 }
 
 static int _fosint_win32_feof(void* stream) {
