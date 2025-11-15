@@ -63,7 +63,7 @@ static inline ResultUtf8Iter utf8_iter_str(ConstStr s)
     };
 }
 
-static inline ibool utf8_iter_has_next(const Utf8Iter *it)
+static inline Bool utf8_iter_has_next(const Utf8Iter *it)
 {
     if (!it || !it->ptr)
         return false;

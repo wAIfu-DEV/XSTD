@@ -289,12 +289,12 @@ static void _xstd_file_tests(Allocator alloc)
 
         io_println("file_exists");
 
-        ibool exists = file_exists(filePath);
+        Bool exists = file_exists(filePath);
         assert_true(exists, "file_exists existing file == false");
 
         io_println("file_exists missing");
 
-        ibool missing = file_exists("xstd_file_missing.tmp");
+        Bool missing = file_exists("xstd_file_missing.tmp");
         assert_true(!missing, "file_exists missing file != false");
 
         io_println("file_open");
@@ -859,42 +859,42 @@ static void _xstd_string_tests(Allocator alloc)
     }
     io_println("string_starts_with");
     {
-        ibool strStaWth1 = string_starts_with("This is a test", "This");
+        Bool strStaWth1 = string_starts_with("This is a test", "This");
         assert_true(strStaWth1, "string_starts_with strStaWth1 != true");
 
-        ibool strStaWth2 = string_starts_with("This is a test", "Though");
+        Bool strStaWth2 = string_starts_with("This is a test", "Though");
         assert_true(!strStaWth2, "string_starts_with strStaWth2 == true");
 
-        ibool strStaWth3 = string_starts_with("This is a test", NULL);
+        Bool strStaWth3 = string_starts_with("This is a test", NULL);
         assert_true(!strStaWth3, "string_starts_with strStaWth3 == true");
 
-        ibool strStaWth4 = string_starts_with(NULL, "");
+        Bool strStaWth4 = string_starts_with(NULL, "");
         assert_true(!strStaWth4, "string_starts_with strStaWth4 == true");
 
-        ibool strStaWth5 = string_starts_with(NULL, NULL);
+        Bool strStaWth5 = string_starts_with(NULL, NULL);
         assert_true(!strStaWth5, "string_starts_with strStaWth5 == true");
 
-        ibool strStaWth6 = string_starts_with("This is a test", "");
+        Bool strStaWth6 = string_starts_with("This is a test", "");
         assert_true(strStaWth6, "string_starts_with strStaWth6 != true");
     }
     io_println("string_ends_with");
     {
-        ibool strEndWth1 = string_ends_with("This is a test", "test");
+        Bool strEndWth1 = string_ends_with("This is a test", "test");
         assert_true(strEndWth1, "string_ends_with strEndWth1 != true");
 
-        ibool strEndWth2 = string_ends_with("This is a test", "tes");
+        Bool strEndWth2 = string_ends_with("This is a test", "tes");
         assert_true(!strEndWth2, "string_ends_with strEndWth2 == true");
 
-        ibool strEndWth3 = string_ends_with("This is a test", NULL);
+        Bool strEndWth3 = string_ends_with("This is a test", NULL);
         assert_true(!strEndWth3, "string_ends_with strEndWth3 == true");
 
-        ibool strEndWth4 = string_ends_with(NULL, "");
+        Bool strEndWth4 = string_ends_with(NULL, "");
         assert_true(!strEndWth4, "string_ends_with strEndWth4 == true");
 
-        ibool strEndWth5 = string_ends_with(NULL, NULL);
+        Bool strEndWth5 = string_ends_with(NULL, NULL);
         assert_true(!strEndWth5, "string_ends_with strEndWth5 == true");
 
-        ibool strEndWth6 = string_ends_with("This is a test", "");
+        Bool strEndWth6 = string_ends_with("This is a test", "");
         assert_true(strEndWth6, "string_ends_with strEndWth6 != true");
     }
     io_println("char_is_alpha");

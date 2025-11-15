@@ -155,7 +155,7 @@ static inline Error _list_expand(List *l)
     return X_ERR_OK;
 }
 
-static inline ibool _list_should_shrink(List *l)
+static inline Bool _list_should_shrink(List *l)
 {
     u64 halfAlloc = (u64)((f64)(l->_allocCnt) * 0.5);
 

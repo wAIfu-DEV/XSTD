@@ -22,9 +22,9 @@
  * ```
  * @param a
  * @param b
- * @return ibool
+ * @return Bool
  */
-static inline ibool buffer_equals(ConstBuff a, ConstBuff b)
+static inline Bool buffer_equals(ConstBuff a, ConstBuff b)
 {
     if (a.size != b.size)
         return false;

@@ -47,7 +47,7 @@ static void *_fosint_win32_stdin(void)
 static int _fosint_win32_open(void **stream, const char *fileName, const char *mode)
 {
     _w32_dword access = 0, creation = 0;
-    ibool allowRead = false;
+    Bool allowRead = false;
 
     if (mode) {
         for (const char *m = mode; *m; ++m) {

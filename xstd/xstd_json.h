@@ -481,7 +481,7 @@ Error _json_parse_any_value(Allocator* a, Json *self, ConstStr s, u64 *i)
         {
             if (s[(*i) + 1] == 'r' && s[(*i) + 2] == 'u' && s[(*i) + 3] == 'e')
             {
-                ibool *boolean = a->alloc(a, sizeof(ibool));
+                Bool *boolean = a->alloc(a, sizeof(Bool));
 
                 if (!boolean)
                     return X_ERR_EXT("json", "_json_parse_any_value",
@@ -505,7 +505,7 @@ Error _json_parse_any_value(Allocator* a, Json *self, ConstStr s, u64 *i)
         {
             if (s[(*i) + 1] == 'a' && s[(*i) + 2] == 'l' && s[(*i) + 3] == 's' && s[(*i) + 4] == 'e')
             {
-                ibool *boolean = a->alloc(a, sizeof(ibool));
+                Bool *boolean = a->alloc(a, sizeof(Bool));
 
                 if (!boolean)
                     return X_ERR_EXT("json", "_json_parse_any_value",
@@ -1592,13 +1592,13 @@ Json *json_make_number(Allocator* alloc, f64 num)
  * @param b bool (0|1). if != 0, will be considered true.
  * @return NULL | Json* (memory is owned, use json_free to release if standalone)
  */
-Json *json_make_bool(Allocator* alloc, ibool b)
+Json *json_make_bool(Allocator* alloc, Bool b)
 {
     Json *j = alloc->alloc(alloc, sizeof(Json));
     if (!j)
         return NULL;
 
-    ibool *bool_pt = alloc->alloc(alloc, sizeof(ibool));
+    Bool *bool_pt = alloc->alloc(alloc, sizeof(Bool));
     if (!bool_pt)
         return NULL;
 

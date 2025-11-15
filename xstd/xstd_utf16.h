@@ -69,7 +69,7 @@ static inline ResultUtf16Iter utf16_iter_str(Utf16ConstStr s)
     };
 }
 
-static inline ibool utf16_iter_has_next(const Utf16Iter *it)
+static inline Bool utf16_iter_has_next(const Utf16Iter *it)
 {
     if (!it || !it->ptr)
         return false;

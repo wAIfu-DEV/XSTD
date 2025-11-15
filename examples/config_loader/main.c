@@ -48,7 +48,7 @@ static void config_release(Buffer key, void *valuePtr, void *userArg)
     }
 }
 
-static ibool config_set(HashMap *map, Allocator *storeAlloc, ConstStr key, ConstStr value)
+static Bool config_set(HashMap *map, Allocator *storeAlloc, ConstStr key, ConstStr value)
 {
     ConfigEntry existing;
     Error getErr = hashmap_get_str(map, key, &existing);
@@ -76,7 +76,7 @@ static ibool config_set(HashMap *map, Allocator *storeAlloc, ConstStr key, Const
     return true;
 }
 
-static ibool slice_key_value(Allocator *scratch, ConstStr line, ConstStr *outKey, ConstStr *outValue)
+static Bool slice_key_value(Allocator *scratch, ConstStr line, ConstStr *outKey, ConstStr *outValue)
 {
     ResultOwnedStr trimmed = string_trim_whitespace(scratch, line, true, true);
     if (trimmed.error.code)

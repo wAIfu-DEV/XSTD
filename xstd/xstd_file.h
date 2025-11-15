@@ -40,7 +40,7 @@ static const struct _file_open_mode
 typedef struct _file
 {
     void *_handle;
-    ibool _valid;
+    Bool _valid;
 } File;
 
 /**
@@ -167,7 +167,7 @@ static inline u64 file_size(File *file)
  * @param file Open file handle to test.
  * @returns Non-zero when EOF was reached or the handle is invalid.
  */
-static inline ibool file_is_eof(File *file)
+static inline Bool file_is_eof(File *file)
 {
     if (!file || !file->_valid)
         return true;
@@ -175,7 +175,7 @@ static inline ibool file_is_eof(File *file)
     return _default_file_os_int()->eof(file->_handle);
 }
 
-static inline u64 _file_read_internal(File *f, i8 *buff, const u64 nBytes, ibool terminate)
+static inline u64 _file_read_internal(File *f, i8 *buff, const u64 nBytes, Bool terminate)
 {
     if (!f || !nBytes || !buff)
         return 0;
@@ -1025,7 +1025,7 @@ static inline Error file_write_f64(File *file, const f64 flt, const u64 precisio
  * @param path Null-terminated path to probe.
  * @returns Non-zero when the file can be opened, `false` otherwise.
  */
-static inline ibool file_exists(ConstStr path)
+static inline Bool file_exists(ConstStr path)
 {
     if (!path)
         return false;

@@ -10,7 +10,7 @@ typedef struct _buffalloc_block
 {
     u64 size;                      // Total size including header
     struct _buffalloc_block *next; // Next block in the list
-    ibool isFree;                  // If this block is free
+    Bool isFree;                  // If this block is free
 } _BufferBlockHeader;
 
 typedef struct _buffalloc_state
@@ -28,7 +28,7 @@ static inline u64 _buffalloc_offset_to_aligned(u64 offset)
     return (offset + defaultAlign - 1) & ~(defaultAlign - 1);
 }
 
-static inline ibool _buffalloc_offset_invalid(u64 totalCapacity, u64 alignedOffset, u64 allocSize)
+static inline Bool _buffalloc_offset_invalid(u64 totalCapacity, u64 alignedOffset, u64 allocSize)
 {
     if ((alignedOffset + allocSize) > totalCapacity)
         return true;

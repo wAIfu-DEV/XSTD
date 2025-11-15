@@ -179,7 +179,7 @@ static inline void _hashmap_memcpy(HashMap *h, const void *srcPtr, void *dstPtr)
     mem_copy(dstPtr, srcPtr, rest);
 }
 
-static inline ibool _hashmap_key_equals(Buffer a, Buffer b)
+static inline Bool _hashmap_key_equals(Buffer a, Buffer b)
 {
     if (a.size != b.size)
         return false;
@@ -202,7 +202,7 @@ static inline u64 _hashmap_bucket_idx(HashMap *map, u64 hash)
     return hash % map->_bucketCount;
 }
 
-static inline ibool _hashmap_is_invalid_idx(HashMap *map, u64 idx)
+static inline Bool _hashmap_is_invalid_idx(HashMap *map, u64 idx)
 {
     if (!map->_bucketCount)
         return true;

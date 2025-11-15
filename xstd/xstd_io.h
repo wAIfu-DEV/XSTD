@@ -258,7 +258,7 @@ static inline void crash_print_error(Error err, ConstStr errMsg, i16 code)
  * ```
  * @param text
  */
-static inline void assert_true(const ibool condition, ConstStr falseMessage)
+static inline void assert_true(const Bool condition, ConstStr falseMessage)
 {
     if (condition)
         return;

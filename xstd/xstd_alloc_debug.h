@@ -40,7 +40,7 @@ typedef struct _debug_allocator_state
     u64 totalMetaAllocBytes;
     u64 totalMetaFreeBytes;
 
-    ibool trackingOverflow;
+    Bool trackingOverflow;
     u64 failedInsertions;
     u64 untrackedFrees;
     u64 untrackedReallocs;
@@ -154,9 +154,9 @@ static inline DebugAllocEntry *_debug_allocator_find(DebugAllocatorState *state,
     return NULL;
 }
 
-static inline ibool _debug_allocator_grow(DebugAllocatorState *state);
+static inline Bool _debug_allocator_grow(DebugAllocatorState *state);
 
-static inline DebugAllocEntry *_debug_allocator_insert(DebugAllocatorState *state, void *ptr, u64 size, ibool isReinsert)
+static inline DebugAllocEntry *_debug_allocator_insert(DebugAllocatorState *state, void *ptr, u64 size, Bool isReinsert)
 {
     if (!state || !state->table)
         return NULL;
@@ -240,7 +240,7 @@ static inline void _debug_allocator_remove(DebugAllocatorState *state, u32 index
         state->count -= 1u;
 }
 
-static inline ibool _debug_allocator_grow(DebugAllocatorState *state)
+static inline Bool _debug_allocator_grow(DebugAllocatorState *state)
 {
     if (!state || !state->table)
         return false;

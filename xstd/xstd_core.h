@@ -32,8 +32,7 @@
 // Largely inspired by llvm's stdint implementation.
 // https://github.com/llvm-mirror/clang/blob/master/lib/Headers/stdint.h
 
-typedef __INT8_TYPE__ ibool; // 8bit value representing two states: 0 (false) | not 0 (true)
-
+typedef __INT8_TYPE__ Bool; // 8bit value representing two states: 0 (false) | not 0 (true)
 typedef __WCHAR_TYPE__ wChar; // 16bit wide chars for UTF-16 or other encodings.
 
 typedef __INT8_TYPE__ i8;         // 8bit value representing an integer number or character.
@@ -54,9 +53,9 @@ typedef float f32;  // 32bit value representing a decimal number.
 typedef double f64; // 64bit value representing a decimal number.
 
 static const struct {
-    const u8 U8;
-    const i8 I8_MIN;
-    const i8 I8_MAX;
+    const u8  U8;
+    const i8  I8_MIN;
+    const i8  I8_MAX;
     const u16 U16;
     const i16 I16_MIN;
     const i16 I16_MAX;

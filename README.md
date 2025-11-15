@@ -206,7 +206,7 @@ i32 main(void)
 
 | File | Description |
 |------|-------------|
-| `xstd_core.h` | Core types like `u8`, `i64`, `ibool`, `Buffer`, etc. |
+| `xstd_core.h` | Core types like `u8`, `i64`, `Bool`, `Buffer`, etc. |
 | `xstd_alloc.h` | Allocator interface (`Allocator`, `alloc`) |
 | `xstd_alloc_arena.h` | Arena (stack-like) allocator |
 | `xstd_alloc_buffer.h` | Free-able buffer allocator |

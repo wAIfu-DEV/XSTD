@@ -11,7 +11,7 @@ typedef struct _arena_allocator_state
     u64 capacity;      // total size
     u64 headerSize;    // size of aligned state
     u64 offset;        // bytes used
-    ibool bufferOwned; // if true, buffer is heap-allocated and should be freed
+    Bool bufferOwned; // if true, buffer is heap-allocated and should be freed
 } ArenaAllocatorState;
 
 static inline u64 _arena_offset_to_aligned(u64 offset)
@@ -20,7 +20,7 @@ static inline u64 _arena_offset_to_aligned(u64 offset)
     return (offset + defaultAlign - 1) & ~(defaultAlign - 1);
 }
 
-static inline ibool _arena_offset_invalid(u64 totalCapacity, u64 alignedOffset, u64 allocSize)
+static inline Bool _arena_offset_invalid(u64 totalCapacity, u64 alignedOffset, u64 allocSize)
 {
     if ((alignedOffset + allocSize) > totalCapacity)
         return true;
@@ -97,7 +97,7 @@ static inline void arena_allocator_clear(Allocator *arena)
     state->offset = state->headerSize;
 }
 
-static inline ArenaAllocatorState *_arena_alloc_header(Buffer buff, ibool isHeap)
+static inline ArenaAllocatorState *_arena_alloc_header(Buffer buff, Bool isHeap)
 {
     u64 headerSize = sizeof(ArenaAllocatorState);
     u64 alignedOffset = _arena_offset_to_aligned((uPtr)buff.bytes);
@@ -139,7 +139,7 @@ static inline ArenaAllocatorState *_arena_alloc_header(Buffer buff, ibool isHeap
  * @return Allocator
  * @exception ERR_INVALID_PARAMETER, ERR_OUT_OF_MEMORY
  */
-static inline ResultAllocator arena_allocator(Buffer buffer, ibool isHeap)
+static inline ResultAllocator arena_allocator(Buffer buffer, Bool isHeap)
 {
     if (!buffer.bytes || buffer.size == 0)
         return (ResultAllocator){

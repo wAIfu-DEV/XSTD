@@ -12,7 +12,7 @@
 typedef struct _string_builder
 {
     List _strings;
-    ibool _valid;
+    Bool _valid;
 } StringBuilder;
 
 typedef struct _result_strbuilder
@@ -59,9 +59,9 @@ static inline u64 string_size(ConstStr s)
  * ```
  * @param a Terminated string
  * @param b Terminated string
- * @return ibool
+ * @return Bool
  */
-static inline ibool string_equals(ConstStr a, ConstStr b)
+static inline Bool string_equals(ConstStr a, ConstStr b)
 {
     if (a == b)
         return 1;
@@ -171,7 +171,7 @@ static inline Error string_copy(ConstStr source, String destination)
  * @param terminate if the destination buffer should be NULL terminated after the copied characters.
  * @return Error
  */
-static inline Error string_copy_n(ConstStr source, String destination, u64 n, ibool terminate)
+static inline Error string_copy_n(ConstStr source, String destination, u64 n, Bool terminate)
 {
     if (!source || !destination)
         return X_ERR_EXT("string", "string_copy_n",
@@ -237,7 +237,7 @@ static inline void string_copy_unsafe(ConstStr source, String destination)
  * @param destination Terminated string of size >= n
  * @param terminate if the destination buffer should be NULL terminated after the copied characters.
  */
-static inline void string_copy_n_unsafe(ConstStr source, String destination, u64 n, ibool terminate)
+static inline void string_copy_n_unsafe(ConstStr source, String destination, u64 n, Bool terminate)
 {
     mem_copy(destination, source, n);
 
@@ -1423,9 +1423,9 @@ static inline ResultOwnedStr string_replace(Allocator *alloc, ConstStr s, ConstS
  * ```
  * @param s Terminated string to check
  * @param what Terminated string to find at the beginning of `s`
- * @return ibool
+ * @return Bool
  */
-static inline ibool string_starts_with(ConstStr s, ConstStr what)
+static inline Bool string_starts_with(ConstStr s, ConstStr what)
 {
     if (!s || !what)
         return 0;
@@ -1452,9 +1452,9 @@ static inline ibool string_starts_with(ConstStr s, ConstStr what)
  * ```
  * @param s Terminated string to check
  * @param what Terminated string to find at the end of `s`
- * @return ibool
+ * @return Bool
  */
-static inline ibool string_ends_with(ConstStr s, ConstStr what)
+static inline Bool string_ends_with(ConstStr s, ConstStr what)
 {
     if (!s || !what)
         return 0;
@@ -1480,9 +1480,9 @@ static inline ibool string_ends_with(ConstStr s, ConstStr what)
  * @brief Checks if character is alphabetic (in range a-z A-Z)
  *
  * @param c character
- * @return ibool
+ * @return Bool
  */
-static inline ibool char_is_alpha_ascii(const i8 c)
+static inline Bool char_is_alpha_ascii(const i8 c)
 {
     return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
 }
@@ -1491,9 +1491,9 @@ static inline ibool char_is_alpha_ascii(const i8 c)
  * @brief Checks if character is numerical (in range 0-9)
  *
  * @param c character
- * @return ibool
+ * @return Bool
  */
-static inline ibool char_is_digit_ascii(const i8 c)
+static inline Bool char_is_digit_ascii(const i8 c)
 {
     return (c >= '0' && c <= '9');
 }
@@ -1502,9 +1502,9 @@ static inline ibool char_is_digit_ascii(const i8 c)
  * @brief Checks if character is alphanumerical (in range a-z A-Z 0-9)
  *
  * @param c
- * @return ibool
+ * @return Bool
  */
-static inline ibool char_is_alphanum_ascii(const i8 c)
+static inline Bool char_is_alphanum_ascii(const i8 c)
 {
     return (char_is_alpha_ascii(c) || char_is_digit_ascii(c));
 }
@@ -1513,9 +1513,9 @@ static inline ibool char_is_alphanum_ascii(const i8 c)
  * @brief Checks if character is whitespace (space, tab, newline, carriage return)
  *
  * @param c
- * @return ibool
+ * @return Bool
  */
-static inline ibool char_is_whitespace_ascii(const i8 c)
+static inline Bool char_is_whitespace_ascii(const i8 c)
 {
     return (c == ' ' || c == '\t' || c == '\n' || c == '\r');
 }
@@ -1548,12 +1548,12 @@ static inline i8 char_to_upper_ascii(const i8 c)
     return c;
 }
 
-static inline ibool _utf8_is_ascii_digit(u32 codepoint)
+static inline Bool _utf8_is_ascii_digit(u32 codepoint)
 {
     return codepoint >= '0' && codepoint <= '9';
 }
 
-static inline ibool _utf8_is_whitespace_cp(u32 codepoint)
+static inline Bool _utf8_is_whitespace_cp(u32 codepoint)
 {
     switch (codepoint)
     {
@@ -1611,22 +1611,22 @@ static inline void string_to_lower_inplace_ascii(HeapStr s)
     }
 }
 
-static inline ibool char_is_alpha(const i8 c)
+static inline Bool char_is_alpha(const i8 c)
 {
     return char_is_alpha_ascii(c);
 }
 
-static inline ibool char_is_digit(const i8 c)
+static inline Bool char_is_digit(const i8 c)
 {
     return char_is_digit_ascii(c);
 }
 
-static inline ibool char_is_alphanum(const i8 c)
+static inline Bool char_is_alphanum(const i8 c)
 {
     return char_is_alphanum_ascii(c);
 }
 
-static inline ibool char_is_whitespace(const i8 c)
+static inline Bool char_is_whitespace(const i8 c)
 {
     return char_is_whitespace_ascii(c);
 }
@@ -1866,7 +1866,7 @@ static inline ResultOwnedStr string_upper(Allocator *a, ConstStr s)
  * @param end If !0 (true), trim from the end of the string
  * @return ResultOwnedStr
  */
-static inline ResultOwnedStr string_trim_whitespace_ascii(Allocator *a, ConstStr s, ibool start, ibool end)
+static inline ResultOwnedStr string_trim_whitespace_ascii(Allocator *a, ConstStr s, Bool start, Bool end)
 {
     if (!a || !s)
         return (ResultOwnedStr){
@@ -1941,7 +1941,7 @@ static inline ResultOwnedStr string_trim_whitespace_ascii(Allocator *a, ConstStr
  * @param end Trim trailing whitespace if true
  * @return ResultOwnedStr
  */
-static inline ResultOwnedStr string_trim_whitespace(Allocator *a, ConstStr s, ibool start, ibool end)
+static inline ResultOwnedStr string_trim_whitespace(Allocator *a, ConstStr s, Bool start, Bool end)
 {
     if (!a || !s)
         return (ResultOwnedStr){
@@ -2762,7 +2762,7 @@ static inline ResultF64 string_parse_float(ConstStr s)
     }
 
     f64 result = 0.0;
-    ibool sawDigit = false;
+    Bool sawDigit = false;
 
     while (utf8_iter_has_next(&it))
     {
