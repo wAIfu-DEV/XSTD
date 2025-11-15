@@ -19,4 +19,5 @@ typedef struct _file_os_interface
     u64 (*const write)(void *stream, const void *src, u64 bytes);
     int (*const flush)(void *stream);
     int (*const eof)(void *stream);
+    u64 (*const size)(void *stream);
 } _FileOsInterface;

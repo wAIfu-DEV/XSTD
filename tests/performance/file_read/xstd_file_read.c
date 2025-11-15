@@ -5,7 +5,7 @@
 
 static i32 read_once(Allocator *alloc, ConstStr path, u64 *bytesRead)
 {
-    ResultFile fileRes = file_open(path, FileOpenModes.READ);
+    ResultFile fileRes = file_open(path, EnumFileOpenMode.READ);
     if (fileRes.error.code != ERR_OK)
     {
         io_printerrln(fileRes.error.msg ? fileRes.error.msg : "Failed to open file.");

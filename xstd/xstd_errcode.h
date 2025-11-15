@@ -40,7 +40,7 @@ enum ErrorEnum
     _ERR_MAX_SENTINEL,
 };
 
-static const i8 *ErrorStrings[_ERR_MAX_SENTINEL] = {
+static const char *ErrorStrings[_ERR_MAX_SENTINEL] = {
     [ERR_OK] = "OK",
     [ERR_FAILED] = "FAILED",
     [ERR_UNAVAILABLE] = "UNAVAILABLE",

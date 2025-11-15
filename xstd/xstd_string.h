@@ -1665,7 +1665,7 @@ static inline void string_to_lower_inplace(HeapStr s)
 
     while (utf8_iter_has_next(&it))
     {
-        i8 *current = (i8 *)it.ptr;
+        char *current = (char *)it.ptr;
         ResultUtf8Codepoint cpRes = utf8_iter_next(&it);
 
         if (cpRes.error.code != ERR_OK)
@@ -1700,7 +1700,7 @@ static inline void string_to_upper_inplace(HeapStr s)
 
     while (utf8_iter_has_next(&it))
     {
-        i8 *current = (i8 *)it.ptr;
+        char *current = (char *)it.ptr;
         ResultUtf8Codepoint cpRes = utf8_iter_next(&it);
 
         if (cpRes.error.code != ERR_OK)
@@ -2255,7 +2255,7 @@ static inline ResultI64 string_parse_int_ascii(ConstStr s)
             .error = X_ERR_EXT("string", "string_parse_int_ascii", ERR_INVALID_PARAMETER, "null or empty str"),
         };
 
-    const i8 *ptr = s;
+    const char *ptr = s;
     i64 result = 0;
     i64 sign = 1;
 
@@ -2453,7 +2453,7 @@ static inline ResultU64 string_parse_uint_ascii(ConstStr s)
             .error = X_ERR_EXT("string", "string_parse_uint_ascii", ERR_INVALID_PARAMETER, "null or empty str"),
         };
 
-    const i8 *ptr = s;
+    const char *ptr = s;
     u64 result = 0;
 
     while (char_is_whitespace_ascii(*ptr))
@@ -2622,7 +2622,7 @@ static inline ResultF64 string_parse_float_ascii(ConstStr s)
             .error = X_ERR_EXT("string", "string_parse_float_ascii", ERR_INVALID_PARAMETER, "null or empty str"),
         };
 
-    const i8 *ptr = s;
+    const char *ptr = s;
     f64 result = 0.0;
     f64 sign = 1.0;
 

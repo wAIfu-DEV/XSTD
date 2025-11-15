@@ -16,14 +16,26 @@ typedef void* _w32_handle;
 typedef void* _w32_lpvoid;
 typedef char* _w32_lpstr;
 typedef const char* _w32_lpcstr;
-typedef short* _w32_lpwstr;
-typedef const short* _w32_lpcwstr;
+typedef wChar* _w32_lpwstr;
+typedef const wChar* _w32_lpcwstr;
 
 typedef struct _w32_filetime
 {
     _w32_dword dwLowDateTime;
     _w32_dword dwHighDateTime;
 } _w32_filetime;
+
+typedef union _LARGE_INTEGER {
+    struct {
+        _w32_dword LowPart;
+        long  HighPart;
+    } DUMMYSTRUCTNAME;
+    struct {
+        _w32_dword LowPart;
+        long HighPart;
+    } u;
+    long long QuadPart;
+} _w32_large_integer;
 
 typedef _w32_filetime* _w32_lpfiletime;
 
@@ -53,11 +65,12 @@ __declspec(dllimport) _w32_bool    __stdcall HeapFree(_w32_handle, _w32_dword, _
 
 __declspec(dllimport) _w32_handle  __stdcall GetStdHandle(_w32_dword);
 __declspec(dllimport) _w32_bool    __stdcall FlushFileBuffers(_w32_handle);
-__declspec(dllimport) _w32_handle  __stdcall CreateFileW(short*, _w32_dword, _w32_dword, void*, _w32_dword, _w32_dword, _w32_handle);
+__declspec(dllimport) _w32_handle  __stdcall CreateFileW(_w32_lpcwstr, _w32_dword, _w32_dword, void*, _w32_dword, _w32_dword, _w32_handle);
 __declspec(dllimport) _w32_bool    __stdcall CloseHandle(_w32_handle);
 __declspec(dllimport) _w32_bool    __stdcall ReadFile(_w32_handle, void*, _w32_dword, _w32_dword*, void*);
 __declspec(dllimport) _w32_bool    __stdcall WriteFile(_w32_handle, const void*, _w32_dword, _w32_dword*, void*);
 __declspec(dllimport) _w32_bool    __stdcall SetFilePointerEx(_w32_handle, long long, long long*, _w32_dword);
+__declspec(dllimport) _w32_bool    __stdcall GetFileSizeEx(_w32_handle, _w32_large_integer*);
 __declspec(dllimport) _w32_bool    __stdcall SetConsoleOutputCP(_w32_uint);
 __declspec(dllimport) _w32_lpwstr  __stdcall GetCommandLineW(void);
 __declspec(dllimport) _w32_lpwstr* __stdcall CommandLineToArgvW(_w32_lpcwstr, int*);

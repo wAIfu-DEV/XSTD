@@ -8,7 +8,7 @@
 #include "xstd_error.h"
 #include "xstd_mem.h"
 
-#if _XSTD_ARCH_64BIT
+#if _X_ARCH_64BIT
 static inline u64 _hashmap_fnv1a64(const void *key, u64 len)
 {
     const u8 *data = (const u8 *)key;
@@ -176,10 +176,6 @@ static inline void hashmap_deinit(HashMap *map)
 static inline void _hashmap_memcpy(HashMap *h, const void *srcPtr, void *dstPtr)
 {
     u64 rest = h->_valueSize;
-
-    i8 *d = (i8 *)dstPtr;
-    const i8 *s = (i8 *)srcPtr;
-
     mem_copy(dstPtr, srcPtr, rest);
 }
 
@@ -360,7 +356,7 @@ static inline Error hashmap_set(HashMap *map, Buffer key, const void *value)
     static const i8 _x_hashmap_empty_key = 0;
     const i8 *hashKeyBytes = key.bytes ? key.bytes : &_x_hashmap_empty_key;
     return _hashmap_set(map, key, value,
-        #if _XSTD_ARCH_64BIT
+        #if _X_ARCH_64BIT
         _hashmap_fnv1a64(hashKeyBytes, key.size)
         #else
         _hashmap_fnv1a32(hashKeyBytes, key.size)
@@ -420,7 +416,7 @@ static inline Error hashmap_get(HashMap *map, Buffer key, void *outValue)
     static const i8 _x_hashmap_empty_key = 0;
     const i8 *hashKeyBytes = key.bytes ? key.bytes : &_x_hashmap_empty_key;
 
-    #if _XSTD_ARCH_64BIT
+    #if _X_ARCH_64BIT
     u64 hash = _hashmap_fnv1a64(hashKeyBytes, key.size);
     #else
     u64 hash = _hashmap_fnv1a32(hashKeyBytes, key.size);
@@ -505,7 +501,7 @@ static inline Error hashmap_remove(HashMap *map, Buffer key)
     if (!map || !map->_buckets || !key.bytes)
         return X_ERR_EXT("hashmap", "hashmap_remove", ERR_INVALID_PARAMETER, "null or invalid arg");
 
-    #if _XSTD_ARCH_64BIT
+    #if _X_ARCH_64BIT
     u64 hash = _hashmap_fnv1a64(key.bytes, key.size);
     #else
     u64 hash = _hashmap_fnv1a32(key.bytes, key.size);

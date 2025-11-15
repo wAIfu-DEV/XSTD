@@ -173,7 +173,7 @@ static inline ResultOwnedStr io_read_line(Allocator *a)
 
     u64 len = 0;
 
-    while (true)
+    while(true)
     {
         int ch = foi->getc(f->_handle);
         if (ch == -1 /* EOF */ || ch == '\n' || ch == '\r')
@@ -210,7 +210,7 @@ static inline ResultOwnedStr io_read_line(Allocator *a)
     buffer[len] = 0;
 
     return (ResultOwnedStr){
-        .value = buffer,
+        .value = (char*)buffer,
         .error = X_ERR_OK,
     };
 }
@@ -277,7 +277,7 @@ static inline void assert_true(const ibool condition, ConstStr falseMessage)
  * @brief Crashes the program if `err` is not ERR_OK and prints `isErrMessage` to stderr.
  *
  * ```
- * ResultFile res = file_open("example.txt", FileOpenModes.READ);
+ * ResultFile res = file_open("example.txt", EnumFileOpenMode.READ);
  * assert_ok(res.error, "Failed to open the file.");
  * ```
  * @param text

@@ -14,21 +14,13 @@
 #include "xstd_file_os_int_default.h"
 
 /**
- * @typedef {u8} FileOpenMode
  * Symbolic value that selects how a file should be opened.
- * Use the predefined members of `FileOpenModes` when calling `file_open`.
+ * Use the predefined members of `EnumFileOpenMode` when calling `file_open`.
  */
-typedef u8 FileOpenMode;
-
-#define FILE_OPENMODE_READ 0
-#define FILE_OPENMODE_WRITE 1
-#define FILE_OPENMODE_READWRITE 2
-#define FILE_OPENMODE_TRUNC_READWRITE 3
-#define FILE_OPENMODE_APPEND 4
+typedef ConstStr FileOpenMode;
 
 /**
  * Named constants describing the supported `FileOpenMode` values for `file_open`.
- * @type {{READ: FileOpenMode, WRITE: FileOpenMode, READWRITE: FileOpenMode, APPEND: FileOpenMode}}
  */
 static const struct _file_open_mode
 {
@@ -37,20 +29,14 @@ static const struct _file_open_mode
     const FileOpenMode READWRITE;
     const FileOpenMode TRUNC_READWRITE;
     const FileOpenMode APPEND;
-} FileOpenModes = {
-    .READ = FILE_OPENMODE_READ,
-    .WRITE = FILE_OPENMODE_WRITE,
-    .READWRITE = FILE_OPENMODE_READWRITE,
-    .TRUNC_READWRITE = FILE_OPENMODE_TRUNC_READWRITE,
-    .APPEND = FILE_OPENMODE_APPEND,
+} EnumFileOpenMode = {
+    .READ = "rb",
+    .WRITE = "wb",
+    .READWRITE = "r+b",
+    .TRUNC_READWRITE = "w+b",
+    .APPEND = "a+b",
 };
 
-/**
- * @typedef File
- * Lightweight wrapper that tracks a platform specific file handle and its validity.
- * @property {void*} _handle - Native file descriptor managed by the OS abstraction layer.
- * @property {ibool} _valid - Non-zero when `_handle` refers to an open file.
- */
 typedef struct _file
 {
     void *_handle;
@@ -60,8 +46,8 @@ typedef struct _file
 /**
  * @typedef ResultFile
  * Aggregates the outcome of an operation that attempts to produce a `File`.
- * @property {File} value - Populated when `error.code == ERR_OK`, otherwise zero-initialized.
- * @property {Error} error - Rich error descriptor explaining why the call failed.
+ * @property value Populated when `error.code == ERR_OK`, otherwise zero-initialized.
+ * @property error Rich error descriptor explaining why the call failed.
  */
 typedef struct _result_file
 {
@@ -69,58 +55,35 @@ typedef struct _result_file
     Error error;
 } ResultFile;
 
-static inline const char *_file_openmode_to_str(const FileOpenMode mode)
-{
-    switch (mode)
-    {
-    case FILE_OPENMODE_READ:
-        return "rb";
-    case FILE_OPENMODE_WRITE:
-        return "wb";
-    case FILE_OPENMODE_READWRITE:
-        return "r+b";
-    case FILE_OPENMODE_TRUNC_READWRITE:
-        return "w+b";
-    case FILE_OPENMODE_APPEND:
-        return "a+b";
-    default:
-        return NULL;
-    }
-}
-
 /**
  * Opens a file using the default operating system backend.
  * @example
  * ```c
- * ResultFile res = file_open("test.txt", FileOpenModes.READ);
+ * ResultFile res = file_open("test.txt", EnumFileOpenMode.READ);
  * if (res.error.code == ERR_OK) {
  *     File file = res.value;
  *     file_close(&file);
  * }
  * ```
  * @param path Null-terminated path to the file to open.
- * @param mode One of the values exposed on `FileOpenModes`.
+ * @param mode One of the values exposed on `EnumFileOpenMode`.
  * @returns Result object containing the opened file or an error description.
  */
-static inline ResultFile file_open(ConstStr path, const FileOpenMode mode)
+static inline ResultFile file_open(ConstStr path, FileOpenMode mode)
 {
     if (!path)
         return (ResultFile){
-            .value = {0},
             .error = X_ERR_EXT("file", "file_open", ERR_INVALID_PARAMETER, "null path"),
         };
 
-    const char *openArg = _file_openmode_to_str(mode);
-
-    if (openArg == NULL)
+    if (!mode)
         return (ResultFile){
-            .value = {0},
-            .error = X_ERR_EXT("file", "file_open", ERR_WOULD_NULL_DEREF, "open mode match failure"),
+            .error = X_ERR_EXT("file", "file_open", ERR_INVALID_PARAMETER, "null mode"),
         };
 
     void *f;
 
-    int err = _default_file_os_int()->open(&f, path, openArg);
+    int err = _default_file_os_int()->open(&f, path, mode);
 
     if (err)
     {
@@ -139,7 +102,6 @@ static inline ResultFile file_open(ConstStr path, const FileOpenMode mode)
         }
 
         return (ResultFile){
-            .value = {0},
             .error = newErr,
         };
     }
@@ -157,7 +119,7 @@ static inline ResultFile file_open(ConstStr path, const FileOpenMode mode)
  * Closes a file handle obtained from `file_open`.
  * @example
  * ```c
- * ResultFile res = file_open("example.txt", FileOpenModes.READ);
+ * ResultFile res = file_open("example.txt", EnumFileOpenMode.READ);
  * if (res.error.code == ERR_OK) {
  *     File file = res.value;
  *     file_close(&file);
@@ -178,7 +140,7 @@ static inline void file_close(File *file)
  * Determines the number of bytes currently stored in a file.
  * @example
  * ```c
- * File file = file_open("example.txt", FileOpenModes.READ).value;
+ * File file = file_open("example.txt", EnumFileOpenMode.READ).value;
  * u64 size = file_size(&file);
  * ```
  * @param file Open file handle whose size should be queried.
@@ -189,18 +151,8 @@ static inline u64 file_size(File *file)
     if (!file || !file->_valid)
         return 0;
 
-    const int seekEnd = 2;
-    const int seekSet = 0;
-
     const _FileOsInterface* foi = _default_file_os_int();
-
-    long ogTell = foi->tell(file->_handle);
-
-    foi->seek(file->_handle, 0, seekEnd);
-    long fileSize = foi->tell(file->_handle);
-
-    foi->seek(file->_handle, ogTell, seekSet);
-    return (u64)fileSize;
+    return foi->size(file->_handle);
 }
 
 /**
@@ -446,7 +398,7 @@ static inline ResultOwnedStr file_read_str(Allocator *a, File *file, const u64 n
                 ERR_OUT_OF_MEMORY, "alloc failure"),
         };
 
-    u64 readSize = _file_read_internal(file, newStr, nBytes, true);
+    u64 readSize = _file_read_internal(file, (i8*)newStr, nBytes, true);
 
     if (readSize == 0)
     {
@@ -498,7 +450,7 @@ static inline OwnedStr file_read_str_unsafe(Allocator *a, File *file, u64 nBytes
     if (!newStr)
         return NULL;
 
-    u64 readSize = _file_read_internal(file, newStr, nBytes, true);
+    u64 readSize = _file_read_internal(file, (i8*)newStr, nBytes, true);
 
     if (readSize == 0)
     {
@@ -1078,7 +1030,7 @@ static inline ibool file_exists(ConstStr path)
     if (!path)
         return false;
 
-    ResultFile res = file_open(path, FileOpenModes.READ);
+    ResultFile res = file_open(path, EnumFileOpenMode.READ);
     if (res.error.code != ERR_OK)
         return false;
 
@@ -1099,15 +1051,8 @@ static inline ResultFile file_create(ConstStr path)
                 ERR_INVALID_PARAMETER, "null path"),
         };
 
-    const char *mode = _file_openmode_to_str(FileOpenModes.TRUNC_READWRITE);
-    if (!mode)
-        return (ResultFile){
-            .error = X_ERR_EXT("file", "file_create",
-                ERR_WOULD_NULL_DEREF, "open mode match failure"),
-        };
-
     void *handle = NULL;
-    int err = _default_file_os_int()->open(&handle, path, mode);
+    int err = _default_file_os_int()->open(&handle, path, EnumFileOpenMode.TRUNC_READWRITE);
     if (err)
     {
         Error newErr = X_ERR_EXT("file", "file_create",

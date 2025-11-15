@@ -24,7 +24,7 @@ i32 main(i32 argc, String* argv)
         return 1;
     }
 
-    ResultFile fRes = file_open(filePath, FileOpenModes.READ);
+    ResultFile fRes = file_open(filePath, EnumFileOpenMode.READ);
     if (fRes.error.code)
     {
         crash_print_error(fRes.error, "Cannot open file.", 1);

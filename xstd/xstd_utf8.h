@@ -39,8 +39,8 @@ static inline ResultUtf8Iter utf8_iter_buff(ConstBuff buff)
 
     return (ResultUtf8Iter){
         .value = (Utf8Iter){
-            .ptr = buff.bytes,
-            .end = buff.bytes + buff.size,
+            .ptr = (char*)buff.bytes,
+            .end = (char*)buff.bytes + buff.size,
         },
         .error = X_ERR_OK,
     };
@@ -411,7 +411,7 @@ static inline ResultOwnedStr utf16_buff_to_utf8(Allocator *a, Utf16Buff buff)
             add = 3;
         }
 
-        if (bytesNeeded > MaxVals.U64 - add)
+        if (bytesNeeded > EnumMaxVal.U64 - add)
             return (ResultOwnedStr){
                 .value = NULL,
                 .error = X_ERR_EXT("utf8", "utf16_buff_to_utf8",
@@ -421,7 +421,7 @@ static inline ResultOwnedStr utf16_buff_to_utf8(Allocator *a, Utf16Buff buff)
         bytesNeeded += add;
     }
 
-    if (bytesNeeded == MaxVals.U64)
+    if (bytesNeeded == EnumMaxVal.U64)
         return (ResultOwnedStr){
             .value = NULL,
             .error = X_ERR_EXT("utf8", "utf16_buff_to_utf8",
@@ -439,7 +439,7 @@ static inline ResultOwnedStr utf16_buff_to_utf8(Allocator *a, Utf16Buff buff)
         };
 
     ptr = buff.units;
-    i8 *write = out;
+    char *write = out;
 
     while (ptr < end)
     {
@@ -458,25 +458,25 @@ static inline ResultOwnedStr utf16_buff_to_utf8(Allocator *a, Utf16Buff buff)
 
         if (codepoint <= 0x7Fu)
         {
-            *write++ = (i8)codepoint;
+            *write++ = (char)codepoint;
         }
         else if (codepoint <= 0x7FFu)
         {
-            *write++ = (i8)(0xC0u | (codepoint >> 6));
-            *write++ = (i8)(0x80u | (codepoint & 0x3Fu));
+            *write++ = (char)(0xC0u | (codepoint >> 6));
+            *write++ = (char)(0x80u | (codepoint & 0x3Fu));
         }
         else if (codepoint <= 0xFFFFu)
         {
-            *write++ = (i8)(0xE0u | (codepoint >> 12));
-            *write++ = (i8)(0x80u | ((codepoint >> 6) & 0x3Fu));
-            *write++ = (i8)(0x80u | (codepoint & 0x3Fu));
+            *write++ = (char)(0xE0u | (codepoint >> 12));
+            *write++ = (char)(0x80u | ((codepoint >> 6) & 0x3Fu));
+            *write++ = (char)(0x80u | (codepoint & 0x3Fu));
         }
         else
         {
-            *write++ = (i8)(0xF0u | (codepoint >> 18));
-            *write++ = (i8)(0x80u | ((codepoint >> 12) & 0x3Fu));
-            *write++ = (i8)(0x80u | ((codepoint >> 6) & 0x3Fu));
-            *write++ = (i8)(0x80u | (codepoint & 0x3Fu));
+            *write++ = (char)(0xF0u | (codepoint >> 18));
+            *write++ = (char)(0x80u | ((codepoint >> 12) & 0x3Fu));
+            *write++ = (char)(0x80u | ((codepoint >> 6) & 0x3Fu));
+            *write++ = (char)(0x80u | (codepoint & 0x3Fu));
         }
     }
 

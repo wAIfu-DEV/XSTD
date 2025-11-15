@@ -177,7 +177,7 @@ static Error _growbuffwriter_resize(Writer *writer, u64 newSize)
     if (!state || newSize == 0)
         return X_ERR_EXT("writer", "growbuffwriter_resize", ERR_INVALID_PARAMETER, "invalid state or size");
 
-    i8 *newBlock = (i8 *)state->allocator.realloc(&state->allocator, state->buff.bytes, newSize);
+    i8 *newBlock = (i8*)state->allocator.realloc(&state->allocator, state->buff.bytes, newSize);
     if (!newBlock)
         return X_ERR_EXT("writer", "growbuffwriter_resize", ERR_OUT_OF_MEMORY, "alloc failure");
 
@@ -414,7 +414,7 @@ static Error _growstrwriter_resize(Writer *writer, u64 newSize)
     if (!state || newSize == 0)
         return X_ERR_EXT("writer", "growstrwriter_resize", ERR_INVALID_PARAMETER, "invalid state or size");
 
-    i8 *newBlock = (i8 *)state->allocator.realloc(&state->allocator, state->str, newSize);
+    char *newBlock = (char*)state->allocator.realloc(&state->allocator, state->str, newSize);
     if (!newBlock)
         return X_ERR_EXT("writer", "growstrwriter_resize", ERR_OUT_OF_MEMORY, "alloc failure");
 
@@ -464,7 +464,7 @@ static inline ResultWriter growstrwriter_init(Allocator alloc, u32 initSize)
                 ERR_OUT_OF_MEMORY, "state alloc failure"),
         };
 
-    i8 *block = (i8 *)alloc.alloc(&alloc, initSize);
+    char *block = (char*)alloc.alloc(&alloc, initSize);
     if (!block)
     {
         alloc.free(&alloc, state);
@@ -516,7 +516,7 @@ static inline ResultOwnedStr growstrwriter_data(Writer *writer)
                 ERR_INVALID_PARAMETER, "invalid state"),
         };
     
-    i8* newStr = state->str;
+    char* newStr = state->str;
 
     state->str = NULL;
     state->strSize = 0;
@@ -554,7 +554,7 @@ static inline ResultOwnedStr growstrwriter_data_copy(Writer *writer)
     Allocator* a = &state->allocator;
     
     u64 strSize = state->writeHead;
-    i8* newStr = a->alloc(a, strSize + 1);
+    char* newStr = a->alloc(a, strSize + 1);
 
     mem_copy(newStr, state->str, strSize + 1);
 
@@ -587,7 +587,7 @@ static inline Error growstrwriter_reset(Writer *writer, u64 newSize)
     state->writeHead = 0;
     state->writeEnd = 0;
 
-    i8* newBlock = a->alloc(a, newSize);
+    char* newBlock = (char*)a->alloc(a, newSize);
     if (!newBlock)
         return X_ERR_EXT("writer", "growbuffwriter_reset",
             ERR_OUT_OF_MEMORY, "alloc failure");

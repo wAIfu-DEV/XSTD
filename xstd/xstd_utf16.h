@@ -293,7 +293,7 @@ static inline ResultUtf16OwnedStr utf8_buff_to_utf16(Allocator *a, ConstBuff buf
 
         u64 add = (cpRes.value.codepoint >= 0x10000u) ? 2u : 1u;
 
-        if (unitsNeeded > MaxVals.U64 - add - 1u)
+        if (unitsNeeded > EnumMaxVal.U64 - add - 1u)
             return (ResultUtf16OwnedStr){
                 .value = NULL,
                 .error = X_ERR_EXT("utf16", "utf8_buff_to_utf16",
@@ -305,14 +305,14 @@ static inline ResultUtf16OwnedStr utf8_buff_to_utf16(Allocator *a, ConstBuff buf
 
     u64 totalUnits = unitsNeeded + 1u;
 
-    if (totalUnits > MaxVals.U64 / (u64)sizeof(i16))
+    if (totalUnits > EnumMaxVal.U64 / (u64)sizeof(i16))
         return (ResultUtf16OwnedStr){
             .value = NULL,
             .error = X_ERR_EXT("utf16", "utf8_buff_to_utf16",
                 ERR_WOULD_OVERFLOW, "utf16 alloc overflow"),
         };
 
-    Utf16OwnedStr out = (Utf16OwnedStr)a->alloc(a, totalUnits * sizeof(i16));
+    Utf16OwnedStr out = (Utf16OwnedStr)a->alloc(a, totalUnits * sizeof(wChar));
     if (!out)
         return (ResultUtf16OwnedStr){
             .value = NULL,
@@ -321,7 +321,7 @@ static inline ResultUtf16OwnedStr utf8_buff_to_utf16(Allocator *a, ConstBuff buf
         };
 
     Utf8Iter readIt = iterRes.value;
-    i16 *write = out;
+    wChar *write = out;
 
     while (utf8_iter_has_next(&readIt))
     {
@@ -339,13 +339,13 @@ static inline ResultUtf16OwnedStr utf8_buff_to_utf16(Allocator *a, ConstBuff buf
 
         if (codepoint < 0x10000u)
         {
-            *write++ = (i16)codepoint;
+            *write++ = (wChar)codepoint;
         }
         else
         {
             codepoint -= 0x10000u;
-            *write++ = (i16)((codepoint >> 10) + 0xD800u);
-            *write++ = (i16)((codepoint & 0x3FFu) + 0xDC00u);
+            *write++ = (wChar)((codepoint >> 10) + 0xD800u);
+            *write++ = (wChar)((codepoint & 0x3FFu) + 0xDC00u);
         }
     }
 
@@ -371,7 +371,7 @@ static inline ResultUtf16OwnedStr utf8_to_utf16(Allocator *a, ConstStr s)
         ++len;
 
     return utf8_buff_to_utf16(a, (ConstBuff){
-        .bytes = s,
+        .bytes = (i8*)s,
         .size = len,
     });
 }

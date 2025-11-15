@@ -299,7 +299,7 @@ static void _xstd_file_tests(Allocator alloc)
 
         io_println("file_open");
 
-        ResultFile reopenRes = file_open(filePath, FileOpenModes.READ);
+        ResultFile reopenRes = file_open(filePath, EnumFileOpenMode.READ);
         assert_ok(reopenRes.error, "file_open reopenRes.error.code != ERR_OK");
         File readFile = reopenRes.value;
 
@@ -320,7 +320,7 @@ static void _xstd_file_tests(Allocator alloc)
 
         file_close(&readFile);
 
-        ResultFile openNullPath = file_open(NULL, FileOpenModes.READ);
+        ResultFile openNullPath = file_open(NULL, EnumFileOpenMode.READ);
         assert_true(openNullPath.error.code == ERR_INVALID_PARAMETER, "file_open NULL path error.code != ERR_INVALID_PARAMETER");
     }
 }
@@ -1309,8 +1309,8 @@ static void _xstd_writer_tests(Allocator alloc)
 
     io_println("buffwriter_init");
     {
-        i8 storage[8] = {0};
-        Buffer buff = (Buffer){.bytes = storage, .size = sizeof(storage)};
+        char storage[8] = {0};
+        Buffer buff = (Buffer){.bytes = (i8*)storage, .size = sizeof(storage)};
 
         ResultWriter res = buffwriter_init(&alloc, &buff);
         assert_ok(res.error, "buffwriter_init res.error.code != ERR_OK");
@@ -1416,15 +1416,15 @@ static void _xstd_writer_tests(Allocator alloc)
 
     io_println("writer_write_bytes");
     {
-        i8 storage[6] = {0};
-        Buffer buff = (Buffer){.bytes = storage, .size = sizeof(storage)};
+        char storage[6] = {0};
+        Buffer buff = (Buffer){.bytes = (i8*)storage, .size = sizeof(storage)};
 
         ResultWriter res = buffwriter_init(&alloc, &buff);
         assert_ok(res.error, "writer_write_bytes res.error.code != ERR_OK");
 
         Writer writer = res.value;
         ConstBuff data = {
-            .bytes = "ABCD",
+            .bytes = (i8*)"ABCD",
             .size = 4,
         };
         Error err = writer_write_bytes(&writer, data);
@@ -1438,8 +1438,8 @@ static void _xstd_writer_tests(Allocator alloc)
 
     io_println("writer_write_str");
     {
-        i8 storage[12] = {0};
-        Buffer buff = (Buffer){.bytes = storage, .size = sizeof(storage)};
+        char storage[12] = {0};
+        Buffer buff = (Buffer){.bytes = (i8*)storage, .size = sizeof(storage)};
         
         ResultWriter res = buffwriter_init(&alloc, &buff);
         assert_ok(res.error, "writer_write_str res.error.code != ERR_OK");
@@ -1559,9 +1559,9 @@ static void _xstd_utf8_tests(Allocator alloc)
     }
     io_println("utf8_iter_buff");
     {
-        const i8 *emoji = "😀";
+        const char *emoji = "😀";
         ConstBuff buff = {
-            .bytes = emoji,
+            .bytes = (i8*)emoji,
             .size = (u64)(sizeof("😀") - 1),
         };
         ResultUtf8Iter buffRes = utf8_iter_buff(buff);
@@ -1615,7 +1615,7 @@ static void _xstd_utf8_tests(Allocator alloc)
     }
     io_println("utf8_iter_next_invalid");
     {
-        i8 invalidSeq[] = {(i8)0xE2, 0x28, (i8)0xA1, 0};
+        char invalidSeq[] = {(char)0xE2, 0x28, (char)0xA1, 0};
         ResultUtf8Iter iterRes = utf8_iter_str(invalidSeq);
         assert_ok(iterRes.error, "utf8_iter_next_invalid iterRes != ERR_OK");
 
@@ -1625,9 +1625,9 @@ static void _xstd_utf8_tests(Allocator alloc)
     }
     io_println("utf8_iter_next_truncated");
     {
-        const i8 *euro = "€";
+        const char *euro = "€";
         ConstBuff truncatedBuff = {
-            .bytes = euro,
+            .bytes = (i8*)euro,
             .size = 2,
         };
         ResultUtf8Iter iterRes = utf8_iter_buff(truncatedBuff);
@@ -1944,13 +1944,13 @@ static void _xstd_math_tests(Allocator alloc)
         i8 addResI1 = math_i8_add(-2, 3);
         assert_true(addResI1 == 1, "math_i8_add addResI1 != 1");
 
-        u8 addRes2 = math_u8_add(MaxVals.U8, 1);
+        u8 addRes2 = math_u8_add(EnumMaxVal.U8, 1);
         assert_true(addRes2 == 0, "math_u8_add addRes2 != 0");
 
         u16 addRes3 = math_u16_add(0, 1);
         assert_true(addRes3 == 1, "math_u16_add addRes3 != 1");
 
-        u16 addRes4 = math_u16_add(MaxVals.U16, 1);
+        u16 addRes4 = math_u16_add(EnumMaxVal.U16, 1);
         assert_true(addRes4 == 0, "math_u16_add addRes4 != 0");
 
         i16 addResI16 = math_i16_add(-10, 5);
@@ -1959,7 +1959,7 @@ static void _xstd_math_tests(Allocator alloc)
         u32 addRes5 = math_u32_add(0, 1);
         assert_true(addRes5 == 1, "math_u32_add addRes5 != 1");
 
-        u32 addRes6 = math_u32_add(MaxVals.U32, 1);
+        u32 addRes6 = math_u32_add(EnumMaxVal.U32, 1);
         assert_true(addRes6 == 0, "math_u32_add addRes6 != 0");
 
         i32 addResI32 = math_i32_add(-3, -7);
@@ -1968,7 +1968,7 @@ static void _xstd_math_tests(Allocator alloc)
         u64 addRes7 = math_u64_add(0, 1);
         assert_true(addRes7 == 1, "math_u64_add addRes7 != 1");
 
-        u64 addRes8 = math_u64_add(MaxVals.U64, 1);
+        u64 addRes8 = math_u64_add(EnumMaxVal.U64, 1);
         assert_true(addRes8 == 0, "math_u64_add addRes8 != 0");
 
         i64 addResI64 = math_i64_add(-5, 10);
@@ -1987,45 +1987,45 @@ static void _xstd_math_tests(Allocator alloc)
         assert_ok(addResNo1.error, "math_u8_add_nooverflow addResNo1 != OK");
         assert_true(addResNo1.value == 1, "math_u8_add_nooverflow addResNo1 != 1");
 
-        ResultU8 addResNo2 = math_u8_add_nooverflow(MaxVals.U8, 1);
+        ResultU8 addResNo2 = math_u8_add_nooverflow(EnumMaxVal.U8, 1);
         assert_true(addResNo2.error.code != ERR_OK, "math_u8_add_nooverflow addResNo2 == OK");
 
         ResultI8 addResNo3 = math_i8_add_nooverflow(-5, 3);
         assert_ok(addResNo3.error, "math_i8_add_nooverflow addResNo3 != OK");
         assert_true(addResNo3.value == -2, "math_i8_add_nooverflow addResNo3 != -2");
 
-        ResultI8 addResNo4 = math_i8_add_nooverflow(MaxVals.I8_MAX, 1);
+        ResultI8 addResNo4 = math_i8_add_nooverflow(EnumMaxVal.I8_MAX, 1);
         assert_true(addResNo4.error.code != ERR_OK, "math_i8_add_nooverflow addResNo4 == OK");
 
         ResultU16 addResNo5 = math_u16_add_nooverflow(0, 1);
         assert_ok(addResNo5.error, "math_u16_add_nooverflow addResNo5 != OK");
         assert_true(addResNo5.value == 1, "math_u16_add_nooverflow addResNo5 != 1");
 
-        ResultU16 addResNo6 = math_u16_add_nooverflow(MaxVals.U16, 1);
+        ResultU16 addResNo6 = math_u16_add_nooverflow(EnumMaxVal.U16, 1);
         assert_true(addResNo6.error.code != ERR_OK, "math_u16_add_nooverflow addResNo6 == OK");
 
         ResultI32 addResNo7 = math_i32_add_nooverflow(-100, 50);
         assert_ok(addResNo7.error, "math_i32_add_nooverflow addResNo7 != OK");
         assert_true(addResNo7.value == -50, "math_i32_add_nooverflow addResNo7 != -50");
 
-        ResultI32 addResNo8 = math_i32_add_nooverflow(MaxVals.I32_MAX, 1);
+        ResultI32 addResNo8 = math_i32_add_nooverflow(EnumMaxVal.I32_MAX, 1);
         assert_true(addResNo8.error.code != ERR_OK, "math_i32_add_nooverflow addResNo8 == OK");
 
         ResultU64 addResNo9 = math_u64_add_nooverflow(0, 1);
         assert_ok(addResNo9.error, "math_u64_add_nooverflow addResNo9 != OK");
         assert_true(addResNo9.value == 1, "math_u64_add_nooverflow addResNo9 != 1");
 
-        ResultU64 addResNo10 = math_u64_add_nooverflow(MaxVals.U64, 1);
+        ResultU64 addResNo10 = math_u64_add_nooverflow(EnumMaxVal.U64, 1);
         assert_true(addResNo10.error.code != ERR_OK, "math_u64_add_nooverflow addResNo10 == OK");
 
         ResultI64 addResNo11 = math_i64_add_nooverflow(-5, 10);
         assert_ok(addResNo11.error, "math_i64_add_nooverflow addResNo11 != OK");
         assert_true(addResNo11.value == 5, "math_i64_add_nooverflow addResNo11 != 5");
 
-        ResultI64 addResNo12 = math_i64_add_nooverflow(MaxVals.I64_MAX, 1);
+        ResultI64 addResNo12 = math_i64_add_nooverflow(EnumMaxVal.I64_MAX, 1);
         assert_true(addResNo12.error.code != ERR_OK, "math_i64_add_nooverflow addResNo12 == OK");
 
-        ResultI64 addResNo13 = math_i64_add_nooverflow(MaxVals.I64_MIN, -1);
+        ResultI64 addResNo13 = math_i64_add_nooverflow(EnumMaxVal.I64_MIN, -1);
         assert_true(addResNo13.error.code != ERR_OK, "math_i64_add_nooverflow addResNo13 == OK");
     }
 
@@ -2035,7 +2035,7 @@ static void _xstd_math_tests(Allocator alloc)
         assert_true(subRes1 == 3, "math_u8_substract subRes1 != 3");
 
         u8 subResWrap = math_u8_substract(0, 1);
-        assert_true(subResWrap == MaxVals.U8, "math_u8_substract subResWrap != MaxVals.U8");
+        assert_true(subResWrap == EnumMaxVal.U8, "math_u8_substract subResWrap != EnumMaxVal.U8");
 
         i16 subResI = math_i16_substract(-5, 10);
         assert_true(subResI == -15, "math_i16_substract subResI != -15");
@@ -2060,7 +2060,7 @@ static void _xstd_math_tests(Allocator alloc)
         assert_ok(subNo3.error, "math_i16_substract_nooverflow subNo3 != OK");
         assert_true(subNo3.value == 15, "math_i16_substract_nooverflow subNo3 != 15");
 
-        ResultI16 subNo4 = math_i16_substract_nooverflow(MaxVals.I16_MIN, 1);
+        ResultI16 subNo4 = math_i16_substract_nooverflow(EnumMaxVal.I16_MIN, 1);
         assert_true(subNo4.error.code != ERR_OK, "math_i16_substract_nooverflow subNo4 == OK");
 
         ResultU64 subNo5 = math_u64_substract_nooverflow(10, 1);
@@ -2074,7 +2074,7 @@ static void _xstd_math_tests(Allocator alloc)
         assert_ok(subNo7.error, "math_i64_substract_nooverflow subNo7 != OK");
         assert_true(subNo7.value == 30, "math_i64_substract_nooverflow subNo7 != 30");
 
-        ResultI64 subNo8 = math_i64_substract_nooverflow(MaxVals.I64_MIN, 1);
+        ResultI64 subNo8 = math_i64_substract_nooverflow(EnumMaxVal.I64_MIN, 1);
         assert_true(subNo8.error.code != ERR_OK, "math_i64_substract_nooverflow subNo8 == OK");
     }
 
@@ -2099,24 +2099,24 @@ static void _xstd_math_tests(Allocator alloc)
         assert_ok(mulNo1.error, "math_u16_multiply_nooverflow mulNo1 != OK");
         assert_true(mulNo1.value == 20, "math_u16_multiply_nooverflow mulNo1 != 20");
 
-        ResultU16 mulNo2 = math_u16_multiply_nooverflow(MaxVals.U16, 2);
+        ResultU16 mulNo2 = math_u16_multiply_nooverflow(EnumMaxVal.U16, 2);
         assert_true(mulNo2.error.code != ERR_OK, "math_u16_multiply_nooverflow mulNo2 == OK");
 
         ResultI32 mulNo3 = math_i32_multiply_nooverflow(-10, -4);
         assert_ok(mulNo3.error, "math_i32_multiply_nooverflow mulNo3 != OK");
         assert_true(mulNo3.value == 40, "math_i32_multiply_nooverflow mulNo3 != 40");
 
-        ResultI32 mulNo4 = math_i32_multiply_nooverflow(MaxVals.I32_MAX, 2);
+        ResultI32 mulNo4 = math_i32_multiply_nooverflow(EnumMaxVal.I32_MAX, 2);
         assert_true(mulNo4.error.code != ERR_OK, "math_i32_multiply_nooverflow mulNo4 == OK");
 
-        ResultU64 mulNo5 = math_u64_multiply_nooverflow(2, MaxVals.U64);
+        ResultU64 mulNo5 = math_u64_multiply_nooverflow(2, EnumMaxVal.U64);
         assert_true(mulNo5.error.code != ERR_OK, "math_u64_multiply_nooverflow mulNo5 == OK");
 
         ResultI64 mulNo6 = math_i64_multiply_nooverflow(-12, 3);
         assert_ok(mulNo6.error, "math_i64_multiply_nooverflow mulNo6 != OK");
         assert_true(mulNo6.value == -36, "math_i64_multiply_nooverflow mulNo6 != -36");
 
-        ResultI64 mulNo7 = math_i64_multiply_nooverflow(MaxVals.I64_MIN, -1);
+        ResultI64 mulNo7 = math_i64_multiply_nooverflow(EnumMaxVal.I64_MIN, -1);
         assert_true(mulNo7.error.code != ERR_OK, "math_i64_multiply_nooverflow mulNo7 == OK");
     }
 
@@ -2168,7 +2168,7 @@ static void _xstd_math_tests(Allocator alloc)
         assert_ok(divNo3.error, "math_i32_divide_nooverflow divNo3 != OK");
         assert_true(divNo3.value == -4, "math_i32_divide_nooverflow divNo3 != -4");
 
-        ResultI32 divNo4 = math_i32_divide_nooverflow(MaxVals.I32_MIN, -1);
+        ResultI32 divNo4 = math_i32_divide_nooverflow(EnumMaxVal.I32_MIN, -1);
         assert_true(divNo4.error.code != ERR_OK, "math_i32_divide_nooverflow divNo4 == OK");
 
         ResultU64 divNo5 = math_u64_divide_nooverflow(16, 4);
@@ -2182,7 +2182,7 @@ static void _xstd_math_tests(Allocator alloc)
         assert_ok(divNo7.error, "math_i64_divide_nooverflow divNo7 != OK");
         assert_true(divNo7.value == -8, "math_i64_divide_nooverflow divNo7 != -8");
 
-        ResultI64 divNo8 = math_i64_divide_nooverflow(MaxVals.I64_MIN, -1);
+        ResultI64 divNo8 = math_i64_divide_nooverflow(EnumMaxVal.I64_MIN, -1);
         assert_true(divNo8.error.code != ERR_OK, "math_i64_divide_nooverflow divNo8 == OK");
     }
 

@@ -48,7 +48,7 @@ typedef struct _debug_allocator_state
 
 static inline u32 _debug_allocator_hash_ptr(void *ptr)
 {
-#if _XSTD_ARCH_64BIT
+#if _X_ARCH_64BIT
     u64 key = (u64)(unsigned long long)ptr;
 #else
     u64 key = (u64)(unsigned long)ptr;

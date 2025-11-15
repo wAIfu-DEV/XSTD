@@ -20,13 +20,12 @@ typedef struct _buffalloc_state
     _BufferBlockHeader *head;
 } BufferAllocatorState;
 
-#define _X_BUFFALLOC_HEADER_SIZE ((u64)_buffalloc_offset_to_aligned(sizeof(BufferAllocatorState)))
 #define _X_BUFFALLOC_BLOCK_HEADER_SIZE ((u64)_buffalloc_offset_to_aligned(sizeof(_BufferBlockHeader)))
-#define _X_BUFFALLOC_DEFAULT_ALIGN 16
 
 static inline u64 _buffalloc_offset_to_aligned(u64 offset)
 {
-    return (offset + (u64)_X_BUFFALLOC_DEFAULT_ALIGN - 1) & ~((u64)_X_BUFFALLOC_DEFAULT_ALIGN - 1);
+    const u64 defaultAlign = 16;
+    return (offset + defaultAlign - 1) & ~(defaultAlign - 1);
 }
 
 static inline ibool _buffalloc_offset_invalid(u64 totalCapacity, u64 alignedOffset, u64 allocSize)
@@ -144,7 +143,9 @@ static void *_buffalloc_realloc(Allocator *a, void *ptr, u64 newSize)
  */
 static inline ResultAllocator buffer_allocator(Buffer buffer)
 {
-    if (!buffer.bytes || buffer.size < _X_BUFFALLOC_HEADER_SIZE + _X_BUFFALLOC_BLOCK_HEADER_SIZE)
+    const u64 alignedHeaderSize = (u64)_buffalloc_offset_to_aligned(sizeof(BufferAllocatorState));
+
+    if (!buffer.bytes || buffer.size < alignedHeaderSize + _X_BUFFALLOC_BLOCK_HEADER_SIZE)
         return (ResultAllocator){
             .error = X_ERR_EXT(
                 "alloc_buffer", "buffer_allocator",

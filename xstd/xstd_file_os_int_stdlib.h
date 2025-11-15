@@ -118,6 +118,22 @@ static int _fosint_cstd_feof(void *stream)
     return feof((FILE *)stream);
 }
 
+static u64 _fosint_cstd_fsize(void *stream)
+{
+    // TODO: this will break with large files, prefer posix version
+
+    const int seekEnd = 2;
+    const int seekSet = 0;
+
+    long ogTell = ftell((FILE *)stream);
+
+    fseek((FILE*)stream, 0, seekEnd);
+    long fileSize = ftell((FILE*)stream);
+
+    fseek((FILE*)stream, ogTell, seekSet);
+    return (u64)fileSize;
+}
+
 static const _FileOsInterface _file_os_int_stdlib = {
     ._internalState = NULL,
 
@@ -135,4 +151,5 @@ static const _FileOsInterface _file_os_int_stdlib = {
     .write = _fosint_cstd_fwrite,
     .flush = _fosint_cstd_fflush,
     .eof = _fosint_cstd_feof,
+    .size = _fosint_cstd_fsize,
 };

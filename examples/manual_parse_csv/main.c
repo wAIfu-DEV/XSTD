@@ -5,7 +5,7 @@ int main(void)
     io_println("opening file");
 
     // OPEN FILE ===============================================================
-    ResultFile resFile = file_open("sample.csv", FileOpenModes.READ);
+    ResultFile resFile = file_open("sample.csv", EnumFileOpenMode.READ);
     assert_ok(resFile.error, "Failed to open sample file");
 
     File file = resFile.value;
@@ -67,7 +67,7 @@ int main(void)
         u64 linesNb = list_size(&lines);
         for (u64 i = 1; i < linesNb; ++i)
         {
-            // If list items are pointers (here String which is an alias of i8*)
+            // If list items are pointers (here String which is an alias of *)
             // list_get_as_ptr allows direct retrieval of the item as a pointer
             String line = list_get_as_ptr(&lines, i);
 

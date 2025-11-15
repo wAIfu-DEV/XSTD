@@ -10,15 +10,8 @@
     #include "xstd_proc_os_int_stdlib.h"
 #endif
 
-// DO NOT REMOVE
-// Prevents compiler errors on GCC since default_allocator() may not be used
-// at all in a program.
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-function"
-
 /**
- * @brief Default file os interface, interface will be switched at compile
+ * @brief Default process os interface, interface will be switched at compile
  * time to match the compilation target.
  *
  * This function is meant to be used by XSTD.
@@ -30,6 +23,3 @@ static inline const _ProcOsInterface* _default_proc_os_int(void) {
         return &_proc_os_int_stdlib;
     #endif
 }
-
-// DO NOT REMOVE
-#pragma GCC diagnostic pop

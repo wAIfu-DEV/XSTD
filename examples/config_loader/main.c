@@ -143,7 +143,7 @@ int main(void)
     assert_ok(scratchRes.error, "[config] failed to init scratch arena.");
     Allocator scratch = scratchRes.value;
 
-    ResultFile fileRes = file_open("config.ini", FileOpenModes.READ);
+    ResultFile fileRes = file_open("config.ini", EnumFileOpenMode.READ);
     assert_ok(fileRes.error, "[config] failed to open config.ini");
     File cfgFile = fileRes.value;
 

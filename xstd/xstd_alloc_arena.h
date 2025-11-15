@@ -4,8 +4,6 @@
 #include "xstd_buffer.h"
 #include "xstd_alloc.h"
 
-#define _X_ARENA_ALLOC_DEFAULT_ALIGN 16
-
 // ArenaAllocator State
 typedef struct _arena_allocator_state
 {
@@ -18,7 +16,8 @@ typedef struct _arena_allocator_state
 
 static inline u64 _arena_offset_to_aligned(u64 offset)
 {
-    return (offset + _X_ARENA_ALLOC_DEFAULT_ALIGN - 1) & ~(_X_ARENA_ALLOC_DEFAULT_ALIGN - 1);
+    const u64 defaultAlign = 16;
+    return (offset + defaultAlign - 1) & ~(defaultAlign - 1);
 }
 
 static inline ibool _arena_offset_invalid(u64 totalCapacity, u64 alignedOffset, u64 allocSize)
