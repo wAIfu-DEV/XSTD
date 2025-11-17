@@ -13,11 +13,7 @@ typedef struct _list
     Allocator _allocator;
 } List;
 
-typedef struct _result_list
-{
-    List value;
-    Error error;
-} ResultList;
+result_define(List, List);
 
 #define _X_LIST_INIT_SIZE 8
 
@@ -34,22 +30,16 @@ typedef struct _result_list
  * @param initialAllocSize
  * @return ResultList
  */
-static inline ResultList list_init(Allocator *alloc, u64 itemByteSize, u64 initialAllocSize)
+static inline result_type(List) list_init(Allocator *alloc, u64 itemByteSize, u64 initialAllocSize)
 {
     if (!alloc)
-        return (ResultList){
-            .value = {0},
-            .error = X_ERR_EXT("list", "list_init", ERR_INVALID_PARAMETER, "null allocator"),
-        };
+        return result_err(List, X_ERR_EXT("list", "list_init", ERR_INVALID_PARAMETER, "null allocator"));
 
     if (initialAllocSize < _X_LIST_INIT_SIZE)
         initialAllocSize = _X_LIST_INIT_SIZE;
 
     if (itemByteSize == 0)
-        return (ResultList){
-            .value = {0},
-            .error = X_ERR_EXT("list", "list_init", ERR_INVALID_PARAMETER, "itemByteSize is zero"),
-        };
+        return result_err(List, X_ERR_EXT("list", "list_init", ERR_INVALID_PARAMETER, "itemByteSize is zero"));
 
     List l = {
         ._data = NULL,
@@ -62,15 +52,9 @@ static inline ResultList list_init(Allocator *alloc, u64 itemByteSize, u64 initi
     l._data = alloc->alloc(alloc, l._allocCnt * l._typeSize);
 
     if (l._data == NULL)
-        return (ResultList){
-            .value = {0},
-            .error = X_ERR_EXT("list", "list_init", ERR_OUT_OF_MEMORY, "alloc failure"),
-        };
+        return result_err(List, X_ERR_EXT("list", "list_init", ERR_OUT_OF_MEMORY, "alloc failure"));
 
-    return (ResultList){
-        .value = l,
-        .error = X_ERR_OK,
-    };
+    return result_ok(List, l);
 }
 
 /**

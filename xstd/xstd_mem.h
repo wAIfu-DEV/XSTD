@@ -4,6 +4,10 @@
 
 static inline void mem_copy(void *dst, const void *src, u64 size)
 {
+    // Allows compiler to choose its own implementation based on context
+    __builtin_memcpy(dst, src, size);
+
+    /*
     if (!dst || !src || size == 0)
         return;
 
@@ -38,5 +42,5 @@ static inline void mem_copy(void *dst, const void *src, u64 size)
     {
         *d++ = *s++;
         --size;
-    }
+    }*/
 }

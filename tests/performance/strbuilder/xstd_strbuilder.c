@@ -7,9 +7,9 @@
 
 static Error build_once(Allocator *alloc)
 {
-    ResultWriter writerRes = growstrwriter_init(*alloc, INITIAL_CAPACITY);
-    if (writerRes.error.code)
-        return writerRes.error;
+    ResWriter writerRes = growstrwriter_init(*alloc, INITIAL_CAPACITY);
+    if (writerRes.isErr)
+        return writerRes.err;
 
     Writer writer = writerRes.value;
     Error err = X_ERR_OK;

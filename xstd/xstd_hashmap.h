@@ -49,12 +49,7 @@ typedef struct _hashmap
     Allocator _allocator;
 } HashMap;
 
-// If error != ERR_OK, value is invalid.
-typedef struct _result_hashmap
-{
-    HashMap value;
-    Error error;
-} ResultHashMap;
+result_define(HashMap, HashMap);
 
 #define _X_HASHMAP_INITIAL_SIZE 32
 #define _X_HASHMAP_LOAD_FACTOR_NUM 3
@@ -84,13 +79,10 @@ typedef struct _result_hashmap
  * @param initialAllocCount
  * @return ResultHashMap
  */
-static inline ResultHashMap hashmap_init(Allocator *alloc, u64 valueByteSize, u64 initialAllocCount)
+static inline result_type(HashMap) hashmap_init(Allocator *alloc, u64 valueByteSize, u64 initialAllocCount)
 {
     if (!alloc || valueByteSize == 0)
-        return (ResultHashMap){
-            .value = {0},
-            .error = X_ERR_EXT("hashmap", "hashmap_init", ERR_INVALID_PARAMETER, "null or invalid arg"),
-        };
+        return result_err(HashMap, X_ERR_EXT("hashmap", "hashmap_init", ERR_INVALID_PARAMETER, "null or invalid arg"));
 
     if (initialAllocCount < _X_HASHMAP_INITIAL_SIZE)
         initialAllocCount = _X_HASHMAP_INITIAL_SIZE;
@@ -99,10 +91,7 @@ static inline ResultHashMap hashmap_init(Allocator *alloc, u64 valueByteSize, u6
     map._buckets = (_HashMapEntry **)alloc->alloc(alloc, sizeof(_HashMapEntry *) * initialAllocCount);
 
     if (!map._buckets)
-        return (ResultHashMap){
-            .value = {0},
-            .error = X_ERR_EXT("hashmap", "hashmap_init", ERR_OUT_OF_MEMORY, "alloc failure"),
-        };
+        return result_err(HashMap, X_ERR_EXT("hashmap", "hashmap_init", ERR_OUT_OF_MEMORY, "alloc failure"));
 
     for (u64 i = 0; i < initialAllocCount; ++i)
         map._buckets[i] = 0;
@@ -112,10 +101,7 @@ static inline ResultHashMap hashmap_init(Allocator *alloc, u64 valueByteSize, u6
     map._valueSize = valueByteSize;
     map._allocator = *alloc;
 
-    return (ResultHashMap){
-        .value = map,
-        .error = X_ERR_OK,
-    };
+    return result_ok(HashMap, map);
 }
 
 /**

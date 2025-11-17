@@ -53,7 +53,7 @@ static inline Bool buffer_equals(ConstBuff a, ConstBuff b)
  * Memory is owned by the caller and should be freed using the same allocator.
  *
  * ```c
- * ResultOwnedBuff myBuff = buffer_alloc(default_allocator(), 3, 'w');
+ * ResOwnedBuff myBuff = buffer_alloc(default_allocator(), 3, 'w');
  * if (myBuff.error.code) // Error!
  * // myBuff.value.bytes == ['w', 'w', 'w']
  * // myBuff.value.size == 3
@@ -61,17 +61,14 @@ static inline Bool buffer_equals(ConstBuff a, ConstBuff b)
  * @param alloc
  * @param size
  * @param fill
- * @return ResultOwnedBuff
+ * @return ResOwnedBuff
  */
-static inline ResultOwnedBuff buffer_alloc(Allocator *a, u64 size, i8 fill)
+static inline result_type(OwnedBuff) buffer_alloc(Allocator *a, u64 size, i8 fill)
 {
     i8 *bytes = (i8*)a->alloc(a, size);
 
     if (!bytes)
-        return (ResultOwnedBuff){
-            .value = (HeapBuff){.bytes = NULL, .size = 0},
-            .error = X_ERR_EXT("buffer", "buffer_alloc", ERR_OUT_OF_MEMORY, "alloc failure"),
-        };
+        return result_err(OwnedBuff, X_ERR_EXT("buffer", "buffer_alloc", ERR_OUT_OF_MEMORY, "alloc failure"));
 
     u64 i = size;
 
@@ -80,13 +77,11 @@ static inline ResultOwnedBuff buffer_alloc(Allocator *a, u64 size, i8 fill)
         bytes[i] = fill;
     }
 
-    return (ResultOwnedBuff){
-        .value = (HeapBuff){
-            .bytes = bytes,
-            .size = size,
-        },
-        .error = X_ERR_OK,
+    HeapBuff b = {
+        .bytes = bytes,
+        .size = size,
     };
+    return result_ok(OwnedBuff, b);
 }
 
 /**
@@ -96,32 +91,26 @@ static inline ResultOwnedBuff buffer_alloc(Allocator *a, u64 size, i8 fill)
  * Memory is owned by the caller and should be freed using the same allocator.
  *
  * ```c
- * ResultOwnedBuff myBuff = buffer_alloc(default_allocator(), 3);
+ * ResOwnedBuff myBuff = buffer_alloc(default_allocator(), 3);
  * if (myBuff.error.code) // Error!
  * // myBuff.value.bytes == [undefined, undefined, undefined]
  * // myBuff.value.size == 3
  * ```
  * @param alloc
  * @param size
- * @return ResultOwnedBuff
+ * @return ResOwnedBuff
  */
-static inline ResultOwnedBuff buffer_alloc_undefined(Allocator *a, u64 size)
+static inline result_type(OwnedBuff) buffer_alloc_undefined(Allocator *a, u64 size)
 {
     i8 *bytes = (i8*)a->alloc(a, size);
-
     if (!bytes)
-        return (ResultOwnedBuff){
-            .value = (HeapBuff){.bytes = NULL, .size = 0},
-            .error = X_ERR_EXT("buffer", "buffer_alloc_undefined", ERR_OUT_OF_MEMORY, "alloc failure")
-        };
+        return result_err(OwnedBuff, X_ERR_EXT("buffer", "buffer_alloc_undefined", ERR_OUT_OF_MEMORY, "alloc failure"));
 
-    return (ResultOwnedBuff){
-        .value = (HeapBuff){
-            .bytes = bytes,
-            .size = size,
-        },
-        .error = X_ERR_OK,
+    HeapBuff b = {
+        .bytes = bytes,
+        .size = size,
     };
+    return result_ok(OwnedBuff, b);
 }
 
 /**
@@ -282,7 +271,7 @@ static inline void buffer_copy_n_unsafe(ConstBuff source, Buffer destination, u6
  * ConstStr source = "Example string";
  * ConstBuff srcBuff = (ConstBuff){ .bytes = source, .size = string_size(source) + 1 };
  *
- * ResultOwnedBuff newBuff = buff_dupe(default_allocator(), srcBuff);
+ * ResOwnedBuff newBuff = buff_dupe(default_allocator(), srcBuff);
  * if (newBuff.error.code) // Error!
  * // newBuff.value.bytes == "Example string"
  * // newBuff.value.size == sizeof("Example string")
@@ -291,35 +280,23 @@ static inline void buffer_copy_n_unsafe(ConstBuff source, Buffer destination, u6
  * @param source
  * @return String
  */
-static inline ResultOwnedBuff buffer_dupe(Allocator *alloc, ConstBuff source)
+static inline result_type(OwnedBuff) buffer_dupe(Allocator *alloc, ConstBuff source)
 {
-    if (source.size == 0)
-        return (ResultOwnedBuff){
-            .value = {.bytes = NULL, .size = 0},
-            .error = X_ERR_OK,
-        };
-
-    if (!source.bytes)
-        return (ResultOwnedBuff){
-            .value = {.bytes = NULL, .size = 0},
-            .error = X_ERR_EXT("buffer", "buffer_dupe", ERR_INVALID_PARAMETER, "null src"),
-        };
+    if (source.size == 0 || !source.bytes)
+    {
+        HeapBuff nullBuff = {.bytes = NULL, .size = 0};
+        return result_ok(OwnedBuff, nullBuff);
+    }
 
     i8 *newBuff = (i8*)alloc->alloc(alloc, source.size);
 
     if (!newBuff)
-        return (ResultOwnedBuff){
-            .value = {.bytes = NULL, .size = 0},
-            .error = X_ERR_EXT("buffer", "buffer_dupe", ERR_OUT_OF_MEMORY, "alloc failure"),
-        };
+        return result_err(OwnedBuff, X_ERR_EXT("buffer", "buffer_dupe", ERR_OUT_OF_MEMORY, "alloc failure"));
 
     HeapBuff buff = (HeapBuff){.bytes = newBuff, .size = source.size};
     buffer_copy_unsafe(source, buff);
 
-    return (ResultOwnedBuff){
-        .value = buff,
-        .error = X_ERR_OK,
-    };
+    return result_ok(OwnedBuff, buff);
 }
 
 /**

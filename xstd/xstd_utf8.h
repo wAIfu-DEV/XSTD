@@ -11,11 +11,7 @@ typedef struct _utf8_iter
     ConstStr end; // One past the last byte in the range, or NULL for nul-terminated sources
 } Utf8Iter;
 
-typedef struct
-{
-    Utf8Iter value;
-    Error error;
-} ResultUtf8Iter;
+result_define(Utf8Iter, Utf8Iter);
 
 typedef struct _utf8_codepoint
 {
@@ -23,44 +19,30 @@ typedef struct _utf8_codepoint
     u8 width;      // Number of bytes consumed from the original string
 } Utf8Codepoint;
 
-typedef struct _result_utf8_codepoint
-{
-    Utf8Codepoint value;
-    Error error;
-} ResultUtf8Codepoint;
+result_define(Utf8Codepoint, Utf8Cp);
 
-static inline ResultUtf8Iter utf8_iter_buff(ConstBuff buff)
+static inline result_type(Utf8Iter) utf8_iter_buff(ConstBuff buff)
 {
     if (!buff.bytes)
-        return (ResultUtf8Iter){
-            .error = X_ERR_EXT("utf8", "utf8_iter_buff",
-                ERR_INVALID_PARAMETER, "null buffer"),
-        };
-
-    return (ResultUtf8Iter){
-        .value = (Utf8Iter){
-            .ptr = (char*)buff.bytes,
-            .end = (char*)buff.bytes + buff.size,
-        },
-        .error = X_ERR_OK,
+        return result_err(Utf8Iter, X_ERR_EXT("utf8", "utf8_iter_buff", ERR_INVALID_PARAMETER, "null buffer"));
+    
+    Utf8Iter it = {
+        .ptr = (char*)buff.bytes,
+        .end = (char*)buff.bytes + buff.size,
     };
+    return result_ok(Utf8Iter, it);
 }
 
-static inline ResultUtf8Iter utf8_iter_str(ConstStr s)
+static inline result_type(Utf8Iter) utf8_iter_str(ConstStr s)
 {
     if (!s)
-        return (ResultUtf8Iter){
-            .error = X_ERR_EXT("utf8", "utf8_iter_buff",
-                ERR_INVALID_PARAMETER, "null string"),
-        };
+        return result_err(Utf8Iter, X_ERR_EXT("utf8", "utf8_iter_buff", ERR_INVALID_PARAMETER, "null string"));
 
-    return (ResultUtf8Iter){
-        .value = (Utf8Iter){
-            .ptr = s,
-            .end = NULL,
-        },
-        .error = X_ERR_OK,
+    Utf8Iter it = {
+        .ptr = s,
+        .end = NULL,
     };
+    return result_ok(Utf8Iter, it);
 }
 
 static inline Bool utf8_iter_has_next(const Utf8Iter *it)
@@ -74,40 +56,19 @@ static inline Bool utf8_iter_has_next(const Utf8Iter *it)
     return *it->ptr != '\0';
 }
 
-static inline ResultUtf8Codepoint _utf8_decode(ConstStr ptr, ConstStr end)
+static inline result_type(Utf8Cp) _utf8_decode(ConstStr ptr, ConstStr end)
 {
     if (!ptr)
-        return (ResultUtf8Codepoint){
-            .value = {
-                .codepoint = 0,
-                .width = 0,
-            },
-            .error = X_ERR_EXT("utf8", "_utf8_decode",
-                ERR_INVALID_PARAMETER, "null iterator pointer"),
-        };
+        return result_err(Utf8Cp, X_ERR_EXT("utf8", "_utf8_decode", ERR_INVALID_PARAMETER, "null iterator pointer"));
 
     if (end)
     {
         if (ptr >= end)
-            return (ResultUtf8Codepoint){
-                .value = {
-                    .codepoint = 0,
-                    .width = 0,
-                },
-                .error = X_ERR_EXT("utf8", "_utf8_decode",
-                    ERR_RANGE_ERROR, "iterator at end"),
-            };
+            return result_err(Utf8Cp, X_ERR_EXT("utf8", "_utf8_decode", ERR_RANGE_ERROR, "iterator at end"));
     }
     else if (*ptr == '\0')
     {
-        return (ResultUtf8Codepoint){
-            .value = {
-                .codepoint = 0,
-                .width = 0,
-            },
-            .error = X_ERR_EXT("utf8", "_utf8_decode",
-                ERR_RANGE_ERROR, "iterator at end"),
-        };
+        return result_err(Utf8Cp, X_ERR_EXT("utf8", "_utf8_decode", ERR_RANGE_ERROR, "iterator at end"));
     }
 
     const u8 *bytes = (const u8 *)ptr;
@@ -138,14 +99,7 @@ static inline ResultUtf8Codepoint _utf8_decode(ConstStr ptr, ConstStr end)
     }
     else
     {
-        return (ResultUtf8Codepoint){
-            .value = {
-                .codepoint = 0,
-                .width = 0,
-            },
-            .error = X_ERR_EXT("utf8", "_utf8_decode",
-                ERR_UNEXPECTED_BYTE, "invalid utf8 lead byte"),
-        };
+        return result_err(Utf8Cp, X_ERR_EXT("utf8", "_utf8_decode", ERR_UNEXPECTED_BYTE, "invalid utf8 lead byte"));
     }
 
     if (width > 1)
@@ -153,28 +107,14 @@ static inline ResultUtf8Codepoint _utf8_decode(ConstStr ptr, ConstStr end)
         if (end)
         {
             if ((u64)(end - ptr) < width)
-                return (ResultUtf8Codepoint){
-                    .value = {
-                        .codepoint = 0,
-                        .width = 0,
-                    },
-                    .error = X_ERR_EXT("utf8", "_utf8_decode",
-                        ERR_RANGE_ERROR, "unterminated utf8 sequence"),
-                };
+                return result_err(Utf8Cp, X_ERR_EXT("utf8", "_utf8_decode", ERR_RANGE_ERROR, "unterminated utf8 sequence"));
         }
         else
         {
             for (u8 idx = 1; idx < width; ++idx)
             {
                 if ((u8)ptr[idx] == 0u)
-                    return (ResultUtf8Codepoint){
-                        .value = {
-                            .codepoint = 0,
-                            .width = 0,
-                        },
-                        .error = X_ERR_EXT("utf8", "_utf8_decode",
-                            ERR_RANGE_ERROR, "unterminated utf8 sequence"),
-                    };
+                    return result_err(Utf8Cp, X_ERR_EXT("utf8", "_utf8_decode", ERR_RANGE_ERROR, "unterminated utf8 sequence"));
             }
         }
     }
@@ -184,14 +124,7 @@ static inline ResultUtf8Codepoint _utf8_decode(ConstStr ptr, ConstStr end)
         const u8 cont = (u8)bytes[i];
         if ((cont & 0xC0u) != 0x80u)
         {
-            return (ResultUtf8Codepoint){
-                .value = {
-                    .codepoint = 0,
-                    .width = 0,
-                },
-                .error = X_ERR_EXT("utf8", "_utf8_decode",
-                    ERR_UNEXPECTED_BYTE, "invalid utf8 continuation"),
-            };
+            return result_err(Utf8Cp, X_ERR_EXT("utf8", "_utf8_decode", ERR_UNEXPECTED_BYTE, "invalid utf8 continuation"));
         }
         codepoint = (codepoint << 6) | (u32)(cont & 0x3Fu);
     }
@@ -202,105 +135,51 @@ static inline ResultUtf8Codepoint _utf8_decode(ConstStr ptr, ConstStr end)
         break;
     case 2:
         if (codepoint < 0x80u)
-            return (ResultUtf8Codepoint){
-                .value = {
-                    .codepoint = 0,
-                    .width = 0,
-                },
-                .error = X_ERR_EXT("utf8", "_utf8_decode",
-                    ERR_UNEXPECTED_BYTE, "overlong utf8 sequence"),
-            };
+            return result_err(Utf8Cp, X_ERR_EXT("utf8", "_utf8_decode", ERR_UNEXPECTED_BYTE, "overlong utf8 sequence"));
         break;
     case 3:
         if (codepoint < 0x800u)
-            return (ResultUtf8Codepoint){
-                .value = {
-                    .codepoint = 0,
-                    .width = 0,
-                },
-                .error = X_ERR_EXT("utf8", "_utf8_decode",
-                    ERR_UNEXPECTED_BYTE, "overlong utf8 sequence"),
-            };
+            return result_err(Utf8Cp, X_ERR_EXT("utf8", "_utf8_decode", ERR_UNEXPECTED_BYTE, "overlong utf8 sequence"));
+
         if (codepoint >= 0xD800u && codepoint <= 0xDFFFu)
-            return (ResultUtf8Codepoint){
-                .value = {
-                    .codepoint = 0,
-                    .width = 0,
-                },
-                .error = X_ERR_EXT("utf8", "_utf8_decode",
-                    ERR_RANGE_ERROR, "utf16 surrogate codepoint"),
-            };
+            return result_err(Utf8Cp, X_ERR_EXT("utf8", "_utf8_decode", ERR_RANGE_ERROR, "utf16 surrogate codepoint"));
+
         break;
     case 4:
         if (codepoint < 0x10000u)
-            return (ResultUtf8Codepoint){
-                .value = {
-                    .codepoint = 0,
-                    .width = 0,
-                },
-                .error = X_ERR_EXT("utf8", "_utf8_decode",
-                    ERR_UNEXPECTED_BYTE, "overlong utf8 sequence"),
-            };
+            return result_err(Utf8Cp, X_ERR_EXT("utf8", "_utf8_decode", ERR_UNEXPECTED_BYTE, "overlong utf8 sequence"));
+
         if (codepoint > 0x10FFFFu)
-            return (ResultUtf8Codepoint){
-                .value = {
-                    .codepoint = 0,
-                    .width = 0,
-                },
-                .error = X_ERR_EXT("utf8", "_utf8_decode",
-                    ERR_RANGE_ERROR, "codepoint out of range"),
-            };
+            return result_err(Utf8Cp, X_ERR_EXT("utf8", "_utf8_decode", ERR_RANGE_ERROR, "codepoint out of range"));
+
         break;
     default:
-        return (ResultUtf8Codepoint){
-            .value = {
-                .codepoint = 0,
-                .width = 0,
-            },
-            .error = X_ERR_EXT("utf8", "_utf8_decode",
-                ERR_PARSE_ERROR, "unsupported utf8 width"),
-        };
+        return result_err(Utf8Cp, X_ERR_EXT("utf8", "_utf8_decode", ERR_PARSE_ERROR, "unsupported utf8 width"));
     }
 
-    return (ResultUtf8Codepoint){
-        .value = {
-            .codepoint = codepoint,
-            .width = width,
-        },
-        .error = X_ERR_OK,
+    Utf8Codepoint cp = {
+        .codepoint = codepoint,
+        .width = width,
     };
+    return result_ok(Utf8Cp, cp);
 }
 
-static inline ResultUtf8Codepoint utf8_iter_peek(const Utf8Iter *it)
+static inline result_type(Utf8Cp) utf8_iter_peek(const Utf8Iter *it)
 {
     if (!it || !it->ptr)
-        return (ResultUtf8Codepoint){
-            .value = {
-                .codepoint = 0,
-                .width = 0,
-            },
-            .error = X_ERR_EXT("utf8", "utf8_iter_peek",
-                ERR_INVALID_PARAMETER, "null iterator"),
-        };
+        return result_err(Utf8Cp, X_ERR_EXT("utf8", "utf8_iter_peek", ERR_INVALID_PARAMETER, "null iterator"));
 
     return _utf8_decode(it->ptr, it->end);
 }
 
-static inline ResultUtf8Codepoint utf8_iter_next(Utf8Iter *it)
+static inline result_type(Utf8Cp) utf8_iter_next(Utf8Iter *it)
 {
     if (!it || !it->ptr)
-        return (ResultUtf8Codepoint){
-            .value = {
-                .codepoint = 0,
-                .width = 0,
-            },
-            .error = X_ERR_EXT("utf8", "utf8_iter_next",
-                ERR_INVALID_PARAMETER, "null iterator"),
-        };
+        return result_err(Utf8Cp, X_ERR_EXT("utf8", "utf8_iter_next", ERR_INVALID_PARAMETER, "null iterator"));
 
-    ResultUtf8Codepoint res = _utf8_decode(it->ptr, it->end);
+    result_type(Utf8Cp) res = _utf8_decode(it->ptr, it->end);
 
-    if (res.error.code == ERR_OK)
+    if (!res.isErr)
         it->ptr += res.value.width;
 
     return res;
@@ -329,37 +208,25 @@ static inline void utf8_iter_advance_bytes(Utf8Iter *it, u64 n)
     }
 }
 
-static inline ResultOwnedStr utf16_buff_to_utf8(Allocator *a, Utf16Buff buff)
+static inline result_type(OwnedStr) utf16_buff_to_utf8(Allocator *a, Utf16Buff buff)
 {
     if (!a)
-        return (ResultOwnedStr){
-            .value = NULL,
-            .error = X_ERR_EXT("utf8", "utf16_buff_to_utf8",
-                ERR_INVALID_PARAMETER, "null allocator"),
-        };
+        return result_err(OwnedStr, X_ERR_EXT("utf8", "utf16_buff_to_utf8",
+                ERR_INVALID_PARAMETER, "null allocator"));
 
     if (buff.size == 0)
     {
         HeapStr out = (HeapStr)a->alloc(a, 1);
         if (!out)
-            return (ResultOwnedStr){
-                .value = NULL,
-                .error = X_ERR_EXT("utf8", "utf16_buff_to_utf8",
-                    ERR_OUT_OF_MEMORY, "alloc failure"),
-            };
+            return result_err(OwnedStr, X_ERR_EXT("utf8", "utf16_buff_to_utf8",
+                    ERR_OUT_OF_MEMORY, "alloc failure"));
         out[0] = 0;
-        return (ResultOwnedStr){
-            .value = out,
-            .error = X_ERR_OK,
-        };
+        return result_ok(OwnedStr, out);
     }
 
     if (!buff.units)
-        return (ResultOwnedStr){
-            .value = NULL,
-            .error = X_ERR_EXT("utf8", "utf16_buff_to_utf8",
-                ERR_INVALID_PARAMETER, "null buffer"),
-        };
+        return result_err(OwnedStr, X_ERR_EXT("utf8", "utf16_buff_to_utf8",
+                ERR_INVALID_PARAMETER, "null buffer"));
 
     Utf16ConstStr ptr = (Utf16ConstStr)buff.units;
     Utf16ConstStr end = ((Utf16ConstStr)buff.units) + buff.size;
@@ -373,30 +240,21 @@ static inline ResultOwnedStr utf16_buff_to_utf8(Allocator *a, Utf16Buff buff)
         if (first >= 0xD800u && first <= 0xDBFFu)
         {
             if (ptr >= end)
-                return (ResultOwnedStr){
-                    .value = NULL,
-                    .error = X_ERR_EXT("utf8", "utf16_buff_to_utf8",
-                        ERR_RANGE_ERROR, "unterminated utf16 surrogate"),
-                };
+                return result_err(OwnedStr, X_ERR_EXT("utf8", "utf16_buff_to_utf8",
+                        ERR_RANGE_ERROR, "unterminated utf16 surrogate"));
 
             u16 second = (u16)*ptr;
             if (second < 0xDC00u || second > 0xDFFFu)
-                return (ResultOwnedStr){
-                    .value = NULL,
-                    .error = X_ERR_EXT("utf8", "utf16_buff_to_utf8",
-                        ERR_UNEXPECTED_BYTE, "invalid utf16 low surrogate"),
-                };
+                return result_err(OwnedStr, X_ERR_EXT("utf8", "utf16_buff_to_utf8",
+                        ERR_UNEXPECTED_BYTE, "invalid utf16 low surrogate"));
 
             ++ptr;
             add = 4;
         }
         else if (first >= 0xDC00u && first <= 0xDFFFu)
         {
-            return (ResultOwnedStr){
-                .value = NULL,
-                .error = X_ERR_EXT("utf8", "utf16_buff_to_utf8",
-                    ERR_PARSE_ERROR, "unexpected utf16 low surrogate"),
-            };
+            return result_err(OwnedStr, X_ERR_EXT("utf8", "utf16_buff_to_utf8",
+                    ERR_PARSE_ERROR, "unexpected utf16 low surrogate"));
         }
         else if (first <= 0x7Fu)
         {
@@ -412,31 +270,22 @@ static inline ResultOwnedStr utf16_buff_to_utf8(Allocator *a, Utf16Buff buff)
         }
 
         if (bytesNeeded > EnumMaxVal.U64 - add)
-            return (ResultOwnedStr){
-                .value = NULL,
-                .error = X_ERR_EXT("utf8", "utf16_buff_to_utf8",
-                    ERR_WOULD_OVERFLOW, "utf8 size overflow"),
-            };
+            return result_err(OwnedStr, X_ERR_EXT("utf8", "utf16_buff_to_utf8",
+                    ERR_WOULD_OVERFLOW, "utf8 size overflow"));
 
         bytesNeeded += add;
     }
 
     if (bytesNeeded == EnumMaxVal.U64)
-        return (ResultOwnedStr){
-            .value = NULL,
-            .error = X_ERR_EXT("utf8", "utf16_buff_to_utf8",
-                ERR_WOULD_OVERFLOW, "utf8 size overflow"),
-        };
+        return result_err(OwnedStr, X_ERR_EXT("utf8", "utf16_buff_to_utf8",
+                ERR_WOULD_OVERFLOW, "utf8 size overflow"));
 
     u64 totalBytes = bytesNeeded + 1;
     HeapStr out = (HeapStr)a->alloc(a, totalBytes);
 
     if (!out)
-        return (ResultOwnedStr){
-            .value = NULL,
-            .error = X_ERR_EXT("utf8", "utf16_buff_to_utf8",
-                ERR_OUT_OF_MEMORY, "alloc failure"),
-        };
+        return result_err(OwnedStr, X_ERR_EXT("utf8", "utf16_buff_to_utf8",
+                ERR_OUT_OF_MEMORY, "alloc failure"));
 
     ptr = buff.units;
     char *write = out;
@@ -482,20 +331,14 @@ static inline ResultOwnedStr utf16_buff_to_utf8(Allocator *a, Utf16Buff buff)
 
     *write = 0;
 
-    return (ResultOwnedStr){
-        .value = out,
-        .error = X_ERR_OK,
-    };
+    return result_ok(OwnedStr, out);
 }
 
-static inline ResultOwnedStr utf16_to_utf8(Allocator *a, Utf16Str s)
+static inline result_type(OwnedStr) utf16_to_utf8(Allocator *a, Utf16Str s)
 {
     if (!a || !s)
-        return (ResultOwnedStr){
-            .value = NULL,
-            .error = X_ERR_EXT("utf8", "utf16_to_utf8",
-                ERR_INVALID_PARAMETER, "null argument"),
-        };
+        return result_err(OwnedStr, X_ERR_EXT("utf8", "utf16_to_utf8",
+                ERR_INVALID_PARAMETER, "null argument"));
 
     u64 units = 0;
     while (s[units])

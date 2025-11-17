@@ -1,6 +1,7 @@
 #pragma once
 
 #include "xstd_core.h"
+#include "xstd_result.h"
 #include "xstd_buffer.h"
 #include "xstd_alloc.h"
 
@@ -139,28 +140,20 @@ static inline ArenaAllocatorState *_arena_alloc_header(Buffer buff, Bool isHeap)
  * @return Allocator
  * @exception ERR_INVALID_PARAMETER, ERR_OUT_OF_MEMORY
  */
-static inline ResultAllocator arena_allocator(Buffer buffer, Bool isHeap)
+static inline result_type(Allocator) arena_allocator(Buffer buffer, Bool isHeap)
 {
     if (!buffer.bytes || buffer.size == 0)
-        return (ResultAllocator){
-            .value = {0},
-            .error = X_ERR_EXT("alloc_arena", "arena_allocator", ERR_INVALID_PARAMETER, "null or empty buff"),
-        };
+        return result_err(Allocator, X_ERR_EXT("alloc_arena", "arena_allocator", ERR_INVALID_PARAMETER, "null or empty buff"));
 
     ArenaAllocatorState *state = _arena_alloc_header(buffer, isHeap);
     if (!state)
-        return (ResultAllocator){
-            .value = {0},
-            .error = X_ERR_EXT("alloc_arena", "arena_allocator", ERR_OUT_OF_MEMORY, "alloc failure"),
-        };
+        return result_err(Allocator, X_ERR_EXT("alloc_arena", "arena_allocator", ERR_OUT_OF_MEMORY, "alloc failure"));
 
-    return (ResultAllocator){
-        .value = (Allocator){
-            ._internalState = state,
-            .alloc = _arena_alloc,
-            .realloc = _arena_realloc,
-            .free = _arena_free,
-        },
-        .error = X_ERR_OK,
+    Allocator a = {
+        ._internalState = state,
+        .alloc = _arena_alloc,
+        .realloc = _arena_realloc,
+        .free = _arena_free,
     };
+    return result_ok(Allocator, a);
 }

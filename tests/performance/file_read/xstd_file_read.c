@@ -5,10 +5,10 @@
 
 static i32 read_once(Allocator *alloc, ConstStr path, u64 *bytesRead)
 {
-    ResultFile fileRes = file_open(path, EnumFileOpenMode.READ);
-    if (fileRes.error.code != ERR_OK)
+    ResFile fileRes = file_open(path, EnumFileOpenMode.READ);
+    if (fileRes.isErr)
     {
-        io_printerrln(fileRes.error.msg ? fileRes.error.msg : "Failed to open file.");
+        io_printerrln(fileRes.err.msg ? fileRes.err.msg : "Failed to open file.");
         return 1;
     }
 
@@ -17,10 +17,10 @@ static i32 read_once(Allocator *alloc, ConstStr path, u64 *bytesRead)
 
     while (true)
     {
-        ResultOwnedBuff chunkRes = file_read_bytes(alloc, &file, CHUNK_SIZE);
-        if (chunkRes.error.code != ERR_OK)
+        ResOwnedBuff chunkRes = file_read_bytes(alloc, &file, CHUNK_SIZE);
+        if (chunkRes.isErr)
         {
-            io_printerrln(chunkRes.error.msg ? chunkRes.error.msg : "file_read_bytes failed.");
+            io_printerrln(chunkRes.err.msg ? chunkRes.err.msg : "file_read_bytes failed.");
             if (chunkRes.value.bytes)
                 alloc->free(alloc, chunkRes.value.bytes);
             file_close(&file);

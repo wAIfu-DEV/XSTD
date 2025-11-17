@@ -4,8 +4,8 @@
 int main(void)
 {
     DebugAllocatorState dbgState;
-    ResultAllocator dbgAllocRes = debug_allocator(&dbgState, 128, default_allocator());
-    assert_ok(dbgAllocRes.error, "Failed to create debug allocator.");
+    ResAllocator dbgAllocRes = debug_allocator(&dbgState, 128, default_allocator());
+    assert_res_ok((Res*)&dbgAllocRes, "Failed to create debug allocator.");
 
     Allocator dbgAlloc = dbgAllocRes.value;
 

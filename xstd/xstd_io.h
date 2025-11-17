@@ -147,16 +147,12 @@ static inline void io_printerrln(ConstStr text)
  * @param alloc Allocator to use for allocating the buffer
  * @return OwnedStr or NULL on allocation failure or EOF
  */
-static inline ResultOwnedStr io_read_line(Allocator *a)
+static inline result_type(OwnedStr) io_read_line(Allocator *a)
 {
     // TODO: Implement as generic file_read_line function
 
     if (!a)
-        return (ResultOwnedStr){
-            .value = NULL,
-            .error = X_ERR_EXT("io", "io_read_line",
-                     ERR_INVALID_PARAMETER, "null allocator"),
-        };
+        return result_err(OwnedStr, X_ERR_EXT("io", "io_read_line", ERR_INVALID_PARAMETER, "null allocator"));
 
     const _FileOsInterface* foi = _default_file_os_int();
     File *f = io_stdin();
@@ -165,11 +161,7 @@ static inline ResultOwnedStr io_read_line(Allocator *a)
     i8 *buffer = (i8*)a->alloc(a, buffSize);
 
     if (!buffer)
-        return (ResultOwnedStr){
-            .value = NULL,
-            .error = X_ERR_EXT("io", "io_read_line",
-                     ERR_OUT_OF_MEMORY, "alloc failure"),
-        };
+        return result_err(OwnedStr, X_ERR_EXT("io", "io_read_line", ERR_OUT_OF_MEMORY, "alloc failure"));
 
     u64 len = 0;
 
@@ -186,11 +178,7 @@ static inline ResultOwnedStr io_read_line(Allocator *a)
             if (!newBuff)
             {
                 a->free(a, buffer);
-                return (ResultOwnedStr){
-                    .value = NULL,
-                    .error = X_ERR_EXT("io", "io_read_line",
-                             ERR_OUT_OF_MEMORY, "alloc failure"),
-                };
+                return result_err(OwnedStr, X_ERR_EXT("io", "io_read_line", ERR_OUT_OF_MEMORY, "alloc failure"));
             }
             buffer = newBuff;
             buffSize = newSize;
@@ -201,18 +189,11 @@ static inline ResultOwnedStr io_read_line(Allocator *a)
     if (len == 0 && foi->eof(f->_handle))
     {
         a->free(a, buffer);
-        return (ResultOwnedStr){
-            .value = NULL,
-            .error = X_ERR_EXT("io", "io_read_line",
-                     ERR_FILE_CANT_READ, "cannot read from file"),
-        };
+        return result_err(OwnedStr, X_ERR_EXT("io", "io_read_line", ERR_FILE_CANT_READ, "cannot read from file"));
     }
     buffer[len] = 0;
 
-    return (ResultOwnedStr){
-        .value = (char*)buffer,
-        .error = X_ERR_OK,
-    };
+    return result_ok(OwnedStr, (char*)buffer);
 }
 
 static inline void crash(i16 code)
@@ -295,6 +276,35 @@ static inline void assert_ok(const Error err, ConstStr isErrMessage)
     file_write_str(f, ErrorToString(err.code));
     file_write_str(f, "\n- msg: ");
     file_write_str(f, err.msg);
+    file_write_str(f, "\n- desc: ");
+    file_write_str(f, isErrMessage);
+    file_write_str(f, "\n\x1b[0m");
+
+    crash(1);
+}
+
+/**
+ * @brief Crashes the program if `isErr` field of res is true and prints `isErrMessage` to stderr.
+ *
+ * ```
+ * ResultFile res = file_open("example.txt", EnumFileOpenMode.READ);
+ * assert_res_ok(res.error, "Failed to open the file.");
+ * ```
+ * @param text
+ */
+static inline void assert_res_ok(const Res* res, ConstStr isErrMessage)
+{
+    if (res->err.code == ERR_OK)
+        return;
+
+    File *f = io_stderr();
+
+    // We use file_write here to not spam file_flush
+    file_write_str(f, "\x1b[1;31m");
+    file_write_str(f, "[ASSERT RES OK FAILURE]\n- code: ");
+    file_write_str(f, ErrorToString(res->err.code));
+    file_write_str(f, "\n- msg: ");
+    file_write_str(f, res->err.msg);
     file_write_str(f, "\n- desc: ");
     file_write_str(f, isErrMessage);
     file_write_str(f, "\n\x1b[0m");

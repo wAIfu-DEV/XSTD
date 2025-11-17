@@ -43,17 +43,7 @@ typedef struct _file
     Bool _valid;
 } File;
 
-/**
- * @typedef ResultFile
- * Aggregates the outcome of an operation that attempts to produce a `File`.
- * @property value Populated when `error.code == ERR_OK`, otherwise zero-initialized.
- * @property error Rich error descriptor explaining why the call failed.
- */
-typedef struct _result_file
-{
-    File value;
-    Error error;
-} ResultFile;
+result_define(File, File);
 
 /**
  * Opens a file using the default operating system backend.
@@ -69,17 +59,13 @@ typedef struct _result_file
  * @param mode One of the values exposed on `EnumFileOpenMode`.
  * @returns Result object containing the opened file or an error description.
  */
-static inline ResultFile file_open(ConstStr path, FileOpenMode mode)
+static inline result_type(File) file_open(ConstStr path, FileOpenMode mode)
 {
     if (!path)
-        return (ResultFile){
-            .error = X_ERR_EXT("file", "file_open", ERR_INVALID_PARAMETER, "null path"),
-        };
+        return result_err(File, X_ERR_EXT("file", "file_open", ERR_INVALID_PARAMETER, "null path"));
 
     if (!mode)
-        return (ResultFile){
-            .error = X_ERR_EXT("file", "file_open", ERR_INVALID_PARAMETER, "null mode"),
-        };
+        return result_err(File, X_ERR_EXT("file", "file_open", ERR_INVALID_PARAMETER, "null mode"));
 
     void *f;
 
@@ -101,18 +87,14 @@ static inline ResultFile file_open(ConstStr path, FileOpenMode mode)
             break;
         }
 
-        return (ResultFile){
-            .error = newErr,
-        };
+        return result_err(File, newErr);
     }
 
-    return (ResultFile){
-        .value = (File){
-            ._handle = f,
-            ._valid = 1,
-        },
-        .error = X_ERR_OK,
+    File fl = {
+        ._handle = f,
+        ._valid = 1,
     };
+    return result_ok(File, fl);
 }
 
 /**
@@ -243,27 +225,16 @@ static inline Error file_seek(File *file, const i64 offset, const i32 origin)
  * @param file Open file handle.
  * @returns Result containing the absolute byte offset or an error descriptor.
  */
-static inline ResultU64 file_tell(File *file)
+static inline result_type(U64) file_tell(File *file)
 {
     if (!file || !file->_valid)
-        return (ResultU64){
-            .value = 0,
-            .error = X_ERR_EXT("file", "file_tell",
-                ERR_INVALID_PARAMETER, "null or invalid file"),
-        };
+        return result_err(U64, X_ERR_EXT("file", "file_tell", ERR_INVALID_PARAMETER, "null or invalid file"));
 
     const long pos = _default_file_os_int()->tell(file->_handle);
     if (pos < 0)
-        return (ResultU64){
-            .value = 0,
-            .error = X_ERR_EXT("file", "file_tell",
-                ERR_FAILED, "tell failure"),
-        };
+        return result_err(U64, X_ERR_EXT("file", "file_tell", ERR_FAILED, "tell failure"));
 
-    return (ResultU64){
-        .value = (u64)pos,
-        .error = X_ERR_OK,
-    };
+    return result_ok(U64, (u64)pos);
 }
 
 /**
@@ -298,52 +269,36 @@ static inline Error file_rewind(File *file)
  * @param nBytes Maximum number of bytes to read before stopping.
  * @returns Result that wraps the buffer when successful.
  */
-static inline ResultOwnedBuff file_read_bytes(Allocator *a, File *file, const u64 nBytes)
+static inline result_type(OwnedBuff) file_read_bytes(Allocator *a, File *file, const u64 nBytes)
 {
     if (!a || !file || !file->_valid)
-        return (ResultOwnedBuff){
-            .value = (HeapBuff){.bytes = NULL, .size = 0},
-            .error = X_ERR_EXT("file", "file_read_bytes",
-                ERR_INVALID_PARAMETER, "null arg"),
-        };
+        return result_err(OwnedBuff, X_ERR_EXT("file", "file_read_bytes", ERR_INVALID_PARAMETER, "null arg"));
 
-    if (nBytes == 0)
-        return (ResultOwnedBuff){
-            .value = (HeapBuff){.bytes = NULL, .size = 0},
-            .error = X_ERR_OK,
-        };
+    if (nBytes == 0) {
+        HeapBuff hb = {.bytes = NULL,.size = 0};
+        return result_ok(OwnedBuff, hb);
+    }
 
     i8 *newBuff = (i8*)a->alloc(a, nBytes);
 
     if (!newBuff)
-        return (ResultOwnedBuff){
-            .value = (HeapBuff){.bytes = NULL, .size = 0},
-            .error = X_ERR_EXT("file", "file_read_bytes",
-                ERR_OUT_OF_MEMORY, "alloc failure"),
-        };
+        return result_err(OwnedBuff, X_ERR_EXT("file", "file_read_bytes", ERR_OUT_OF_MEMORY, "alloc failure"));
 
     u64 readSize = _file_read_internal(file, newBuff, nBytes, false);
 
     if (readSize == 0)
     {
-        if (file_is_eof(file))
-            return (ResultOwnedBuff){
-                .value = (HeapBuff){.bytes = newBuff, .size = 0},
-                .error = X_ERR_OK,
-            };
+        if (file_is_eof(file)) {
+            HeapBuff hb = {.bytes = newBuff, .size = 0};
+            return result_ok(OwnedBuff, hb);
+        }
 
         a->free(a, newBuff);
-        return (ResultOwnedBuff){
-            .value = (HeapBuff){.bytes = NULL, .size = 0},
-            .error = X_ERR_EXT("file", "file_read_bytes",
-                ERR_FILE_CANT_READ, "read size mismatch"),
-        };
+        return result_err(OwnedBuff, X_ERR_EXT("file", "file_read_bytes", ERR_FILE_CANT_READ, "read size mismatch"));
     }
 
-    return (ResultOwnedBuff){
-        .value = (HeapBuff){.bytes = newBuff, .size = readSize},
-        .error = X_ERR_OK,
-    };
+    HeapBuff hb = {.bytes = newBuff, .size = readSize};
+    return result_ok(OwnedBuff, hb);
 }
 
 /**
@@ -366,37 +321,25 @@ static inline ResultOwnedBuff file_read_bytes(Allocator *a, File *file, const u6
  * @param nBytes Maximum number of bytes to read before stopping.
  * @returns Result wrapping the allocated string on success.
  */
-static inline ResultOwnedStr file_read_str(Allocator *a, File *file, const u64 nBytes)
+static inline result_type(OwnedStr) file_read_str(Allocator *a, File *file, const u64 nBytes)
 {
     if (!a || !file || !file->_valid)
-        return (ResultOwnedStr){
-            .value = NULL,
-            .error = X_ERR_EXT("file", "file_read_str",
-                ERR_INVALID_PARAMETER, "null arg"),
-        };
+        return result_err(OwnedStr, X_ERR_EXT("file", "file_read_str", ERR_INVALID_PARAMETER, "null arg"));
 
     if (nBytes == 0)
     {
         HeapStr empty = (HeapStr)a->alloc(a, 1);
         if (!empty)
-            return (ResultOwnedStr){
-                .error = X_ERR_EXT("file", "file_read_str",
-                    ERR_OUT_OF_MEMORY, "alloc failure"),
-            };
+            return result_err(OwnedStr, X_ERR_EXT("file", "file_read_str", ERR_OUT_OF_MEMORY, "alloc failure"));
+
         empty[0] = 0;
-        return (ResultOwnedStr){
-            .value = empty,
-            .error = X_ERR_OK,
-        };
+        return result_ok(OwnedStr, empty);
     }
 
     HeapStr newStr = (HeapStr)a->alloc(a, nBytes + 1);
 
     if (!newStr)
-        return (ResultOwnedStr){
-            .error = X_ERR_EXT("file", "file_read_str",
-                ERR_OUT_OF_MEMORY, "alloc failure"),
-        };
+        return result_err(OwnedStr, X_ERR_EXT("file", "file_read_str", ERR_OUT_OF_MEMORY, "alloc failure"));
 
     u64 readSize = _file_read_internal(file, (i8*)newStr, nBytes, true);
 
@@ -405,23 +348,14 @@ static inline ResultOwnedStr file_read_str(Allocator *a, File *file, const u64 n
         if (file_is_eof(file))
         {
             newStr[0] = 0;
-            return (ResultOwnedStr){
-                .value = newStr,
-                .error = X_ERR_OK,
-            };
+            return result_ok(OwnedStr, newStr);
         }
 
         a->free(a, newStr);
-        return (ResultOwnedStr){
-            .error = X_ERR_EXT("file", "file_read_str",
-                ERR_FILE_CANT_READ, "read size mismatch"),
-        };
+        return result_err(OwnedStr, X_ERR_EXT("file", "file_read_str", ERR_FILE_CANT_READ, "read size mismatch"));
     }
 
-    return (ResultOwnedStr){
-        .value = newStr,
-        .error = X_ERR_OK,
-    };
+    return result_ok(OwnedStr, newStr);
 }
 
 /**
@@ -513,18 +447,15 @@ static inline HeapBuff file_read_bytes_unsafe(Allocator *a, File *file, u64 nByt
  * @param file Open file handle to read completely.
  * @returns Result containing the full file contents on success.
  */
-static inline ResultOwnedStr file_readall_str(Allocator *alloc, File *file)
+static inline result_type(OwnedStr) file_readall_str(Allocator *alloc, File *file)
 {
-    ResultU64 tellRes = file_tell(file);
-    if (tellRes.error.code)
-        return (ResultOwnedStr){
-            .error = X_ERR_EXT("file", "file_readall_str",
-                ERR_FAILED, "file tell failure"),
-        };
+    result_type(U64) tellRes = file_tell(file);
+    if (tellRes.isErr)
+        return result_err(OwnedStr, X_ERR_EXT("file", "file_readall_str", ERR_FAILED, "file tell failure"));
 
     file_rewind(file);
     u64 totalSize = file_size(file);
-    ResultOwnedStr res = file_read_str(alloc, file, totalSize);
+    result_type(OwnedStr) res = file_read_str(alloc, file, totalSize);
     file_seek(file, tellRes.value, 0);
     return res;
 }
@@ -545,7 +476,7 @@ static inline ResultOwnedStr file_readall_str(Allocator *alloc, File *file)
  * @param file Open file handle to read completely.
  * @returns Result containing all file bytes on success.
  */
-static inline ResultOwnedBuff file_readall_bytes(Allocator *alloc, File *file)
+static inline result_type(OwnedBuff) file_readall_bytes(Allocator *alloc, File *file)
 {
     return file_read_bytes(alloc, file, file_size(file));
 }
@@ -556,9 +487,9 @@ static inline Error _file_append_line(Allocator *alloc, List *lines, Writer *w)
         return X_ERR_EXT("file", "_file_append_line",
             ERR_INVALID_PARAMETER, "null arg");
 
-    ResultOwnedBuff dataRes = growbuffwriter_data(w);
-    if (dataRes.error.code != ERR_OK)
-        return dataRes.error;
+    result_type(OwnedBuff) dataRes = growbuffwriter_data(w);
+    if (dataRes.isErr)
+        return dataRes.err;
 
     Buffer segment = dataRes.value;
 
@@ -606,38 +537,28 @@ static inline Error _file_append_line(Allocator *alloc, List *lines, Writer *w)
  * @param file Open file handle to read completely.
  * @returns Result that wraps a `List` of newline-separated strings on success.
  */
-static inline ResultList file_read_lines(Allocator *a, File *file)
+static inline result_type(List) file_read_lines(Allocator *a, File *file)
 {
     if (!a || !file || !file->_valid)
-        return (ResultList){
-            .value = {0},
-            .error = X_ERR_EXT("file", "file_read_lines",
-                ERR_INVALID_PARAMETER, "null allocator or file"),
-        };
+        return result_err(List, X_ERR_EXT("file", "file_read_lines", ERR_INVALID_PARAMETER, "null allocator or file"));
 
-    ResultU64 tellRes = file_tell(file);
-    if (tellRes.error.code)
-        return (ResultList){
-            .error = X_ERR_EXT("file", "file_readall_str",
-                ERR_FAILED, "file tell failure"),
-        };
+    result_type(U64) tellRes = file_tell(file);
+    if (tellRes.isErr)
+        return result_err(List, X_ERR_EXT("file", "file_readall_str", ERR_FAILED, "file tell failure"));
 
     file_rewind(file);
 
-    ResultList listRes = ListInitT(String, a);
-    if (listRes.error.code != ERR_OK)
+    result_type(List) listRes = ListInitT(String, a);
+    if (listRes.isErr)
         return listRes;
 
     List lines = listRes.value;
 
-    ResultWriter writerRes = growbuffwriter_init(*a, 128);
-    if (writerRes.error.code != ERR_OK)
+    result_type(Writer) writerRes = growbuffwriter_init(*a, 128);
+    if (writerRes.isErr)
     {
         list_deinit(&lines);
-        return (ResultList){
-            .value = {0},
-            .error = writerRes.error,
-        };
+        return result_err(List, writerRes.err);
     }
 
     Writer writer = writerRes.value;
@@ -693,10 +614,7 @@ static inline ResultList file_read_lines(Allocator *a, File *file)
     growbuffwriter_deinit(&writer);
     file_seek(file, tellRes.value, 0);
 
-    return (ResultList){
-        .value = lines,
-        .error = X_ERR_OK,
-    };
+    return result_ok(List, lines);
 
 _file_read_lines_cleanup:
     growbuffwriter_deinit(&writer);
@@ -710,10 +628,7 @@ _file_read_lines_cleanup:
         err = X_ERR_EXT("file", "file_read_lines",
             ERR_FAILED, "read failure");
 
-    return (ResultList){
-        .value = (List){0},
-        .error = err,
-    };
+    return result_err(List, err);
 }
 
 /**
@@ -1001,8 +916,8 @@ static inline Error file_write_f64(File *file, const f64 flt, const u64 precisio
     u64 fracInt = (u64)(fracPart + 0.5); // rounding
 
     // Ensure leading zeros in fractional part
-    ResultU64 divPowRes = math_u64_power_nooverflow(10, precision - 1);
-    if (divPowRes.error.code)
+    result_type(U64) divPowRes = math_u64_power_nooverflow(10, precision - 1);
+    if (divPowRes.isErr)
         return X_ERR_EXT("file", "file_write_f64",
             ERR_WOULD_OVERFLOW, "integer overflow");
 
@@ -1030,8 +945,8 @@ static inline Bool file_exists(ConstStr path)
     if (!path)
         return false;
 
-    ResultFile res = file_open(path, EnumFileOpenMode.READ);
-    if (res.error.code != ERR_OK)
+    result_type(File) res = file_open(path, EnumFileOpenMode.READ);
+    if (res.isErr)
         return false;
 
     file_close(&res.value);
@@ -1043,13 +958,10 @@ static inline Bool file_exists(ConstStr path)
  * @param path Null-terminated path describing the file to be created.
  * @returns Result object containing the new file handle or an error description.
  */
-static inline ResultFile file_create(ConstStr path)
+static inline result_type(File) file_create(ConstStr path)
 {
     if (!path)
-        return (ResultFile){
-            .error = X_ERR_EXT("file", "file_create",
-                ERR_INVALID_PARAMETER, "null path"),
-        };
+        return result_err(File, X_ERR_EXT("file", "file_create", ERR_INVALID_PARAMETER, "null path"));
 
     void *handle = NULL;
     int err = _default_file_os_int()->open(&handle, path, EnumFileOpenMode.TRUNC_READWRITE);
@@ -1069,16 +981,45 @@ static inline ResultFile file_create(ConstStr path)
             break;
         }
 
-        return (ResultFile){
-            .error = newErr,
-        };
+        return result_err(File, newErr);
     }
 
-    return (ResultFile){
-        .value = (File){
-            ._handle = handle,
-            ._valid = true,
-        },
-        .error = X_ERR_OK,
+    File f = {
+        ._handle = handle,
+        ._valid = true,
     };
+    return result_ok(File, f);
+}
+
+static inline Error _file_writer_write(Writer* w, i8 byte)
+{
+    if (!w || !w->_internalState)
+        return X_ERR_EXT("file", "_file_writer_write",
+            ERR_INVALID_PARAMETER, "null or invalid arg");
+    
+    File* f = (void*)w->_internalState;
+    return file_write_byte(f, byte);
+}
+
+static inline void file_writer_deinit(Writer* w)
+{
+    if (!w)
+        return;
+    
+    if (w->_internalState)
+        w->_internalState = NULL;
+}
+
+static inline result_type(Writer) file_writer_init(File* f)
+{
+    if (!f || !f->_handle || !f->_valid)
+        return result_err(Writer, X_ERR_EXT("file", "file_writer_init", ERR_INVALID_PARAMETER, "null or invalid arg"));
+
+    Writer w = {
+        ._internalState = (void*)f,
+        .write = &_file_writer_write,
+        .deinit = &file_writer_deinit,
+    };
+    // TODO: revamp Writer interface to allow for many-bytes writes
+    return result_ok(Writer, w);
 }

@@ -13,11 +13,7 @@ typedef struct _writer
     void (*const deinit)(struct _writer *writer);
 } Writer;
 
-typedef struct _result_writer
-{
-    Writer value;
-    Error error;
-} ResultWriter;
+result_define(Writer, Writer);
 
 typedef struct _buff_writer_state
 {
@@ -88,20 +84,16 @@ static void _buffwriter_deinit(Writer *writer)
     writer->_internalState = NULL;
 }
 
-static inline ResultWriter buffwriter_init(Allocator *a, Buffer *buff)
+static inline result_type(Writer) buffwriter_init(Allocator *a, Buffer *buff)
 {
     if (!buff || !buff->bytes || buff->size == 0)
-        return (ResultWriter){
-            .error = X_ERR_EXT("writer", "buffwriter_init",
-                ERR_INVALID_PARAMETER, "null or empty buff"),
-        };
+        return result_err(Writer, X_ERR_EXT("writer", "buffwriter_init",
+                ERR_INVALID_PARAMETER, "null or empty buff"));
 
     _BuffWriterState *state = (_BuffWriterState *)a->alloc(a, sizeof(_BuffWriterState));
     if (!state)
-        return (ResultWriter){
-            .error = X_ERR_EXT("writer", "buffwriter_init",
-                ERR_OUT_OF_MEMORY, "alloc failure"),
-        };
+        return result_err(Writer, X_ERR_EXT("writer", "buffwriter_init",
+                ERR_OUT_OF_MEMORY, "alloc failure"));
 
     *state = (_BuffWriterState){
         .buff = buff,
@@ -110,14 +102,12 @@ static inline ResultWriter buffwriter_init(Allocator *a, Buffer *buff)
         .writeEnd = buff->size,
     };
 
-    return (ResultWriter){
-        .value = (Writer){
-            ._internalState = state,
-            .write = _buffwriter_write,
-            .deinit = _buffwriter_deinit,
-        },
-        .error = X_ERR_OK,
+    Writer w = {
+        ._internalState = state,
+        .write = _buffwriter_write,
+        .deinit = _buffwriter_deinit,
     };
+    return result_ok(Writer, w);
 }
 
 static inline Error buffwriter_reset(Writer *writer)
@@ -171,15 +161,18 @@ static Error _growbuffwriter_write(Writer *writer, i8 byte)
 static Error _growbuffwriter_resize(Writer *writer, u64 newSize)
 {
     if (!writer)
-        return X_ERR_EXT("writer", "growbuffwriter_resize", ERR_INVALID_PARAMETER, "null writer");
+        return X_ERR_EXT("writer", "growbuffwriter_resize",
+            ERR_INVALID_PARAMETER, "null writer");
 
     _GrowBuffWriterState *state = (_GrowBuffWriterState *)writer->_internalState;
     if (!state || newSize == 0)
-        return X_ERR_EXT("writer", "growbuffwriter_resize", ERR_INVALID_PARAMETER, "invalid state or size");
+        return X_ERR_EXT("writer", "growbuffwriter_resize",
+            ERR_INVALID_PARAMETER, "invalid state or size");
 
     i8 *newBlock = (i8*)state->allocator.realloc(&state->allocator, state->buff.bytes, newSize);
     if (!newBlock)
-        return X_ERR_EXT("writer", "growbuffwriter_resize", ERR_OUT_OF_MEMORY, "alloc failure");
+        return X_ERR_EXT("writer", "growbuffwriter_resize",
+            ERR_OUT_OF_MEMORY, "alloc failure");
 
     state->buff.bytes = newBlock;
     state->buff.size = newSize;
@@ -211,29 +204,23 @@ static void _growbuffwriter_deinit(Writer *writer)
     state = NULL;
 }
 
-static inline ResultWriter growbuffwriter_init(Allocator alloc, u32 initSize)
+static inline result_type(Writer) growbuffwriter_init(Allocator alloc, u32 initSize)
 {
     if (initSize == 0)
-        return (ResultWriter){
-            .error = X_ERR_EXT("writer", "growbuffwriter_init",
-                ERR_INVALID_PARAMETER, "0 init size"),
-        };
+        return result_err(Writer, X_ERR_EXT("writer", "growbuffwriter_init",
+                ERR_INVALID_PARAMETER, "0 init size"));
 
     _GrowBuffWriterState *state = (_GrowBuffWriterState *)alloc.alloc(&alloc, sizeof(_GrowBuffWriterState));
     if (!state)
-        return (ResultWriter){
-            .error = X_ERR_EXT("writer", "growbuffwriter_init",
-                ERR_OUT_OF_MEMORY, "state alloc failure"),
-        };
+        return result_err(Writer, X_ERR_EXT("writer", "growbuffwriter_init",
+                ERR_OUT_OF_MEMORY, "state alloc failure"));
 
     i8 *block = (i8 *)alloc.alloc(&alloc, initSize);
     if (!block)
     {
         alloc.free(&alloc, state);
-        return (ResultWriter){
-            .error = X_ERR_EXT("writer", "growbuffwriter_init",
-                ERR_OUT_OF_MEMORY, "buff alloc failure"),
-        };
+        return result_err(Writer, X_ERR_EXT("writer", "growbuffwriter_init",
+                ERR_OUT_OF_MEMORY, "buff alloc failure"));
     }
 
     *state = (_GrowBuffWriterState){
@@ -246,14 +233,12 @@ static inline ResultWriter growbuffwriter_init(Allocator alloc, u32 initSize)
         .writeEnd = initSize,
     };
 
-    return (ResultWriter){
-        .value = (Writer){
-            ._internalState = state,
-            .write = _growbuffwriter_write,
-            .deinit = _growbuffwriter_deinit,
-        },
-        .error = X_ERR_OK,
+    Writer w = {
+        ._internalState = state,
+        .write = _growbuffwriter_write,
+        .deinit = _growbuffwriter_deinit,
     };
+    return result_ok(Writer, w);
 }
 
 static inline Error growbuffwriter_reset(Writer *writer, u64 newSize)
@@ -295,18 +280,14 @@ static inline Error growbuffwriter_reset(Writer *writer, u64 newSize)
  * @param writer 
  * @return ResultOwnedBuff 
  */
-static inline ResultOwnedBuff growbuffwriter_data(Writer *writer)
+static inline result_type(OwnedBuff) growbuffwriter_data(Writer *writer)
 {
     if (!writer)
-        return (ResultOwnedBuff){
-            .error = X_ERR_EXT("writer", "growbuffwriter_data", ERR_INVALID_PARAMETER, "null arg"),
-        };
+        return result_err(OwnedBuff, X_ERR_EXT("writer", "growbuffwriter_data", ERR_INVALID_PARAMETER, "null arg"));
 
     _GrowBuffWriterState *state = (_GrowBuffWriterState *)writer->_internalState;
     if (!state || !state->buff.bytes)
-        return (ResultOwnedBuff){
-            .error = X_ERR_EXT("writer", "growbuffwriter_data", ERR_INVALID_PARAMETER, "invalid state"),
-        };
+        return result_err(OwnedBuff, X_ERR_EXT("writer", "growbuffwriter_data", ERR_INVALID_PARAMETER, "invalid state"));
     
     HeapBuff resBuff = (HeapBuff){
         .bytes = state->buff.bytes,
@@ -318,10 +299,7 @@ static inline ResultOwnedBuff growbuffwriter_data(Writer *writer)
     state->writeHead = 0;
     state->writeEnd = 0;
 
-    return (ResultOwnedBuff){
-        .value = resBuff,
-        .error = X_ERR_OK,
-    };
+    return result_ok(OwnedBuff, resBuff);
 }
 
 /**
@@ -331,40 +309,32 @@ static inline ResultOwnedBuff growbuffwriter_data(Writer *writer)
  * @param writer 
  * @return ResultOwnedBuff 
  */
-static inline ResultOwnedBuff growbuffwriter_data_copy(Writer *writer)
+static inline result_type(OwnedBuff) growbuffwriter_data_copy(Writer *writer)
 {
     if (!writer)
-        return (ResultOwnedBuff){
-            .error = X_ERR_EXT("writer", "growbuffwriter_data_copy",
-                ERR_INVALID_PARAMETER, "null arg"),
-        };
+        return result_err(OwnedBuff, X_ERR_EXT("writer", "growbuffwriter_data_copy",
+                ERR_INVALID_PARAMETER, "null arg"));
 
     _GrowBuffWriterState *state = (_GrowBuffWriterState *)writer->_internalState;
     if (!state || !state->buff.bytes)
-        return (ResultOwnedBuff){
-            .error = X_ERR_EXT("writer", "growbuffwriter_data_copy",
-                ERR_INVALID_PARAMETER, "invalid state"),
-        };
+        return result_err(OwnedBuff, X_ERR_EXT("writer", "growbuffwriter_data_copy",
+                ERR_INVALID_PARAMETER, "invalid state"));
 
     Allocator *a = &state->allocator;
 
     u64 buffSize = state->writeHead;
     i8* newBlock = (i8*)a->alloc(a, buffSize);
     if (!newBlock)
-        return (ResultOwnedBuff){
-            .error = X_ERR_EXT("writer", "growbuffwriter_data_copy",
-                ERR_OUT_OF_MEMORY, "alloc failure"),
-        };
+        return result_err(OwnedBuff, X_ERR_EXT("writer", "growbuffwriter_data_copy",
+                ERR_OUT_OF_MEMORY, "alloc failure"));
     
     mem_copy(newBlock, state->buff.bytes, buffSize);
 
-    return (ResultOwnedBuff){
-        .value = (HeapBuff){
-            .bytes = newBlock,
-            .size = buffSize,
-        },
-        .error = X_ERR_OK,
+    HeapBuff hb = {
+        .bytes = newBlock,
+        .size = buffSize,
     };
+    return result_ok(OwnedBuff, hb);
 }
 
 static inline void growbuffwriter_deinit(Writer *writer)
@@ -449,29 +419,23 @@ static void _growstrwriter_deinit(Writer *writer)
     alloc->free(alloc, state);
 }
 
-static inline ResultWriter growstrwriter_init(Allocator alloc, u32 initSize)
+static inline result_type(Writer) growstrwriter_init(Allocator alloc, u32 initSize)
 {
     if (initSize == 0)
-        return (ResultWriter){
-            .error = X_ERR_EXT("writer", "growstrwriter_init",
-                ERR_INVALID_PARAMETER, "0 init size"),
-        };
+        return result_err(Writer, X_ERR_EXT("writer", "growstrwriter_init",
+                ERR_INVALID_PARAMETER, "0 init size"));
 
     _GrowStrWriterState *state = (_GrowStrWriterState *)alloc.alloc(&alloc, sizeof(_GrowStrWriterState));
     if (!state)
-        return (ResultWriter){
-            .error = X_ERR_EXT("writer", "growstrwriter_init",
-                ERR_OUT_OF_MEMORY, "state alloc failure"),
-        };
+        return result_err(Writer, X_ERR_EXT("writer", "growstrwriter_init",
+                ERR_OUT_OF_MEMORY, "state alloc failure"));
 
     char *block = (char*)alloc.alloc(&alloc, initSize);
     if (!block)
     {
         alloc.free(&alloc, state);
-        return (ResultWriter){
-            .error = X_ERR_EXT("writer", "growstrwriter_init",
-                ERR_OUT_OF_MEMORY, "str alloc failure"),
-        };
+        return result_err(Writer, X_ERR_EXT("writer", "growstrwriter_init",
+                ERR_OUT_OF_MEMORY, "str alloc failure"));
     }
 
     block[0] = 0;
@@ -484,14 +448,12 @@ static inline ResultWriter growstrwriter_init(Allocator alloc, u32 initSize)
         .writeEnd = initSize,
     };
 
-    return (ResultWriter){
-        .value = (Writer){
-            ._internalState = state,
-            .write = _growstrwriter_write,
-            .deinit = _growstrwriter_deinit,
-        },
-        .error = X_ERR_OK,
+    Writer w = {
+        ._internalState = state,
+        .write = _growstrwriter_write,
+        .deinit = _growstrwriter_deinit,
     };
+    return result_ok(Writer, w);
 }
 
 /**
@@ -499,22 +461,18 @@ static inline ResultWriter growstrwriter_init(Allocator alloc, u32 initSize)
  * 
  * @param writer 
  * @param outStr 
- * @return ResultOwnedStr 
+ * @return ResOwnedStr
  */
-static inline ResultOwnedStr growstrwriter_data(Writer *writer)
+static inline result_type(OwnedStr) rowstrwriter_data(Writer *writer)
 {
     if (!writer)
-        return (ResultOwnedStr){
-            .error = X_ERR_EXT("writer", "growstrwriter_data",
-                ERR_INVALID_PARAMETER, "null arg"),
-        };
+        return result_err(OwnedStr, X_ERR_EXT("writer", "growstrwriter_data",
+                ERR_INVALID_PARAMETER, "null arg"));
 
     _GrowStrWriterState *state = (_GrowStrWriterState *)writer->_internalState;
     if (!state || !state->str)
-        return (ResultOwnedStr){
-            .error = X_ERR_EXT("writer", "growstrwriter_data",
-                ERR_INVALID_PARAMETER, "invalid state"),
-        };
+        return result_err(OwnedStr, X_ERR_EXT("writer", "growstrwriter_data",
+                ERR_INVALID_PARAMETER, "invalid state"));
     
     char* newStr = state->str;
 
@@ -523,10 +481,7 @@ static inline ResultOwnedStr growstrwriter_data(Writer *writer)
     state->writeHead = 0;
     state->writeEnd = 0;
 
-    return (ResultOwnedStr){
-        .value = newStr,
-        .error = X_ERR_OK,
-    };
+    return result_ok(OwnedStr, newStr);
 }
 
 /**
@@ -534,22 +489,18 @@ static inline ResultOwnedStr growstrwriter_data(Writer *writer)
  * Unlike growstrwriter_data, writer will still be valid.
  * 
  * @param writer 
- * @return ResultOwnedStr 
+ * @return ResOwnedStr 
  */
-static inline ResultOwnedStr growstrwriter_data_copy(Writer *writer)
+static inline result_type(OwnedStr) growstrwriter_data_copy(Writer *writer)
 {
     if (!writer)
-        return (ResultOwnedStr){
-            .error = X_ERR_EXT("writer", "growstrwriter_data_copy",
-                ERR_INVALID_PARAMETER, "null arg"),
-        };
+        return result_err(OwnedStr, X_ERR_EXT("writer", "growstrwriter_data_copy",
+                ERR_INVALID_PARAMETER, "null arg"));
 
     _GrowStrWriterState *state = (_GrowStrWriterState *)writer->_internalState;
     if (!state || !state->str)
-        return (ResultOwnedStr){
-            .error = X_ERR_EXT("writer", "growstrwriter_data_copy",
-                ERR_INVALID_PARAMETER, "invalid state"),
-        };
+        return result_err(OwnedStr, X_ERR_EXT("writer", "growstrwriter_data_copy",
+                ERR_INVALID_PARAMETER, "invalid state"));
 
     Allocator* a = &state->allocator;
     
@@ -558,10 +509,7 @@ static inline ResultOwnedStr growstrwriter_data_copy(Writer *writer)
 
     mem_copy(newStr, state->str, strSize + 1);
 
-    return (ResultOwnedStr){
-        .value = newStr,
-        .error = X_ERR_OK,
-    };
+    return result_ok(OwnedStr, newStr);
 }
 
 static inline Error growstrwriter_reset(Writer *writer, u64 newSize)

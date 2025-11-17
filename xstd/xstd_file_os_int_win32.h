@@ -87,8 +87,8 @@ static int _fosint_win32_open(void **stream, const char *fileName, const char *m
     }
 
     Allocator *a = &_win32_allocator;
-    ResultUtf16OwnedStr convRes = utf8_to_utf16(a, fileName);
-    if (convRes.error.code)
+    result_type(Utf16OwnedStr) convRes = utf8_to_utf16(a, fileName);
+    if (convRes.isErr)
         return -2;
 
     Utf16OwnedStr utf16FileName = convRes.value;

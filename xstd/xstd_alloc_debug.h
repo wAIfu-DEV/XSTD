@@ -1,6 +1,7 @@
 #pragma once
 
 #include "xstd_core.h"
+#include "xstd_result.h"
 #include "xstd_alloc.h"
 
 #define _X_DEBUG_ALLOC_ENTRY_EMPTY 0u
@@ -416,7 +417,7 @@ static void *_debug_realloc(Allocator *a, void *block, u64 newSize)
  *
  * ```c
  * DebugAllocatorState state;
- * ResultAllocator dbgAllocRes = debug_allocator(&state, 128, default_allocator());
+ * ResAllocator dbgAllocRes = debug_allocator(&state, 128, default_allocator());
  * if (dbgAllocRes.error.code) // Error!
  * // Do stuff with allocator
  *
@@ -434,15 +435,13 @@ static void *_debug_realloc(Allocator *a, void *block, u64 newSize)
  * @param state
  * @param requestedCapacity
  * @param wrappedAllocator
- * @return ResultAllocator
+ * @return ResAllocator
  * @exception ERR_INVALID_PARAMETER, ERR_OUT_OF_MEMORY
  */
-static inline ResultAllocator debug_allocator(DebugAllocatorState *state, u32 requestedCapacity, Allocator *wrappedAllocator)
+static inline result_type(Allocator) debug_allocator(DebugAllocatorState *state, u32 requestedCapacity, Allocator *wrappedAllocator)
 {
     if (!state || !wrappedAllocator)
-        return (ResultAllocator){
-            .error = X_ERR_EXT("alloc_debug", "debug_allocator", ERR_INVALID_PARAMETER, "null arg"),
-        };
+        return result_err(Allocator, X_ERR_EXT("alloc_debug", "debug_allocator", ERR_INVALID_PARAMETER, "null arg"));
 
     u32 capacity = _debug_allocator_next_pow2(requestedCapacity);
     if (capacity < 4u)
@@ -475,21 +474,16 @@ static inline ResultAllocator debug_allocator(DebugAllocatorState *state, u32 re
 
     DebugAllocEntry *table = _debug_allocator_table_alloc(state, capacity);
     if (!table)
-        return (ResultAllocator){
-            .error = X_ERR_EXT(
-                "alloc_debug", "debug_allocator",
-                ERR_OUT_OF_MEMORY, "alloc failure"),
-        };
+        return result_err(Allocator, X_ERR_EXT("alloc_debug", "debug_allocator",
+                ERR_OUT_OF_MEMORY, "alloc failure"));
 
     state->table = table;
 
-    return (ResultAllocator){
-        .value = (Allocator){
-            ._internalState = state,
-            .alloc = _debug_alloc,
-            .realloc = _debug_realloc,
-            .free = _debug_free,
-        },
-        .error = X_ERR_OK,
+    Allocator a = {
+        ._internalState = state,
+        .alloc = _debug_alloc,
+        .realloc = _debug_realloc,
+        .free = _debug_free,
     };
+    return result_ok(Allocator, a);
 }

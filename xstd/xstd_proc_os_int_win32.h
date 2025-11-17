@@ -29,8 +29,8 @@ static inline String* _proc_os_win32_console_get_args_utf8(i32 argc, String* arg
 
     for (i64 i = 0; i < (i64)argc; ++i)
     {
-        ResultOwnedStr res = utf16_to_utf8(a, utf16Args[i]);
-        if (res.error.code)
+        result_type(OwnedStr) res = utf16_to_utf8(a, utf16Args[i]);
+        if (res.isErr)
             return NULL; // here we return null, if one or more args fail to
                          // get parsed, we cannot return invalid args back to
                          // the user.

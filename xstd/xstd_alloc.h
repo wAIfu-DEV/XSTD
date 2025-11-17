@@ -13,9 +13,4 @@ typedef struct _allocator_t
     void (*free)(struct _allocator_t *a, void *block);
 } Allocator;
 
-// If `error` != `ERR_OK` then `value` is invalid. Do not access without checking.
-typedef struct _result_allocator
-{
-    Allocator value;
-    Error error;
-} ResultAllocator;
+result_define(Allocator, Allocator);
